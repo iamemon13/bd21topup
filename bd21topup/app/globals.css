@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* =========================
+   BD21 Scrolling Notice
+   ========================= */
+
+.notice-window {
+  position: relative;
+  overflow: hidden;
+}
+
+.notice-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  animation: notice-scroll 45s linear infinite;
+  will-change: transform;
+}
+
+.notice-track span {
+  flex-shrink: 0;
+  padding-left: 16px;
+  padding-right: 60px;
+  white-space: nowrap;
+  font-size: 14px;
+  color: #e2e8f0;
+}
+
+@keyframes notice-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .notice-track {
+    animation-duration: 24s;
+  }
+
+  .notice-track span {
+    padding-left: 12px;
+    padding-right: 40px;
+    font-size: 13px;
+  }
+}
+
+/* Pause notice when mouse is over it */
+.notice-window:hover .notice-track {
+  animation-play-state: paused;
+}
