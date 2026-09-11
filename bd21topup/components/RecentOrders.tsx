@@ -5,16 +5,12 @@ import { supabase } from "@/lib/supabase";
 
 type Order = {
   id: string;
-  // Game Player Names
   player_name?: string;
   playerName?: string;
   player?: string;
-  
-  // Website Account Names (আপনার ডেটাবেসে যে নামে কলাম আছে)
   user_name?: string;
   account_name?: string;
   user_email?: string;
-  
   package_name?: string;
   packageName?: string;
   package?: string;
@@ -44,9 +40,9 @@ export default function RecentOrders() {
 
   // ডামি ডেটা
   const dummyOrders: Order[] = [
-    { id: "1", user_name: "Rahim", packageName: "25 Diamond", amount: 22, status: "Completed", created_at: new Date(Date.now() - 60000).toISOString() },
-    { id: "2", user_name: "Karim", packageName: "115 Diamond", amount: 79, status: "Processing", created_at: new Date(Date.now() - 120000).toISOString() },
-    { id: "3", user_name: "Saddam", packageName: "1x Weekly", amount: 158, status: "Pending", created_at: new Date(Date.now() - 240000).toISOString() },
+    { id: "1", user_name: "Rahim", packageName: "25 Diamond", amount: 22, status: "completed", created_at: new Date(Date.now() - 60000).toISOString() },
+    { id: "2", user_name: "Karim", packageName: "115 Diamond", amount: 79, status: "pending", created_at: new Date(Date.now() - 120000).toISOString() },
+    { id: "3", user_name: "Saddam", packageName: "1x Weekly", amount: 158, status: "completed", created_at: new Date(Date.now() - 240000).toISOString() },
   ];
 
   const fetchOrders = async () => {
@@ -119,13 +115,6 @@ export default function RecentOrders() {
       </span>
     );
   };
-    // Cancelled বা অন্য কিছুর জন্য
-    return (
-      <span className="inline-flex rounded-full bg-red-400/10 px-3 py-1 text-xs font-bold text-red-400">
-        ✕ {displayStatus}
-      </span>
-    );
-  };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#0b2545] shadow-xl">
@@ -167,7 +156,6 @@ export default function RecentOrders() {
           </div>
         ) : (
           orders.map((order, index) => {
-            // প্রথমে ওয়েবসাইটের ইউজারের নাম খুঁজবে, না পেলে গেমের নাম দেখাবে
             const name = order.user_name || order.account_name || order.user_email || order.player_name || order.playerName || order.player || "User";
             const pkg = order.package_name || order.packageName || order.package || "Package";
             const price = order.amount || order.price || 0;
