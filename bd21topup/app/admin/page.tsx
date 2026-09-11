@@ -155,7 +155,7 @@ export default function AdminDashboard() {
               grid
               grid-cols-2
               gap-3
-              sm:grid-cols-4
+              sm:grid-cols-5
             "
           >
             <Link
@@ -221,6 +221,22 @@ export default function AdminDashboard() {
               "
             >
               Users
+            </Link>
+
+            <Link
+              href="/admin/packages"
+              className="
+                rounded-xl
+                border
+                border-cyan-500/40
+                px-4
+                py-2
+                text-center
+                transition
+                hover:bg-cyan-500/10
+              "
+            >
+              Packages
             </Link>
           </div>
         </div>
@@ -303,14 +319,14 @@ export default function AdminDashboard() {
               grid
               grid-cols-1
               gap-3
-              sm:grid-cols-3
+              sm:grid-cols-2
+              lg:grid-cols-4
             "
           >
             <ActionLink href="/admin/orders" text="Manage Orders" />
-
             <ActionLink href="/admin/add-money" text="Review Wallet" />
-
             <ActionLink href="/admin/users" text="View Users" />
+            <ActionLink href="/admin/packages" text="Update Prices" />
           </div>
         </div>
 
