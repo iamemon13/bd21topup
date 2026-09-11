@@ -96,9 +96,18 @@ export async function POST(request: Request) {
     const method = paymentMethod as PaymentMethod;
     const receiverNumber = paymentConfig[method].number;
 
-    // ওয়েবসাইটের একাউন্টের নাম বা ইমেইল বের করা
+    // ১. profiles টেবিল থেকে সরাসরি বর্তমান নাম আনা
+    const { data: profileData } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+
+    // ২. profiles টেবিলের নামকে সর্বোচ্চ অগ্রাধিকার দেওয়া
     const accountName =
+      profileData?.full_name ||
       auth.user.user_metadata?.full_name ||
+      auth.user.user_metadata?.name ||
       auth.user.email?.split("@")[0] ||
       "User";
 
@@ -108,7 +117,7 @@ export async function POST(request: Request) {
         user_id: auth.user.id,
         uid,
         player_name: playerName,
-        account_name: accountName, // নতুন কলামে ওয়েবসাইটের নাম সেভ হচ্ছে
+        account_name: accountName,
         product_name: "Free Fire UID TopUp",
         package_name: packageName,
         amount,
