@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       numericAmount <= 0
     ) {
       return NextResponse.json(
-        { success: false, message: "সব তথ্য সঠিকভাবে দিন।" },
+        { success: false, message: "সব তথ্য সঠিকভাবে প্রদান করুন।" },
         { status: 400 },
       );
     }
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized" },
+        { success: false, message: "অর্ডার করতে আগে Login করুন।" },
         { status: 401 },
       );
     }
@@ -41,12 +41,12 @@ export async function POST(request: Request) {
 
     if (userError || !user) {
       return NextResponse.json(
-        { success: false, message: "Login session expired. আবার Login করুন।" },
+        { success: false, message: "Login session শেষ হয়েছে। আবার Login করুন।" },
         { status: 401 },
       );
     }
 
-    // ১. ইউজারের বর্তমান প্রোফাইল ও ওয়ালেট ব্যালেন্স চেক
+    // ১. ইউজারের ওয়ালেট ব্যালেন্স চেক
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("full_name, wallet_balance")
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ২. নতুন ব্যালেন্স হিসেব করে ওয়ালেট আপডেট
+    // ২. নতুন ব্যালেন্স হিসাব করে কাটা
     const newBalance = currentBalance - numericAmount;
     const { error: balanceUpdateError } = await supabaseAdmin
       .from("profiles")
@@ -77,12 +77,12 @@ export async function POST(request: Request) {
 
     if (balanceUpdateError) {
       return NextResponse.json(
-        { success: false, message: "ব্যালেন্স আপডেট করা যায়নি।" },
+        { success: false, message: "ওয়ালেট ব্যালেন্স আপডেট করা যায়নি।" },
         { status: 500 },
       );
     }
 
-    // ৩. ইউনিক ট্রানজেকশন আইডি
+    // ৩. ইউনিক ট্রানজেকশন আইডি তৈরি
     const txId = `WALLET-${crypto.randomUUID()}`;
     const accountName =
       profile.full_name ||
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       user.email?.split("@")[0] ||
       "User";
 
-    // ৪. সরাসরি Pending স্ট্যাটাস দিয়ে নতুন অর্ডার ইনসার্ট
+    // ৪. সরাসরি PENDING স্ট্যাটাস দিয়ে অর্ডার টেবিল-এ এন্ট্রি
     const { data: orderData, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -104,25 +104,25 @@ export async function POST(request: Request) {
         payment_method: "wallet",
         receiver_number: "Wallet Payment",
         transaction_id: txId,
-        status: "pending",
+        status: "pending", // সর্বদা পেন্ডিং থাকবে
       })
       .select("id")
       .single();
 
+    // অর্ডার তৈরিতে কোনো সমস্যা হলে টাকা রিফান্ড ব্যাক
     if (orderError || !orderData) {
-      // অর্ডার ফেইল করলে ব্যালেন্স রোলব্যাক (টাকা ফেরত দিয়ে দেওয়া)
       await supabaseAdmin
         .from("profiles")
         .update({ wallet_balance: currentBalance })
         .eq("id", user.id);
 
       return NextResponse.json(
-        { success: false, message: "Order প্লেস করা যায়নি।" },
+        { success: false, message: "Order তৈরি করা যায়নি।" },
         { status: 500 },
       );
     }
 
-    // ৫. ওয়ালেট হিস্ট্রিতে রেকর্ড যোগ (যদি wallet_transactions টেবিল থাকে)
+    // ৫. ইউজারের ট্রানজেকশন হিস্ট্রিতে রেকর্ড যোগ
     await supabaseAdmin.from("wallet_transactions").insert({
       user_id: user.id,
       type: "purchase",
@@ -135,16 +135,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Order placed successfully!",
+      message: "Order placed successfully! Pending admin confirmation.",
       order_id: orderData.id,
       balance_after: newBalance,
     });
   } catch (error) {
     console.error("WALLET PAY ROUTE ERROR:", error);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      { success: false, message: "Server error occurred." },
       { status: 500 },
     );
   }
 }
-
