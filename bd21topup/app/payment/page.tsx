@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { paymentConfig } from "@/lib/payment-config";
 import { supabase } from "@/lib/supabase";
 
@@ -58,15 +58,14 @@ const paymentMethods: PaymentMethod[] = [
 
 function PaymentContent() {
   const searchParams = useSearchParams();
+  const router = useRouter(); // Router যুক্ত করা হয়েছে
 
   const uid = searchParams.get("uid") || "";
   const player = searchParams.get("player") || "";
   const packageName = searchParams.get("package") || "";
   const amount = Number(searchParams.get("amount") || "0");
 
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
-    null,
-  );
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [transactionId, setTransactionId] = useState("");
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState("");
@@ -153,16 +152,17 @@ function PaymentContent() {
 
       if (!response.ok) {
         setMessage(result.error || "Order submit করা যায়নি।");
+        setIsSubmitting(false);
         return;
       }
 
-      setMessage(
-        `Order submitted ✅ Status: Pending | Order ID: ${result.order.id}`,
-      );
+      // অর্ডার সফল হলে সরাসরি /orders পেজে রিডাইরেক্ট করে দেবে
+      setMessage("Order submitted successfully! Redirecting...");
+      router.push("/orders");
+      
     } catch (error) {
       console.error("ORDER SUBMIT ERROR:", error);
       setMessage("Server-এর সাথে connection করা যায়নি।");
-    } finally {
       setIsSubmitting(false);
     }
   }
@@ -207,7 +207,6 @@ function PaymentContent() {
             </Link>
           </div>
 
-          {/* Logo - Increased size */}
           <div className="flex h-[80px] items-center justify-center rounded-xl border border-cyan-400/20 bg-white px-4 shadow-lg">
             <Image
               src={selectedMethod.logo}
@@ -220,12 +219,10 @@ function PaymentContent() {
             />
           </div>
 
-          {/* Amount */}
           <div className="mt-2 flex h-[42px] items-center justify-center rounded-xl border border-cyan-400/15 bg-[#0b2545] text-xl font-black text-cyan-300">
             ৳{amountText}
           </div>
 
-          {/* Payment Instructions */}
           <section
             className="mt-2 rounded-xl px-4 pb-4 pt-4 text-white shadow-lg sm:px-5"
             style={{ backgroundColor: selectedMethod.accent }}
@@ -234,7 +231,6 @@ function PaymentContent() {
               ট্রানজেকশন আইডি দিন
             </h1>
 
-            {/* Clearly separated transaction ID box */}
             <div className="mt-3 rounded-xl border border-cyan-300/40 bg-[#07182f] p-2.5 shadow-inner">
               <input
                 type="text"
@@ -312,7 +308,6 @@ function PaymentContent() {
             {isSubmitting ? "সাবমিট হচ্ছে..." : "ভেরিফাই"}
           </button>
 
-          {/* Player / UID Info */}
           <div className="mt-2 rounded-xl border border-cyan-400/20 bg-[#0b2545] px-4 py-3 text-center shadow-lg">
             <div className="text-[11px] text-slate-400">Player</div>
             <div className="mt-0.5 truncate text-[13px] font-black text-white">
