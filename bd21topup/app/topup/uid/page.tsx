@@ -394,25 +394,25 @@ export default function UIDTopUpPage() {
                   }`}
                 >
                   {selectedPayment === "wallet" && (
-                    <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
-                      <span className="text-[10px] font-black leading-none text-white">✓</span>
+                    <div className="absolute left-0 top-0 flex h-8 w-8 items-start justify-start rounded-br-xl bg-rose-500 p-2 shadow-sm">
+                      <span className="text-xs font-black leading-none text-white">✓</span>
                     </div>
                   )}
                   
-                  <div className="flex min-h-[100px] flex-col items-center justify-center p-4">
-                    <div className="flex items-center gap-2">
-                      <Image src="/logo/bd21-logo.png" alt="BD21" width={28} height={28} className="rounded-md shadow-sm" />
-                      <div className="text-2xl font-black tracking-tight text-slate-800">
+                  <div className="flex min-h-[120px] flex-col items-center justify-center p-4">
+                    <div className="flex items-center gap-3">
+                      <Image src="/logo/bd21-logo.png" alt="BD21" width={42} height={42} className="rounded-xl shadow-md" />
+                      <div className="text-3xl font-black tracking-tight text-slate-800">
                         WALLET<span className="text-rose-600">PAY</span>
                       </div>
                     </div>
-                    <div className="mt-2 flex items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 shadow-inner">
-                      <span className="text-xs">💳</span>
-                      <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">Secure BD21 Balance</span>
+                    <div className="mt-3 flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-4 py-1.5 shadow-inner">
+                      <span className="text-sm">💳</span>
+                      <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">Secure BD21 Balance</span>
                     </div>
                   </div>
                   
-                  <div className="bg-slate-200 px-4 py-2.5 text-xs font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700">
+                  <div className="bg-slate-200 px-4 py-3 text-sm font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700">
                     Wallet Pay
                   </div>
                 </button>
@@ -432,31 +432,31 @@ export default function UIDTopUpPage() {
                   }`}
                 >
                   {selectedPayment === "instant" && (
-                    <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
-                      <span className="text-[10px] font-black leading-none text-white">✓</span>
+                    <div className="absolute left-0 top-0 flex h-8 w-8 items-start justify-start rounded-br-xl bg-rose-500 p-2 shadow-sm">
+                      <span className="text-xs font-black leading-none text-white">✓</span>
                     </div>
                   )}
 
-                  <div className="flex min-h-[100px] flex-col items-center justify-center p-4">
-                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <div className="flex min-h-[120px] flex-col items-center justify-center p-4">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                       {["bkash", "rocket", "nagad", "upay"].map((method) => (
-                        <div key={method} className="flex h-8 w-11 items-center justify-center rounded border border-slate-200 bg-white p-1 shadow-sm">
+                        <div key={method} className="flex h-11 w-16 items-center justify-center rounded-md border border-slate-200 bg-white p-1.5 shadow-sm">
                           <Image
                             src={`/payment/${method}.png`}
                             alt={method}
-                            width={36}
-                            height={18}
-                            className="max-h-5 w-auto object-contain"
+                            width={50}
+                            height={24}
+                            className="max-h-7 w-auto object-contain"
                           />
                         </div>
                       ))}
                     </div>
-                    <div className="mt-3 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-1 text-[9px] font-black tracking-widest text-white shadow-md">
+                    <div className="mt-4 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-6 py-1.5 text-[11px] font-black tracking-widest text-white shadow-md">
                       INSTANT PAY
                     </div>
                   </div>
 
-                  <div className="bg-slate-200 px-4 py-2.5 text-xs font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700">
+                  <div className="bg-slate-200 px-4 py-3 text-sm font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700">
                     Instant Pay
                   </div>
                 </button>
