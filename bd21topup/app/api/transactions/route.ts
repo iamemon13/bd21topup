@@ -77,14 +77,14 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Order transactions load করা যায়নি।",
+          error: "Order transactions load করা যায়নি।",
         },
         { status: 500 },
       );
     }
 
     // =====================================================
-    // WALLET TRANSACTIONS
+    // WALLET TRANSACTIONS (Approved / Deductions)
     // =====================================================
 
     const { data: walletRows, error: walletError } = await supabaseAdmin
@@ -112,7 +112,40 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Wallet transactions load করা যায়নি।",
+          error: "Wallet transactions load করা যায়নি।",
+        },
+        { status: 500 },
+      );
+    }
+
+    // =====================================================
+    // ADD MONEY REQUESTS (Pending / Rejected)
+    // =====================================================
+
+    const { data: addMoneyRows, error: addMoneyError } = await supabaseAdmin
+      .from("add_money_requests")
+      .select(
+        `
+          id,
+          amount,
+          payment_method,
+          transaction_id,
+          status,
+          created_at
+        `,
+      )
+      .eq("user_id", user.id)
+      .in("status", ["pending", "rejected"]) // শুধুমাত্র pending এবং rejected গুলো আনবো
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (addMoneyError) {
+      console.error("ADD MONEY REQUESTS ERROR:", addMoneyError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Add money requests load করা যায়নি।",
         },
         { status: 500 },
       );
@@ -141,25 +174,40 @@ export async function GET(request: Request) {
     // FORMAT WALLET TRANSACTIONS
     // =====================================================
 
-    const walletTransactions = (walletRows ?? []).map((transaction) => ({
+    const formattedWalletTransactions = (walletRows ?? []).map((transaction) => ({
       id: transaction.id,
-
       type: "wallet_transaction" as const,
-
       transactionType: transaction.type || "wallet_transaction",
-
       direction: transaction.direction || "debit",
-
       amount: Number(transaction.amount || 0),
-
       balanceAfter: Number(transaction.balance_after || 0),
-
       referenceId: transaction.reference_id || null,
-
       description: transaction.description || null,
-
       createdAt: transaction.created_at,
+      status: "completed", // wallet_transactions-এ থাকা মানেই তা কমপ্লিট বা এপ্রুভড
     }));
+
+    // =====================================================
+    // FORMAT PENDING/REJECTED ADD MONEY
+    // =====================================================
+
+    const formattedAddMoneyRequests = (addMoneyRows ?? []).map((req) => ({
+      id: req.id,
+      type: "wallet_transaction" as const,
+      transactionType: `add_money_${req.status}`,
+      direction: "credit", // পেন্ডিং থাকলেও এটি একটি ক্রেডিট রিকোয়েস্ট
+      amount: Number(req.amount || 0),
+      balanceAfter: 0, // পেন্ডিং থাকায় ব্যালেন্স আপডেট হয়নি
+      referenceId: req.transaction_id || null,
+      description: `Add money via ${req.payment_method}`,
+      createdAt: req.created_at,
+      status: req.status, // "pending" অথবা "rejected"
+    }));
+
+    // দুইটা ডাটা একসাথে করে তারিখ অনুযায়ী সাজানো
+    const walletTransactions = [...formattedWalletTransactions, ...formattedAddMoneyRequests].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     // =====================================================
     // SUMMARY
@@ -181,19 +229,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-
       summary: {
         totalTransactions: transactions.length,
-
         completedSpend,
-
         openClaims,
-
         walletTransactions: walletTransactions.length,
       },
-
       transactions,
-
       walletTransactions,
     });
   } catch (error) {
