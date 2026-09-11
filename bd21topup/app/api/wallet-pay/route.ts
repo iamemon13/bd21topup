@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
       numericAmount <= 0
     ) {
       return NextResponse.json(
-        { success: false, message: "Missing or invalid payment data" },
+        { success: false, message: "সব তথ্য সঠিকভাবে দিন।" },
         { status: 400 },
       );
     }
@@ -33,13 +34,6 @@ export async function POST(request: Request) {
     }
 
     const token = authHeader.replace("Bearer ", "").trim();
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
     const {
       data: { user },
       error: userError,
@@ -47,53 +41,110 @@ export async function POST(request: Request) {
 
     if (userError || !user) {
       return NextResponse.json(
-        { success: false, message: "Invalid or expired session" },
+        { success: false, message: "Login session expired. আবার Login করুন।" },
         { status: 401 },
       );
     }
 
-    // RPC কল করে Wallet থেকে পেমেন্ট কাটা
-    const { data, error } = await supabaseAdmin.rpc("pay_with_wallet", {
-      p_user_id: user.id,
-      p_uid: cleanUid,
-      p_player_name: cleanPlayerName,
-      p_package_name: cleanPackageName,
-      p_amount: numericAmount,
-    });
+    // ১. ইউজারের বর্তমান প্রোফাইল ও ওয়ালেট ব্যালেন্স চেক
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name, wallet_balance")
+      .eq("id", user.id)
+      .single();
 
-    if (error) {
+    if (profileError || !profile) {
       return NextResponse.json(
-        { success: false, message: error.message || "Wallet payment failed" },
+        { success: false, message: "User profile পাওয়া যায়নি।" },
+        { status: 404 },
+      );
+    }
+
+    const currentBalance = Number(profile.wallet_balance || 0);
+    if (currentBalance < numericAmount) {
+      return NextResponse.json(
+        { success: false, message: "পর্যাপ্ত ওয়ালেট ব্যালেন্স নেই।" },
         { status: 400 },
       );
     }
 
-    // ওয়েবসাইটের নাম বের করা
-    const accountName =
-      user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+    // ২. নতুন ব্যালেন্স হিসেব করে ওয়ালেট আপডেট
+    const newBalance = currentBalance - numericAmount;
+    const { error: balanceUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update({ wallet_balance: newBalance })
+      .eq("id", user.id);
 
-    // ⚠️ আপডেট: এখানে account_name এর পাশাপাশি status: "pending" করে দেওয়া হলো
-    await supabaseAdmin
+    if (balanceUpdateError) {
+      return NextResponse.json(
+        { success: false, message: "ব্যালেন্স আপডেট করা যায়নি।" },
+        { status: 500 },
+      );
+    }
+
+    // ৩. ইউনিক ট্রানজেকশন আইডি
+    const txId = `WALLET-${crypto.randomUUID()}`;
+    const accountName =
+      profile.full_name ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "User";
+
+    // ৪. সরাসরি Pending স্ট্যাটাস দিয়ে নতুন অর্ডার ইনসার্ট
+    const { data: orderData, error: orderError } = await supabaseAdmin
       .from("orders")
-      .update({
+      .insert({
+        user_id: user.id,
+        uid: cleanUid,
+        player_name: cleanPlayerName,
         account_name: accountName,
+        product_name: "Free Fire UID TopUp",
+        package_name: cleanPackageName,
+        amount: numericAmount,
+        payment_method: "wallet",
+        receiver_number: "Wallet Payment",
+        transaction_id: txId,
         status: "pending",
       })
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .select("id")
+      .single();
 
-    return NextResponse.json(
-      data ?? {
-        success: false,
-        message: "Wallet payment response পাওয়া যায়নি",
-      },
-    );
+    if (orderError || !orderData) {
+      // অর্ডার ফেইল করলে ব্যালেন্স রোলব্যাক (টাকা ফেরত দিয়ে দেওয়া)
+      await supabaseAdmin
+        .from("profiles")
+        .update({ wallet_balance: currentBalance })
+        .eq("id", user.id);
+
+      return NextResponse.json(
+        { success: false, message: "Order প্লেস করা যায়নি।" },
+        { status: 500 },
+      );
+    }
+
+    // ৫. ওয়ালেট হিস্ট্রিতে রেকর্ড যোগ (যদি wallet_transactions টেবিল থাকে)
+    await supabaseAdmin.from("wallet_transactions").insert({
+      user_id: user.id,
+      type: "purchase",
+      direction: "debit",
+      amount: numericAmount,
+      balance_after: newBalance,
+      reference_id: orderData.id,
+      description: `Free Fire UID TopUp (${cleanPackageName})`,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Order placed successfully!",
+      order_id: orderData.id,
+      balance_after: newBalance,
+    });
   } catch (error) {
-    console.error("WALLET PAY SERVER ERROR:", error);
+    console.error("WALLET PAY ROUTE ERROR:", error);
     return NextResponse.json(
       { success: false, message: "Server error" },
       { status: 500 },
     );
   }
 }
+
