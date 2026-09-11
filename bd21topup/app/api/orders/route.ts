@@ -4,12 +4,12 @@ import { paymentConfig } from "@/lib/payment-config";
 
 type PaymentMethod = keyof typeof paymentConfig;
 
-async function getRequiredUserId(request: Request) {
+async function getRequiredUser(request: Request) {
   const authHeader = request.headers.get("authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
     return {
-      userId: null as string | null,
+      user: null,
       error: "Order করতে আগে Login করুন।",
     };
   }
@@ -18,7 +18,7 @@ async function getRequiredUserId(request: Request) {
 
   if (!accessToken) {
     return {
-      userId: null,
+      user: null,
       error: "Order করতে আগে Login করুন।",
     };
   }
@@ -30,22 +30,22 @@ async function getRequiredUserId(request: Request) {
 
   if (error || !user) {
     return {
-      userId: null,
+      user: null,
       error: "আপনার Login session শেষ হয়েছে। আবার Login করুন।",
     };
   }
 
   return {
-    userId: user.id,
+    user: user,
     error: null,
   };
 }
 
 export async function POST(request: Request) {
   try {
-    const auth = await getRequiredUserId(request);
+    const auth = await getRequiredUser(request);
 
-    if (auth.error) {
+    if (auth.error || !auth.user) {
       return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
@@ -57,13 +57,7 @@ export async function POST(request: Request) {
     const paymentMethod = String(body.paymentMethod || "").trim();
     const transactionId = String(body.transactionId || "").trim();
 
-    if (
-      !uid ||
-      !playerName ||
-      !packageName ||
-      !paymentMethod ||
-      !transactionId
-    ) {
+    if (!uid || !playerName || !packageName || !paymentMethod || !transactionId) {
       return NextResponse.json(
         { error: "সব তথ্য পূরণ করুন।" },
         { status: 400 },
@@ -74,7 +68,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid UID." }, { status: 400 });
     }
 
-    // ডাটাবেস থেকে রিয়েল-টাইম প্যাকেজের দাম চেক করা হচ্ছে
     const { data: packageData, error: packageError } = await supabaseAdmin
       .from("packages")
       .select("price")
@@ -97,12 +90,16 @@ export async function POST(request: Request) {
     const method = paymentMethod as PaymentMethod;
     const receiverNumber = paymentConfig[method].number;
 
+    // ওয়েবসাইটের একাউন্টের নাম বা ইমেইল বের করা
+    const accountName = auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || "User";
+
     const { data, error } = await supabaseAdmin
       .from("orders")
       .insert({
-        user_id: auth.userId,
+        user_id: auth.user.id,
         uid,
         player_name: playerName,
+        account_name: accountName, // নতুন কলামে ওয়েবসাইটের নাম সেভ হচ্ছে
         product_name: "Free Fire UID TopUp",
         package_name: packageName,
         amount,
@@ -121,16 +118,12 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       }
-
       console.error("ORDER CREATE ERROR:", error);
-
       return NextResponse.json(
         { error: "Order তৈরি করা যায়নি।" },
         { status: 500 },
       );
     }
-
-    console.log("PENDING ORDER CREATED:", data.id, `user=${data.user_id}`);
 
     return NextResponse.json({
       success: true,
@@ -139,7 +132,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("ORDER API ERROR:", error);
-
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
