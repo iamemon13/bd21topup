@@ -276,7 +276,7 @@ export default function UIDTopUpPage() {
                 <h2 className="text-lg font-black">Enter Player UID</h2>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -293,32 +293,40 @@ export default function UIDTopUpPage() {
                     }
                   }}
                   placeholder="Enter your Free Fire UID"
-                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07182f] px-4 py-4 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
+                  className="w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-4 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
                 />
 
-                <button
-                  type="button"
-                  onClick={checkUid}
-                  disabled={checkingUid}
-                  className="rounded-xl bg-cyan-400 px-6 py-4 font-bold text-[#06172e] transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {checkingUid ? "Checking..." : "Check UID"}
-                </button>
+                {/* Conditional Button / Success Box */}
+                {!isUidVerified ? (
+                  <button
+                    type="button"
+                    onClick={checkUid}
+                    disabled={checkingUid}
+                    className="w-full rounded-xl bg-cyan-400 px-6 py-4 font-bold text-[#06172e] transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {checkingUid ? "Checking..." : "Check UID"}
+                  </button>
+                ) : (
+                  <div className="flex w-full items-center justify-between rounded-xl border border-green-400/30 bg-green-400/10 px-4 py-3">
+                    <div>
+                      <div className="text-[11px] font-black uppercase tracking-wider text-green-400">
+                        ✓ Player Found
+                      </div>
+                      <div className="mt-1 text-lg font-black text-white">
+                        {playerName}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold uppercase text-slate-400">
+                        Verified UID
+                      </div>
+                      <div className="text-sm font-bold text-slate-200">
+                        {verifiedUid}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {playerName && isUidVerified && (
-                <div className="mt-3 rounded-xl border border-green-400/20 bg-green-400/10 px-4 py-3">
-                  <div className="text-xs font-semibold text-green-400">
-                    ✓ Player Found
-                  </div>
-
-                  <div className="mt-1 font-bold text-white">{playerName}</div>
-
-                  <div className="mt-1 text-xs text-slate-300">
-                    UID: {verifiedUid}
-                  </div>
-                </div>
-              )}
 
               {uidError && (
                 <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-400">
