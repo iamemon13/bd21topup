@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import BannerSlider from "./BannerSlider";
+import RecentOrders from "@/components/RecentOrders"; // <--- নতুন ইমপোর্ট
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -11,7 +12,7 @@ export default function Home() {
   const [balance, setBalance] = useState(0);
   const [userName, setUserName] = useState("U");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [loadingAuth, setLoadingAuth] = useState(true); // নতুন লোডিং স্টেট
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
     async function loadUserData() {
@@ -44,7 +45,6 @@ export default function Home() {
           console.error("Error loading account data:", error);
         }
       }
-      // ডাটা লোড হওয়া শেষ হলে লোডিং বন্ধ করে দেব
       setLoadingAuth(false);
     }
 
@@ -96,7 +96,6 @@ export default function Home() {
 
             {/* Login / My Account Logic */}
             {loadingAuth ? (
-              // ডাটা আসার আগে লোডিং এনিমেশন দেখাবে
               <div className="h-8 sm:h-9 w-24 sm:w-28 animate-pulse rounded-full bg-cyan-400/20"></div>
             ) : isLoggedIn ? (
               <Link
@@ -139,16 +138,12 @@ export default function Home() {
       </header>
 
       {/* Notice */}
-
-      {/* Notice */}
       <section className="mx-auto max-w-7xl px-5 pt-5">
         <div className="flex overflow-hidden rounded-lg border border-cyan-400/20 bg-[#0b2545]">
-          {/* Fixed Notice */}
           <div className="relative z-10 flex shrink-0 items-center bg-cyan-400 px-4 py-3 text-xs font-extrabold text-[#06172e]">
             ● &nbsp; NOTICE
           </div>
 
-          {/* Moving Notice */}
           <div className="notice-window flex min-w-0 flex-1 items-center overflow-hidden">
             <div className="notice-track">
               <span>
@@ -156,7 +151,6 @@ export default function Home() {
                 বা অন্যের টাকা ব্যবহার করে অর্ডার করা সম্পূর্ণ নিষিদ্ধ। এ ধরনের
                 ঘটনায় প্রযোজ্য আইন অনুযায়ী ব্যবস্থা নেওয়া হতে পারে।
               </span>
-
               <span>
                 ১৮ বছরের নিচে কেউ অর্ডার করবেন না। বাবা-মা/পরিবারের অনুমতি ছাড়া
                 বা অন্যের টাকা ব্যবহার করে অর্ডার করা সম্পূর্ণ নিষিদ্ধ। এ ধরনের
@@ -263,120 +257,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Recent Orders */}
+      {/* Recent Orders (Real-time) */}
       <section className="mx-auto max-w-7xl px-5 py-10">
-        <div className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#0b2545] shadow-xl">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400/10 text-xl text-cyan-400">
-                🛍️
-              </div>
-              <div>
-                <h2 className="text-xl font-black">Recent Orders</h2>
-                <div className="mt-1 flex items-center gap-2 text-xs text-green-400">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-green-400"></span>
-                  <span>Live</span>
-                  <span>〰〰</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="hidden text-xs text-slate-400 sm:block">
-                1 মিনিট আগে
-              </span>
-              <button
-                type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-slate-300 transition hover:border-cyan-400 hover:text-cyan-400"
-                title="Refresh"
-              >
-                ↻
-              </button>
-            </div>
-          </div>
-
-          {/* Order List */}
-          {[
-            {
-              name: "Rahim",
-              product: "25 Diamond",
-              price: "৳22",
-              time: "1 minute ago",
-            },
-            {
-              name: "Karim",
-              product: "115 Diamond",
-              price: "৳79",
-              time: "2 minutes ago",
-            },
-            {
-              name: "Saddam",
-              product: "1x Weekly",
-              price: "৳158",
-              time: "4 minutes ago",
-            },
-            {
-              name: "Jabir",
-              product: "240 Diamond",
-              price: "৳158",
-              time: "5 minutes ago",
-            },
-            {
-              name: "Ariful",
-              product: "Level Up Pass",
-              price: "৳75",
-              time: "7 minutes ago",
-            },
-            {
-              name: "Mahin",
-              product: "Weekly Lite",
-              price: "৳42",
-              time: "9 minutes ago",
-            },
-            {
-              name: "Sakib",
-              product: "50 Diamond",
-              price: "৳36",
-              time: "11 minutes ago",
-            },
-            {
-              name: "Tamim",
-              product: "1x Monthly",
-              price: "৳790",
-              time: "13 minutes ago",
-            },
-          ].map((order, index) => (
-            <div
-              key={`${order.name}-${index}`}
-              className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-white/5 px-5 py-3 last:border-0 sm:grid-cols-[1fr_170px_90px]"
-            >
-              {/* Customer */}
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-400 font-bold text-[#06172e]">
-                  {order.name.charAt(0)}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold">{order.name}</div>
-                  <div className="truncate text-xs text-slate-400">
-                    {order.product} - {order.price}
-                  </div>
-                </div>
-              </div>
-              {/* Time */}
-              <div className="hidden sm:block">
-                <span className="inline-flex rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-slate-300">
-                  ◷ {order.time}
-                </span>
-              </div>
-              {/* Status */}
-              <div className="text-right">
-                <span className="inline-flex rounded-full bg-green-400/10 px-3 py-1 text-xs font-bold text-green-400">
-                  ✓ Done
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <RecentOrders />
       </section>
 
       {/* Promo Banner */}
