@@ -26,8 +26,6 @@ function statusClasses(status: string) {
   switch (status) {
     case "pending":
       return "border-orange-400/40 bg-orange-400/10 text-orange-300";
-    case "processing":
-      return "border-yellow-400/40 bg-yellow-400/10 text-yellow-300";
     case "completed":
       return "border-cyan-400/40 bg-cyan-400/10 text-cyan-300";
     case "approved":
@@ -121,7 +119,6 @@ export default function AdminOrdersPage() {
     return {
       total: orders.length,
       pending: orders.filter((order) => order.status === "pending").length,
-      processing: orders.filter((order) => order.status === "processing").length,
       completed: orders.filter((order) => order.status === "completed").length,
       cancelled: orders.filter((order) => order.status === "cancelled").length,
     };
@@ -159,7 +156,7 @@ export default function AdminOrdersPage() {
 
   async function updateOrderStatus(
     orderId: string,
-    status: "processing" | "completed",
+    status: "completed",
   ) {
     setActionOrderId(orderId);
     setActionMessage("");
@@ -204,11 +201,7 @@ export default function AdminOrdersPage() {
         ),
       );
 
-      setActionMessage(
-        status === "processing"
-          ? "Order is now processing ✅"
-          : "Order completed successfully ✅",
-      );
+      setActionMessage("Order completed successfully ✅");
     } catch (error) {
       console.error("ORDER STATUS ERROR", error);
       setActionMessage("Server error");
@@ -322,10 +315,9 @@ export default function AdminOrdersPage() {
             </div>
           </header>
 
-          <section className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <section className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatCard label="TOTAL" value={stats.total} />
             <StatCard label="PENDING" value={stats.pending} />
-            <StatCard label="PROCESSING" value={stats.processing} />
             <StatCard label="COMPLETED" value={stats.completed} />
             <StatCard label="CANCELLED" value={stats.cancelled} />
           </section>
@@ -378,7 +370,6 @@ export default function AdminOrdersPage() {
               {[
                 { id: "all", label: "All", count: stats.total },
                 { id: "pending", label: "Pending", count: stats.pending },
-                { id: "processing", label: "Processing", count: stats.processing },
                 { id: "completed", label: "Completed", count: stats.completed },
                 { id: "cancelled", label: "Cancelled", count: stats.cancelled },
               ].map((filter) => {
@@ -443,8 +434,7 @@ export default function AdminOrdersPage() {
 
             <div className="mt-3 space-y-3">
               {filteredOrders.map((order) => {
-                // এখানে লজিক পরিবর্তন করা হয়েছে - পেন্ডিং বা প্রসেসিং থাকলে সরাসরি কমপ্লিট করা যাবে
-                const canComplete = order.status === "pending" || order.status === "processing" || order.status === "approved";
+                const canComplete = order.status === "pending" || order.status === "approved";
                 const isActioning = actionOrderId === order.id;
 
                 return (
@@ -508,7 +498,6 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
 
-                    {/* সরাসরি MARK COMPLETED বাটন */}
                     {canComplete && (
                       <button
                         type="button"
@@ -520,7 +509,6 @@ export default function AdminOrdersPage() {
                       </button>
                     )}
 
-                    {/* CANCEL বাটন */}
                     {order.status !== "completed" &&
                       order.status !== "cancelled" && (
                         <button
@@ -544,7 +532,6 @@ export default function AdminOrdersPage() {
         </div>
       </main>
 
-      {/* CANCEL MODAL */}
       {cancelOrderId && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-5">
           <div className="w-full max-w-md rounded-2xl border border-red-400/30 bg-[#0b2545] p-5 shadow-2xl">
