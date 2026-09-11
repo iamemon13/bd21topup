@@ -13,28 +13,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // ১. কমপ্লিট করার লজিক
+    // ১. কমপ্লিট করার লজিক (শুধু status পরিবর্তন)
     if (action === "completed") {
       const { error } = await supabaseAdmin
         .from("orders")
         .update({
           status: "completed",
-          updated_at: new Date().toISOString(),
         })
         .in("id", orderIds);
 
       if (error) {
         console.error("BULK COMPLETE ERROR:", error);
-        throw error;
+        return NextResponse.json(
+          { error: error.message || "অর্ডার কমপ্লিট করা যায়নি।" },
+          { status: 500 }
+        );
       }
 
       return NextResponse.json({
         success: true,
-        message: `${orderIds.length} টি অর্ডার সফলভাবে কমপ্লিট করা হয়েছে।`,
+        message: `${orderIds.length} টি অর্ডার সফলভাবে কমপ্লিট হয়েছে।`,
       });
     }
 
-    // ২. বাতিল করার লজিক (কারণ বাধ্যতামূলক)
+    // ২. বাতিল করার লজিক (admin_note এবং cancelled_at কলাম আপডেট)
     if (action === "cancelled") {
       if (!cancelReason || !cancelReason.trim()) {
         return NextResponse.json(
@@ -47,14 +49,17 @@ export async function POST(request: Request) {
         .from("orders")
         .update({
           status: "cancelled",
-          cancel_reason: cancelReason.trim(),
-          updated_at: new Date().toISOString(),
+          admin_note: cancelReason.trim(),
+          cancelled_at: new Date().toISOString(),
         })
         .in("id", orderIds);
 
       if (error) {
         console.error("BULK CANCEL ERROR:", error);
-        throw error;
+        return NextResponse.json(
+          { error: error.message || "অর্ডার বাতিল করা যায়নি।" },
+          { status: 500 }
+        );
       }
 
       return NextResponse.json({
@@ -67,12 +72,11 @@ export async function POST(request: Request) {
       { error: "Invalid action" },
       { status: 400 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("BULK ACTION SERVER ERROR:", error);
     return NextResponse.json(
-      { error: "সার্ভারে সমস্যা হয়েছে।" },
+      { error: error?.message || "সার্ভারে সমস্যা হয়েছে।" },
       { status: 500 }
     );
   }
 }
-
