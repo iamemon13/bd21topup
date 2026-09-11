@@ -21,7 +21,7 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: "bkash",
     name: "bKash",
-    banglaName: "বিকাশ",
+    banglaName: "বিকা বিকাশ",
     logo: "/payment/bkash.png",
     ussd: "*247#",
     accent: "#d82370",
@@ -207,14 +207,14 @@ function PaymentContent() {
             </Link>
           </div>
 
-          {/* Logo - Background changed to white */}
-          <div className="flex h-[66px] items-center justify-center rounded-xl border border-cyan-400/20 bg-white px-4 shadow-lg">
+          {/* Logo - Increased size */}
+          <div className="flex h-[80px] items-center justify-center rounded-xl border border-cyan-400/20 bg-white px-4 shadow-lg">
             <Image
               src={selectedMethod.logo}
               alt={selectedMethod.name}
-              width={170}
-              height={58}
-              className="max-h-[44px] w-auto object-contain"
+              width={200}
+              height={70}
+              className="max-h-[56px] w-auto object-contain"
               style={{ width: "auto", height: "auto" }}
               priority
             />
@@ -378,14 +378,14 @@ function PaymentContent() {
               key={method.id}
               type="button"
               onClick={() => setSelectedMethod(method)}
-              className="flex min-h-[68px] items-center justify-center rounded-xl border border-cyan-400/15 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400"
+              className="flex min-h-[80px] items-center justify-center rounded-xl border border-cyan-400/15 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400"
             >
               <Image
                 src={method.logo}
                 alt={method.name}
-                width={145}
-                height={50}
-                className="max-h-9 w-auto object-contain"
+                width={180}
+                height={60}
+                className="max-h-[52px] w-auto object-contain"
                 style={{ width: "auto", height: "auto" }}
               />
             </button>
