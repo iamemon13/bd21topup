@@ -12,21 +12,6 @@ type Package = {
   price: number;
 };
 
-const paymentOptions = [
-  {
-    id: "wallet",
-    name: "BD21 Wallet Pay",
-    description: "Pay from your BD21 wallet balance",
-    icon: "💳",
-  },
-  {
-    id: "instant",
-    name: "Instant Pay",
-    description: "bKash, Nagad, Rocket or Upay",
-    icon: "⚡",
-  },
-];
-
 export default function UIDTopUpPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
@@ -141,10 +126,6 @@ export default function UIDTopUpPage() {
 
   const isUidVerified =
     Boolean(playerName) && Boolean(verifiedUid) && verifiedUid === uid.trim();
-
-  const selectedPaymentOption = paymentOptions.find(
-    (option) => option.id === selectedPayment,
-  );
 
   const canContinue =
     Boolean(selectedPackage) && isUidVerified && Boolean(selectedPayment);
@@ -398,90 +379,101 @@ export default function UIDTopUpPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {paymentOptions.map((option) => {
-                  const isSelected = selectedPayment === option.id;
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPayment(option.id);
-
-                        if (option.id === "instant") {
-                          setShowWalletPay(false);
-                          setWalletMessage("");
-                        }
-                      }}
-                      className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition ${
-                        isSelected
-                          ? "border-cyan-400 bg-cyan-400/10 shadow-[0_0_24px_rgba(34,211,238,0.16)]"
-                          : "border-white/10 bg-[#07182f] hover:border-cyan-400/70"
-                      }`}
-                    >
-                      {isSelected && (
-                        <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-cyan-400 text-sm font-black text-[#06172e]">
-                          ✓
-                        </span>
-                      )}
-
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${
-                            isSelected
-                              ? "bg-cyan-400 text-[#06172e]"
-                              : "bg-white/5 text-white"
-                          }`}
-                        >
-                          {option.icon}
-                        </div>
-
-                        <div className="min-w-0 pr-7">
-                          <div
-                            className={`font-black ${
-                              isSelected ? "text-cyan-400" : "text-white"
-                            }`}
-                          >
-                            {option.name}
-                          </div>
-
-                          <p className="mt-1 text-xs leading-5 text-slate-400">
-                            {option.description}
-                          </p>
-                        </div>
+                {/* Wallet Pay Card */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPayment("wallet");
+                    setShowWalletPay(false);
+                    setWalletMessage("");
+                  }}
+                  className={`group relative overflow-hidden rounded-2xl bg-white text-left shadow-md transition hover:-translate-y-0.5 ${
+                    selectedPayment === "wallet"
+                      ? "ring-[3px] ring-cyan-400 ring-offset-2 ring-offset-[#0b2545]"
+                      : "opacity-90 hover:opacity-100"
+                  }`}
+                >
+                  {selectedPayment === "wallet" && (
+                    <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
+                      <span className="text-[10px] font-black leading-none text-white">✓</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex min-h-[100px] flex-col items-center justify-center p-4">
+                    <div className="flex items-center gap-2">
+                      <Image src="/logo/bd21-logo.png" alt="BD21" width={28} height={28} className="rounded-md shadow-sm" />
+                      <div className="text-2xl font-black tracking-tight text-slate-800">
+                        WALLET<span className="text-rose-600">PAY</span>
                       </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 shadow-inner">
+                      <span className="text-xs">💳</span>
+                      <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">Secure BD21 Balance</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-200 px-4 py-2.5 text-xs font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700">
+                    Wallet Pay
+                  </div>
+                </button>
 
-                      {option.id === "wallet" && (
-                        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">
-                              BD21 Wallet Balance
-                            </span>
-                            <span className="font-bold text-cyan-400">
-                              {loadingWallet
-                                ? "Loading..."
-                                : `৳${walletBalance}`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                {/* Instant Pay Card */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPayment("instant");
+                    setShowWalletPay(false);
+                    setWalletMessage("");
+                  }}
+                  className={`group relative overflow-hidden rounded-2xl bg-white text-left shadow-md transition hover:-translate-y-0.5 ${
+                    selectedPayment === "instant"
+                      ? "ring-[3px] ring-cyan-400 ring-offset-2 ring-offset-[#0b2545]"
+                      : "opacity-90 hover:opacity-100"
+                  }`}
+                >
+                  {selectedPayment === "instant" && (
+                    <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
+                      <span className="text-[10px] font-black leading-none text-white">✓</span>
+                    </div>
+                  )}
 
-                      {option.id === "instant" && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {["bKash", "Nagad", "Rocket", "Upay"].map((name) => (
-                            <span
-                              key={name}
-                              className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-slate-300"
-                            >
-                              {name}
-                            </span>
-                          ))}
+                  <div className="flex min-h-[100px] flex-col items-center justify-center p-4">
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      {["bkash", "rocket", "nagad", "upay"].map((method) => (
+                        <div key={method} className="flex h-8 w-11 items-center justify-center rounded border border-slate-200 bg-white p-1 shadow-sm">
+                          <Image
+                            src={`/payment/${method}.png`}
+                            alt={method}
+                            width={36}
+                            height={18}
+                            className="max-h-5 w-auto object-contain"
+                          />
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
+                      ))}
+                    </div>
+                    <div className="mt-3 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-1 text-[9px] font-black tracking-widest text-white shadow-md">
+                      INSTANT PAY
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-200 px-4 py-2.5 text-xs font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700">
+                    Instant Pay
+                  </div>
+                </button>
               </div>
+
+              {selectedPayment === "wallet" && (
+                <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-cyan-200">
+                      BD21 Wallet Balance
+                    </span>
+                    <span className="text-sm font-black text-cyan-400">
+                      {loadingWallet ? "Loading..." : `৳${walletBalance}`}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Step 4 */}
@@ -517,8 +509,10 @@ export default function UIDTopUpPage() {
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-400">Payment</span>
                   <span className="text-right">
-                    {selectedPaymentOption
-                      ? selectedPaymentOption.name
+                    {selectedPayment === "wallet"
+                      ? "BD21 Wallet Pay"
+                      : selectedPayment === "instant"
+                      ? "Instant Pay"
                       : "Not selected"}
                   </span>
                 </div>
