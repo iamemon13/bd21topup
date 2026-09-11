@@ -5,9 +5,16 @@ import { supabase } from "@/lib/supabase";
 
 type Order = {
   id: string;
+  // Game Player Names
   player_name?: string;
   playerName?: string;
   player?: string;
+  
+  // Website Account Names (আপনার ডেটাবেসে যে নামে কলাম আছে)
+  user_name?: string;
+  account_name?: string;
+  user_email?: string;
+  
   package_name?: string;
   packageName?: string;
   package?: string;
@@ -35,18 +42,16 @@ export default function RecentOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ডামি ডেটা (ডেটাবেস ফাঁকা থাকলে বা এরর হলে দেখাবে)
+  // ডামি ডেটা
   const dummyOrders: Order[] = [
-    { id: "1", playerName: "Rahim", packageName: "25 Diamond", amount: 22, status: "completed", created_at: new Date(Date.now() - 60000).toISOString() },
-    { id: "2", playerName: "Karim", packageName: "115 Diamond", amount: 79, status: "completed", created_at: new Date(Date.now() - 120000).toISOString() },
-    { id: "3", playerName: "Saddam", packageName: "1x Weekly", amount: 158, status: "completed", created_at: new Date(Date.now() - 240000).toISOString() },
-    { id: "4", playerName: "Jabir", packageName: "240 Diamond", amount: 158, status: "completed", created_at: new Date(Date.now() - 300000).toISOString() },
+    { id: "1", user_name: "Rahim", packageName: "25 Diamond", amount: 22, status: "Completed", created_at: new Date(Date.now() - 60000).toISOString() },
+    { id: "2", user_name: "Karim", packageName: "115 Diamond", amount: 79, status: "Processing", created_at: new Date(Date.now() - 120000).toISOString() },
+    { id: "3", user_name: "Saddam", packageName: "1x Weekly", amount: 158, status: "Pending", created_at: new Date(Date.now() - 240000).toISOString() },
   ];
 
   const fetchOrders = async () => {
     setRefreshing(true);
     try {
-      // select("*") ব্যবহার করা হলো যাতে কলাম নাম নিয়ে কোনো সমস্যা না হয়
       const { data, error } = await supabase
         .from("orders")
         .select("*")
@@ -76,7 +81,6 @@ export default function RecentOrders() {
   useEffect(() => {
     fetchOrders();
 
-    // Supabase রিয়েল-টাইম সাবস্ক্রিপশন
     const channel = supabase
       .channel("public:orders")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
@@ -89,25 +93,36 @@ export default function RecentOrders() {
     };
   }, []);
 
-  const getStatusUI = (status: string) => {
-    const s = status?.toLowerCase() || "";
+  const getStatusUI = (rawStatus: string) => {
+    const s = rawStatus?.toLowerCase() || "";
+    // ডেটাবেসের স্ট্যাটাসের প্রথম অক্ষর বড় হাতের করে দেখানোর জন্য
+    const displayStatus = rawStatus ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1) : "Unknown";
+
     if (s === "approved" || s === "completed" || s === "success") {
       return (
         <span className="inline-flex rounded-full bg-green-400/10 px-3 py-1 text-xs font-bold text-green-400">
-          ✓ Done
+          ✓ {displayStatus}
+        </span>
+      );
+    }
+    if (s === "processing") {
+      return (
+        <span className="inline-flex rounded-full bg-blue-400/10 px-3 py-1 text-xs font-bold text-blue-400">
+          🔄 {displayStatus}
         </span>
       );
     }
     if (s === "pending") {
       return (
         <span className="inline-flex rounded-full bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-400">
-          ⏳ Pending
+          ⏳ {displayStatus}
         </span>
       );
     }
+    // Cancelled বা অন্য কিছুর জন্য
     return (
       <span className="inline-flex rounded-full bg-red-400/10 px-3 py-1 text-xs font-bold text-red-400">
-        ✕ Cancelled
+        ✕ {displayStatus}
       </span>
     );
   };
@@ -152,8 +167,8 @@ export default function RecentOrders() {
           </div>
         ) : (
           orders.map((order, index) => {
-            // কলামের নাম ম্যাচ করার জন্য ডায়নামিক চেকিং
-            const name = order.player_name || order.playerName || order.player || "Unknown";
+            // প্রথমে ওয়েবসাইটের ইউজারের নাম খুঁজবে, না পেলে গেমের নাম দেখাবে
+            const name = order.user_name || order.account_name || order.user_email || order.player_name || order.playerName || order.player || "User";
             const pkg = order.package_name || order.packageName || order.package || "Package";
             const price = order.amount || order.price || 0;
             const initial = name.charAt(0).toUpperCase();
