@@ -71,7 +71,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Orders load করা যায়নি।",
+          error: "Orders load করা যায়নি।",
         },
         {
           status: 500,
@@ -182,7 +182,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: "Order cancel করা যায়নি।",
+            error: "Order cancel করা যায়নি।",
           },
           {
             status: 409,
@@ -283,7 +283,7 @@ export async function PATCH(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Order load করা যায়নি।",
+          error: "Order load করা যায়নি।",
         },
         {
           status: 500,
@@ -294,7 +294,7 @@ export async function PATCH(request: Request) {
     if (!currentOrder) {
       return NextResponse.json(
         {
-          error: "Order পাওয়া যায়নি।",
+          error: "Order পাওয়া যায়নি।",
         },
         {
           status: 404,
@@ -318,12 +318,13 @@ export async function PATCH(request: Request) {
     }
 
     /* -----------------------------------------------------
-       6. Allowed status transitions
+       6. Allowed status transitions (আপডেট করা হয়েছে)
     ----------------------------------------------------- */
 
     const allowedTransitions: Record<string, string[]> = {
-      pending: ["processing", "rejected"],
-      approved: ["processing"],
+      // এখন pending থেকে সরাসরি completed এ যাওয়া যাবে
+      pending: ["processing", "completed", "rejected"], 
+      approved: ["processing", "completed"],
       processing: ["completed"],
       completed: [],
       rejected: [],
@@ -375,7 +376,7 @@ export async function PATCH(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Order status update করা যায়নি।",
+          error: "Order status update করা যায়নি।",
         },
         {
           status: 500,
@@ -387,7 +388,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Order status ইতোমধ্যে পরিবর্তন হয়েছে। Refresh করে আবার চেষ্টা করুন।",
+            "Order status ইতোমধ্যে পরিবর্তন হয়েছে। Refresh করে আবার চেষ্টা করুন।",
         },
         {
           status: 409,
@@ -408,15 +409,12 @@ export async function PATCH(request: Request) {
 
     if (nextStatus === "rejected") {
       notificationTitle = "Order Rejected ❌";
-
       notificationMessage = `Your ${currentOrder.package_name} order has been rejected. Please contact support if you need help.`;
     } else if (nextStatus === "processing") {
       notificationTitle = "Order Processing 🔄";
-
       notificationMessage = `Your ${currentOrder.package_name} order is now being processed.`;
     } else if (nextStatus === "completed") {
       notificationTitle = "Order Completed 🎉";
-
       notificationMessage = `Your ${currentOrder.package_name} order has been completed successfully.`;
     }
 
@@ -442,12 +440,10 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
       success: true,
-
       order: {
         id: updatedOrder.id,
         status: updatedOrder.status,
       },
-
       notificationCreated: !notificationError,
     });
   } catch (error) {
