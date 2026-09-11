@@ -48,7 +48,7 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: "upay",
     name: "Upay",
-    banglaName: "উপায়",
+    banglaName: "উপায়",
     logo: "/payment/upay.png",
     ussd: "*268#",
     accent: "#1555a3",
@@ -156,7 +156,7 @@ function PaymentContent() {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.error || "Order submit করা যায়নি।");
+        setMessage(result.error || "Order submit করা যায়নি।");
         return;
       }
 
@@ -165,7 +165,7 @@ function PaymentContent() {
       );
     } catch (error) {
       console.error("ORDER SUBMIT ERROR:", error);
-      setMessage("Server-এর সাথে connection করা যায়নি।");
+      setMessage("Server-এর সাথে connection করা যায়নি।");
     } finally {
       setIsSubmitting(false);
     }
@@ -211,8 +211,8 @@ function PaymentContent() {
             </Link>
           </div>
 
-          {/* Logo */}
-          <div className="flex h-[66px] items-center justify-center rounded-xl border border-cyan-400/20 bg-[#0b2545] px-4 shadow-lg">
+          {/* Logo - Background changed to white */}
+          <div className="flex h-[66px] items-center justify-center rounded-xl border border-cyan-400/20 bg-white px-4 shadow-lg">
             <Image
               src={selectedMethod.logo}
               alt={selectedMethod.name}
@@ -254,7 +254,7 @@ function PaymentContent() {
 
             <div className="mt-4 text-[12px] font-medium leading-[1.6]">
               <InstructionRow>
-                *{selectedMethod.ussd} ডায়াল করে {selectedMethod.name} মেনুতে যান
+                *{selectedMethod.ussd} ডায়াল করে {selectedMethod.name} মেনুতে যান
                 অথবা {selectedMethod.name} অ্যাপ খুলুন।
               </InstructionRow>
 
@@ -275,7 +275,7 @@ function PaymentContent() {
                   onClick={copyNumber}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-black/20 px-3 py-1.5 text-[11px] font-black text-white transition hover:bg-black/30"
                 >
-                  ⧉ {copied ? "কপি হয়েছে" : "কপি"}
+                  ⧉ {copied ? "কপি হয়েছে" : "কপি"}
                 </button>
               </InstructionRow>
 
@@ -291,7 +291,7 @@ function PaymentContent() {
               </InstructionRow>
 
               <InstructionRow>
-                টাকা পাঠিয়ে Transaction ID কপি করুন।
+                টাকা পাঠিয়ে Transaction ID কপি করুন।
               </InstructionRow>
 
               <InstructionRow last>
@@ -333,7 +333,6 @@ function PaymentContent() {
               {uid || "—"}
             </div>
           </div>
-
         </div>
       </main>
     );
@@ -381,7 +380,8 @@ function PaymentContent() {
               key={method.id}
               type="button"
               onClick={() => setSelectedMethod(method)}
-              className="flex min-h-[68px] items-center justify-center rounded-xl border border-cyan-400/15 bg-[#07182f] p-3 transition hover:-translate-y-0.5 hover:border-cyan-400"
+              {/* Background changed to white */}
+              className="flex min-h-[68px] items-center justify-center rounded-xl border border-cyan-400/15 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400"
             >
               <Image
                 src={method.logo}
