@@ -6,25 +6,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-const packages = [
-  { name: "Weekly", price: 158 },
-  { name: "Monthly", price: 790 },
-  { name: "25 Diamond", price: 22 },
-  { name: "50 Diamond", price: 36 },
-  { name: "115 Diamond", price: 79 },
-  { name: "240 Diamond", price: 158 },
-  { name: "355 Diamond", price: 237 },
-  { name: "480 Diamond", price: 316 },
-  { name: "505 Diamond", price: 338 },
-  { name: "610 Diamond", price: 400 },
-  { name: "850 Diamond", price: 558 },
-  { name: "1090 Diamond", price: 716 },
-  { name: "1240 Diamond", price: 800 },
-  { name: "2090 Diamond", price: 1358 },
-  { name: "2530 Diamond", price: 1600 },
-  { name: "5060 Diamond", price: 3200 },
-  { name: "10120 Diamond", price: 6400 },
-];
+type Package = {
+  id: string;
+  name: string;
+  price: number;
+};
 
 const paymentOptions = [
   {
@@ -42,9 +28,9 @@ const paymentOptions = [
 ];
 
 export default function UIDTopUpPage() {
-  const [selectedPackage, setSelectedPackage] = useState<
-    (typeof packages)[number] | null
-  >(null);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loadingPackages, setLoadingPackages] = useState(true);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
 
   const router = useRouter();
 
@@ -60,6 +46,28 @@ export default function UIDTopUpPage() {
   const [playerName, setPlayerName] = useState("");
   const [verifiedUid, setVerifiedUid] = useState("");
   const [uidError, setUidError] = useState("");
+
+  useEffect(() => {
+    loadWalletBalance();
+    loadPackages();
+  }, []);
+
+  async function loadPackages() {
+    try {
+      const { data, error } = await supabase
+        .from("packages")
+        .select("*")
+        .order("price", { ascending: true });
+
+      if (data && !error) {
+        setPackages(data);
+      }
+    } catch (error) {
+      console.log("Packages load error:", error);
+    } finally {
+      setLoadingPackages(false);
+    }
+  }
 
   async function loadWalletBalance() {
     try {
@@ -89,10 +97,6 @@ export default function UIDTopUpPage() {
       setLoadingWallet(false);
     }
   }
-
-  useEffect(() => {
-    loadWalletBalance();
-  }, []);
 
   async function checkUid() {
     const cleanUid = uid.trim();
@@ -126,7 +130,7 @@ export default function UIDTopUpPage() {
         setPlayerName(data.username);
         setVerifiedUid(cleanUid);
       } else {
-        setUidError(data.message || "UID পাওয়া যায়নি");
+        setUidError(data.message || "UID পাওয়া যায়নি");
       }
     } catch {
       setUidError("UID check করা যাচ্ছে না");
@@ -163,7 +167,6 @@ export default function UIDTopUpPage() {
 
     if (!session) {
       window.localStorage.setItem("bd21_auth_next", paymentUrl);
-
       router.push(`/login?next=${encodeURIComponent(paymentUrl)}`);
       return;
     }
@@ -174,15 +177,11 @@ export default function UIDTopUpPage() {
     }
 
     if (selectedPayment === "wallet") {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
       const response = await fetch("/api/wallet-pay", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           uid: verifiedUid,
@@ -343,34 +342,40 @@ export default function UIDTopUpPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {packages.map((item) => {
-                  const isSelected = selectedPackage?.name === item.name;
+                {loadingPackages ? (
+                  <div className="col-span-full py-6 text-center text-sm font-semibold text-cyan-400 animate-pulse">
+                    Loading Packages...
+                  </div>
+                ) : (
+                  packages.map((item) => {
+                    const isSelected = selectedPackage?.id === item.id;
 
-                  return (
-                    <button
-                      key={item.name}
-                      type="button"
-                      onClick={() => setSelectedPackage(item)}
-                      className={`rounded-xl border p-4 text-left transition ${
-                        isSelected
-                          ? "border-cyan-400 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
-                          : "border-white/10 bg-[#07182f] hover:border-cyan-400"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-bold">{item.name}</div>
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedPackage(item)}
+                        className={`rounded-xl border p-4 text-left transition ${
+                          isSelected
+                            ? "border-cyan-400 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
+                            : "border-white/10 bg-[#07182f] hover:border-cyan-400"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-bold">{item.name}</div>
 
-                        {isSelected && (
-                          <span className="text-sm text-cyan-400">✓</span>
-                        )}
-                      </div>
+                          {isSelected && (
+                            <span className="text-sm text-cyan-400">✓</span>
+                          )}
+                        </div>
 
-                      <div className="mt-2 font-black text-cyan-400">
-                        ৳{item.price}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="mt-2 font-black text-cyan-400">
+                          ৳{item.price}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -618,7 +623,7 @@ export default function UIDTopUpPage() {
                     </div>
                     <p className="mt-1 text-xs leading-5 text-amber-100/70">
                       এই order complete করতে আপনার wallet-এ আরও ৳
-                      {selectedPackage.price - walletBalance} প্রয়োজন।
+                      {selectedPackage.price - walletBalance} প্রয়োজন।
                     </p>
                   </div>
 
@@ -667,7 +672,7 @@ export default function UIDTopUpPage() {
               )}
 
               <p className="mt-4 text-center text-[11px] leading-5 text-slate-500">
-                Wallet balance আপনার BD21 wallet থেকে নেওয়া হয়েছে।
+                Wallet balance আপনার BD21 wallet থেকে নেওয়া হয়েছে।
               </p>
             </div>
           </div>
