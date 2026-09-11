@@ -65,7 +65,7 @@ export default function AddMoneyPage() {
 
   const selected = useMemo(
     () => methods.find((item) => item.id === selectedMethod)!,
-    [selectedMethod],
+    [selectedMethod]
   );
 
   const receiverNumber = paymentConfig[selectedMethod].number;
@@ -166,7 +166,7 @@ export default function AddMoneyPage() {
       setAmount("");
       setTransactionId("");
       setMessage(
-        "Request submitted ✅ Admin approve করলে wallet balance update হবে।",
+        "Request submitted ✅ Admin approve করলে wallet balance update হবে।"
       );
 
       await loadHistory();
@@ -226,8 +226,7 @@ export default function AddMoneyPage() {
           </p>
           <h1 className="mt-1 text-3xl font-black">Add Money</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Payment send করে Transaction ID submit করুন। Admin approve করার পর
-            wallet balance বাড়বে।
+            Payment send করে Transaction ID submit করুন। Admin approve করার পর wallet balance বাড়বে।
           </p>
         </div>
 
@@ -248,7 +247,7 @@ export default function AddMoneyPage() {
                         setSelectedMethod(method.id);
                         setMessage("");
                       }}
-                      className={`flex min-h-[68px] items-center justify-center rounded-xl bg-white p-3 shadow-sm transition hover:-translate-y-0.5 ${
+                      className={`flex min-h-[80px] items-center justify-center rounded-xl bg-white p-3 shadow-sm transition hover:-translate-y-0.5 ${
                         active
                           ? "border-[3px] border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.5)]"
                           : "border border-cyan-400/15 hover:border-cyan-400"
@@ -257,9 +256,9 @@ export default function AddMoneyPage() {
                       <Image
                         src={method.image}
                         alt={method.name}
-                        width={145}
-                        height={50}
-                        className="max-h-9 w-auto object-contain"
+                        width={180}
+                        height={60}
+                        className="max-h-[52px] w-auto object-contain"
                         style={{ width: "auto", height: "auto" }}
                       />
                     </button>
@@ -335,8 +334,7 @@ export default function AddMoneyPage() {
               </button>
 
               <p className="mt-3 text-[11px] leading-5 text-slate-500">
-                এই stage-এ payment automatically verify হচ্ছে না। Admin payment
-                claim review করে approve/reject করবে।
+                এই stage-এ payment automatically verify হচ্ছে না। Admin payment claim review করে approve/reject করবে।
               </p>
             </div>
           </div>
@@ -346,7 +344,9 @@ export default function AddMoneyPage() {
               <h2 className="text-lg font-black">Recent Requests</h2>
 
               {loadingHistory ? (
-                <div className="mt-4 text-sm text-slate-400">Loading...</div>
+                <div className="mt-4 text-sm text-slate-400">
+                  Loading...
+                </div>
               ) : requests.length === 0 ? (
                 <div className="mt-4 rounded-xl bg-[#07182f] p-4 text-sm text-slate-400">
                   কোনো Add Money request নেই।
@@ -370,7 +370,7 @@ export default function AddMoneyPage() {
 
                         <span
                           className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${statusClass(
-                            request.status,
+                            request.status
                           )}`}
                         >
                           {request.status}
