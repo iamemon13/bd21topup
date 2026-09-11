@@ -166,10 +166,12 @@ export default function AddMoneyPage() {
       setAmount("");
       setTransactionId("");
       setMessage(
-        "Request submitted ✅ Admin approve করলে wallet balance update হবে।"
+        "Request submitted ✅ Redirecting..."
       );
 
-      await loadHistory();
+      // সফল হলে Transactions পেজের Wallet ট্যাবে রিডাইরেক্ট করে দেবে
+      router.push("/transactions?tab=wallet");
+      
     } catch (error) {
       console.error("ADD MONEY SUBMIT ERROR:", error);
       setMessage("Server-এর সাথে connection করা যায়নি।");
