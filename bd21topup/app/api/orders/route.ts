@@ -2,26 +2,6 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { paymentConfig } from "@/lib/payment-config";
 
-const packagePrices: Record<string, number> = {
-  Weekly: 158,
-  Monthly: 790,
-  "25 Diamond": 22,
-  "50 Diamond": 36,
-  "115 Diamond": 79,
-  "240 Diamond": 158,
-  "355 Diamond": 237,
-  "480 Diamond": 316,
-  "505 Diamond": 338,
-  "610 Diamond": 400,
-  "850 Diamond": 558,
-  "1090 Diamond": 716,
-  "1240 Diamond": 800,
-  "2090 Diamond": 1358,
-  "2530 Diamond": 1600,
-  "5060 Diamond": 3200,
-  "10120 Diamond": 6400,
-};
-
 type PaymentMethod = keyof typeof paymentConfig;
 
 async function getRequiredUserId(request: Request) {
@@ -51,7 +31,7 @@ async function getRequiredUserId(request: Request) {
   if (error || !user) {
     return {
       userId: null,
-      error: "আপনার Login session শেষ হয়েছে। আবার Login করুন।",
+      error: "আপনার Login session শেষ হয়েছে। আবার Login করুন।",
     };
   }
 
@@ -66,10 +46,7 @@ export async function POST(request: Request) {
     const auth = await getRequiredUserId(request);
 
     if (auth.error) {
-      return NextResponse.json(
-        { error: auth.error },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
     const body = await request.json();
@@ -89,30 +66,31 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         { error: "সব তথ্য পূরণ করুন।" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!/^\d+$/.test(uid)) {
-      return NextResponse.json(
-        { error: "Invalid UID." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid UID." }, { status: 400 });
     }
 
-    const amount = packagePrices[packageName];
+    // ডাটাবেস থেকে রিয়েল-টাইম প্যাকেজের দাম চেক করা হচ্ছে
+    const { data: packageData, error: packageError } = await supabaseAdmin
+      .from("packages")
+      .select("price")
+      .eq("name", packageName)
+      .single();
 
-    if (amount === undefined) {
-      return NextResponse.json(
-        { error: "Invalid package." },
-        { status: 400 }
-      );
+    if (packageError || !packageData) {
+      return NextResponse.json({ error: "Invalid package." }, { status: 400 });
     }
+
+    const amount = packageData.price;
 
     if (!(paymentMethod in paymentConfig)) {
       return NextResponse.json(
         { error: "Invalid payment method." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -139,24 +117,20 @@ export async function POST(request: Request) {
     if (error) {
       if (error.code === "23505") {
         return NextResponse.json(
-          { error: "এই Transaction ID আগে ব্যবহার করা হয়েছে।" },
-          { status: 409 }
+          { error: "এই Transaction ID আগে ব্যবহার করা হয়েছে।" },
+          { status: 409 },
         );
       }
 
       console.error("ORDER CREATE ERROR:", error);
 
       return NextResponse.json(
-        { error: "Order তৈরি করা যায়নি।" },
-        { status: 500 }
+        { error: "Order তৈরি করা যায়নি।" },
+        { status: 500 },
       );
     }
 
-    console.log(
-      "PENDING ORDER CREATED:",
-      data.id,
-      `user=${data.user_id}`
-    );
+    console.log("PENDING ORDER CREATED:", data.id, `user=${data.user_id}`);
 
     return NextResponse.json({
       success: true,
@@ -166,9 +140,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("ORDER API ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
