@@ -67,9 +67,16 @@ export default function AdminOrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  // বাল্ক সিলেকশন স্টেট
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkCancelOpen, setIsBulkCancelOpen] = useState(false);
+  const [bulkCancelReason, setBulkCancelReason] = useState("");
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+
   async function loadOrders() {
     setIsLoading(true);
     setActionMessage("");
+    setSelectedIds([]);
 
     try {
       const {
@@ -153,6 +160,35 @@ export default function AdminOrdersPage() {
       return searchableText.includes(searchText);
     });
   }, [orders, search, statusFilter]);
+
+  // বর্তমান লিস্টের পেন্ডিং অর্ডারসমূহ
+  const visiblePendingIds = useMemo(() => {
+    return filteredOrders
+      .filter((o) => o.status === "pending")
+      .map((o) => o.id);
+  }, [filteredOrders]);
+
+  const isAllPendingSelected =
+    visiblePendingIds.length > 0 &&
+    visiblePendingIds.every((id) => selectedIds.includes(id));
+
+  function toggleSelectAllPending() {
+    if (isAllPendingSelected) {
+      setSelectedIds((prev) =>
+        prev.filter((id) => !visiblePendingIds.includes(id)),
+      );
+    } else {
+      setSelectedIds((prev) =>
+        Array.from(new Set([...prev, ...visiblePendingIds])),
+      );
+    }
+  }
+
+  function toggleSelectOrder(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  }
 
   async function updateOrderStatus(orderId: string, status: "completed") {
     setActionOrderId(orderId);
@@ -269,6 +305,80 @@ export default function AdminOrdersPage() {
       setActionMessage("Server error");
     } finally {
       setActionOrderId(null);
+    }
+  }
+
+  // বাল্ক অ্যাকশন হ্যান্ডলার (Complete বা Cancel)
+  async function handleBulkAction(action: "completed" | "cancelled") {
+    if (selectedIds.length === 0) return;
+
+    if (action === "cancelled" && !bulkCancelReason.trim()) {
+      setActionMessage("অর্ডার বাতিল করার কারণ লিখতে হবে!");
+      return;
+    }
+
+    setIsBulkLoading(true);
+    setActionMessage("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.replace("/admin/login");
+        return;
+      }
+
+      const response = await fetch("/api/admin/orders/bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          orderIds: selectedIds,
+          action,
+          cancelReason: action === "cancelled" ? bulkCancelReason.trim() : undefined,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setActionMessage(result.error || "Bulk action failed");
+        return;
+      }
+
+      setOrders((current) =>
+        current.map((order) => {
+          if (selectedIds.includes(order.id)) {
+            return {
+              ...order,
+              status: action,
+              admin_note:
+                action === "cancelled"
+                  ? bulkCancelReason.trim()
+                  : order.admin_note,
+              cancelled_at:
+                action === "cancelled"
+                  ? new Date().toISOString()
+                  : order.cancelled_at,
+            };
+          }
+          return order;
+        }),
+      );
+
+      setActionMessage(result.message || "Bulk operation completed successfully ✅");
+      setSelectedIds([]);
+      setIsBulkCancelOpen(false);
+      setBulkCancelReason("");
+    } catch (error) {
+      console.error("BULK ACTION ERROR", error);
+      setActionMessage("সার্ভারে সমস্যা হয়েছে।");
+    } finally {
+      setIsBulkLoading(false);
     }
   }
 
@@ -389,6 +499,26 @@ export default function AdminOrdersPage() {
               })}
             </div>
 
+            {/* সিলেক্ট অল অপশন (যদি কোনো পেন্ডিং অর্ডার থাকে) */}
+            {visiblePendingIds.length > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-cyan-400/15 bg-[#07182f] px-3 py-2">
+                <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={isAllPendingSelected}
+                    onChange={toggleSelectAllPending}
+                    className="h-4 w-4 rounded accent-cyan-400 cursor-pointer"
+                  />
+                  Select All Pending ({visiblePendingIds.length})
+                </label>
+                {selectedIds.length > 0 && (
+                  <span className="text-[11px] font-black text-cyan-300">
+                    {selectedIds.length} Selected
+                  </span>
+                )}
+              </div>
+            )}
+
             {actionMessage && (
               <div className="mt-3 rounded-lg bg-cyan-400/10 p-2 text-center text-xs text-cyan-300">
                 {actionMessage}
@@ -428,21 +558,232 @@ export default function AdminOrdersPage() {
                 </button>
               </div>
             )}
+            setActionMessage(result.message || "Bulk operation completed successfully ✅");
+      setSelectedIds([]);
+      setIsBulkCancelOpen(false);
+      setBulkCancelReason("");
+    } catch (error) {
+      console.error("BULK ACTION ERROR", error);
+      setActionMessage("সার্ভারে সমস্যা হয়েছে।");
+    } finally {
+      setIsBulkLoading(false);
+    }
+  }
+setActionMessage(result.message || "Bulk operation completed successfully ✅");
+      setSelectedIds([]);
+      setIsBulkCancelOpen(false);
+      setBulkCancelReason("");
+    } catch (error) {
+      console.error("BULK ACTION ERROR", error);
+      setActionMessage("সার্ভারে সমস্যা হয়েছে।");
+    } finally {
+      setIsBulkLoading(false);
+    }
+  }
+return (
+    <>
+      <main className="min-h-screen bg-[#07182f] px-3 py-4 text-white sm:px-5">
+        <div className="mx-auto w-full max-w-6xl">
+          <header className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
+                  BD21 Admin
+                </p>
+                <h1 className="text-xl font-black sm:text-2xl">
+                  Orders Dashboard
+                </h1>
+                <p className="text-xs text-slate-400">
+                  Manage customer orders and payment status
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Link
+                  href="/admin"
+                  className="rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300"
+                >
+                  Home
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    router.replace("/admin/login");
+                  }}
+                  className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <section className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatCard label="TOTAL" value={stats.total} />
+            <StatCard label="PENDING" value={stats.pending} />
+            <StatCard label="COMPLETED" value={stats.completed} />
+            <StatCard label="CANCELLED" value={stats.cancelled} />
+          </section>
+
+          <section className="mt-3 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black">All Orders</h2>
+                <p className="text-[10px] text-slate-500">
+                  {filteredOrders.length} order
+                  {filteredOrders.length !== 1 ? "s" : ""} found
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadOrders}
+                disabled={isLoading}
+                className="rounded-lg border border-cyan-400/30 px-3 py-2 text-xs font-bold text-cyan-300 disabled:opacity-50"
+              >
+                {isLoading ? "Loading..." : "Refresh"}
+              </button>
+            </div>
+
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                🔍
+              </span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search Order ID, UID, Player, Transaction ID..."
+                className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {[
+                { id: "all", label: "All", count: stats.total },
+                { id: "pending", label: "Pending", count: stats.pending },
+                { id: "completed", label: "Completed", count: stats.completed },
+                { id: "cancelled", label: "Cancelled", count: stats.cancelled },
+              ].map((filter) => {
+                const active = statusFilter === filter.id;
+
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.id)}
+                    className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-black transition ${
+                      active
+                        ? "border-cyan-400 bg-cyan-400 text-black"
+                        : "border-white/10 bg-[#07182f] text-slate-400 hover:border-cyan-400/40"
+                    }`}
+                  >
+                    {filter.label} ({filter.count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* সিলেক্ট অল অপশন (যদি কোনো পেন্ডিং অর্ডার থাকে) */}
+            {visiblePendingIds.length > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-cyan-400/15 bg-[#07182f] px-3 py-2">
+                <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={isAllPendingSelected}
+                    onChange={toggleSelectAllPending}
+                    className="h-4 w-4 rounded accent-cyan-400 cursor-pointer"
+                  />
+                  Select All Pending ({visiblePendingIds.length})
+                </label>
+                {selectedIds.length > 0 && (
+                  <span className="text-[11px] font-black text-cyan-300">
+                    {selectedIds.length} Selected
+                  </span>
+                )}
+              </div>
+            )}
+
+            {actionMessage && (
+              <div className="mt-3 rounded-lg bg-cyan-400/10 p-2 text-center text-xs text-cyan-300">
+                {actionMessage}
+              </div>
+            )}
+
+            {message && (
+              <div className="mt-3 rounded-xl bg-[#07182f] p-5 text-center text-sm text-slate-400">
+                {message}
+              </div>
+            )}
+            {!message && orders.length === 0 && (
+              <div className="mt-3 rounded-xl bg-[#07182f] p-5 text-center text-sm text-slate-400">
+                No orders found.
+              </div>
+            )}
+
+            {!message && orders.length > 0 && filteredOrders.length === 0 && (
+              <div className="mt-3 rounded-xl border border-white/10 bg-[#07182f] p-8 text-center">
+                <div className="text-3xl">🔍</div>
+                <p className="mt-3 text-sm font-bold text-slate-300">
+                  No matching orders found
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Try another search term or status filter.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setStatusFilter("all");
+                  }}
+                  className="mt-4 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black text-black"
+                >
+                  Clear Search
+                </button>
+              </div>
+            )}
 
             <div className="mt-3 space-y-3">
               {filteredOrders.map((order) => {
                 const canComplete =
                   order.status === "pending" || order.status === "approved";
                 const isActioning = actionOrderId === order.id;
+                const isPending = order.status === "pending";
 
                 return (
                   <article
                     key={order.id}
-                    className="rounded-xl border border-cyan-400/15 bg-[#07182f] p-3"
+                    className={`rounded-xl border p-3 transition ${
+                      selectedIds.includes(order.id)
+                        ? "border-cyan-400/60 bg-[#0a2342]"
+                        : "border-cyan-400/15 bg-[#07182f]"
+                    }`}
                   >
                     <div className="flex justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
+                          {/* পেন্ডিং অর্ডারে চেকবক্স */}
+                          {isPending && (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(order.id)}
+                              onChange={() => toggleSelectOrder(order.id)}
+                              className="h-4 w-4 rounded accent-cyan-400 cursor-pointer"
+                            />
+                          )}
+
                           <h3 className="max-w-[170px] truncate text-sm font-black">
                             {order.player_name}
                           </h3>
@@ -460,7 +801,6 @@ export default function AdminOrdersPage() {
                           {formatBangladeshTime(order.created_at)}
                         </p>
                       </div>
-
                       <div className="shrink-0 text-right">
                         <p className="text-[10px] text-slate-500">Amount</p>
                         <p className="text-base font-black text-cyan-300">
@@ -529,7 +869,87 @@ export default function AdminOrdersPage() {
           </section>
         </div>
       </main>
+      {/* ফেসবুক স্টাইল ফ্লোটিং অ্যাকশন বার */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-cyan-400/40 bg-[#07182f]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
+          <span className="text-xs font-black text-cyan-300 whitespace-nowrap">
+            {selectedIds.length} Selected
+          </span>
 
+          <button
+            type="button"
+            disabled={isBulkLoading}
+            onClick={() => handleBulkAction("completed")}
+            className="rounded-xl bg-cyan-400 px-3 py-1.5 text-xs font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50 whitespace-nowrap"
+          >
+            {isBulkLoading ? "Processing..." : "Mark Completed"}
+          </button>
+
+          <button
+            type="button"
+            disabled={isBulkLoading}
+            onClick={() => {
+              setBulkCancelReason("");
+              setIsBulkCancelOpen(true);
+            }}
+            className="rounded-xl bg-red-500 px-3 py-1.5 text-xs font-black text-white transition hover:bg-red-600 disabled:opacity-50 whitespace-nowrap"
+          >
+            Cancel Order
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedIds([])}
+            className="rounded-xl bg-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-600"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* বাল্ক বাতিল করার রিজন মডাল */}
+      {isBulkCancelOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-5">
+          <div className="w-full max-w-md rounded-2xl border border-red-400/30 bg-[#0b2545] p-5 shadow-2xl">
+            <h2 className="text-xl font-black text-red-400">
+              Cancel {selectedIds.length} Selected Orders
+            </h2>
+            <p className="mt-2 text-sm text-slate-400">
+              বাতিল করার কারণ লিখুন (বাধ্যতামূলক):
+            </p>
+
+            <textarea
+              autoFocus
+              value={bulkCancelReason}
+              onChange={(e) => setBulkCancelReason(e.target.value)}
+              placeholder="উদাহরণ: ভুল UID / পেমেন্ট ভেরিফাই হয়নি"
+              className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
+            />
+
+            <button
+              type="button"
+              onClick={() => handleBulkAction("cancelled")}
+              disabled={isBulkLoading || !bulkCancelReason.trim()}
+              className="mt-3 w-full rounded-xl bg-red-500 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBulkLoading ? "Cancelling..." : "Confirm Cancel"}
+            </button>
+
+            <button
+              type="button"
+              disabled={isBulkLoading}
+              onClick={() => {
+                setIsBulkCancelOpen(false);
+                setBulkCancelReason("");
+              }}
+              className="mt-2 w-full rounded-xl bg-slate-700 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      {/* সিঙ্গেল অর্ডার বাতিল করার মডাল */}
       {cancelOrderId && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-5">
           <div className="w-full max-w-md rounded-2xl border border-red-400/30 bg-[#0b2545] p-5 shadow-2xl">
@@ -620,7 +1040,6 @@ function Info({
       console.error("Copy failed", err);
     }
   };
-
   return (
     <div className="mt-2 flex items-center justify-between rounded-lg border border-cyan-400/10 bg-[#0b2545] px-3 py-2">
       <div className="min-w-0">
@@ -645,4 +1064,4 @@ function Info({
       )}
     </div>
   );
-}
+   }
