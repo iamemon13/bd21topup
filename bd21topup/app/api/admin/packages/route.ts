@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+export const dynamic = "force-dynamic"; // Vercel Caching Fix
+
 // অ্যাডমিন চেক করার ফাংশন
 async function getAdminUser(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -14,7 +16,7 @@ async function getAdminUser(request: Request) {
 
   if (error || !user) return null;
 
-  // অ্যাডমিন আইডি চেক (আপনার আগের সিস্টেম অনুযায়ী)
+  // অ্যাডমিন আইডি চেক
   if (process.env.ADMIN_USER_ID && user.id !== process.env.ADMIN_USER_ID) {
     return null;
   }
@@ -33,18 +35,23 @@ export async function GET(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("packages")
       .select("*")
-      .order("price", { ascending: true }); // দাম অনুযায়ী সাজানো থাকবে
+      .order("price", { ascending: true }); // দাম অনুযায়ী সাজানো থাকবে
 
     if (error) {
+      console.error("DB Error:", error);
       return NextResponse.json(
-        { error: "Failed to load packages" },
+        { error: "Failed to load packages", details: error.message },
         { status: 500 },
       );
     }
 
     return NextResponse.json({ success: true, packages: data });
-  } catch (error) {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("API Error:", error);
+    return NextResponse.json(
+      { error: "Server error", details: error.message },
+      { status: 500 },
+    );
   }
 }
 
@@ -71,17 +78,22 @@ export async function PUT(request: Request) {
       .eq("id", id);
 
     if (error) {
+      console.error("Update Error:", error);
       return NextResponse.json(
-        { error: "দাম আপডেট করা যায়নি" },
+        { error: "দাম আপডেট করা যায়নি", details: error.message },
         { status: 500 },
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "প্যাকেজের দাম সফলভাবে আপডেট হয়েছে!",
+      message: "প্যাকেজের দাম সফলভাবে আপডেট হয়েছে!",
     });
-  } catch (error) {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Update API Error:", error);
+    return NextResponse.json(
+      { error: "Server error", details: error.message },
+      { status: 500 },
+    );
   }
 }
