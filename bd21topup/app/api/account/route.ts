@@ -181,7 +181,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Profile load করা যায়নি।",
+          error: "Profile load করা যায়নি।",
         },
         {
           status: 500,
@@ -215,7 +215,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json(
           {
-            error: "Profile তৈরি করা যায়নি।",
+            error: "Profile তৈরি করা যায়নি।",
           },
           {
             status: 500,
@@ -242,7 +242,7 @@ export async function GET(request: Request) {
       if (reloadError || !loadedProfile) {
         return NextResponse.json(
           {
-            error: "Profile load করা যায়নি।",
+            error: "Profile load করা যায়নি।",
           },
           {
             status: 500,
@@ -286,7 +286,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Orders load করা যায়নি।",
+          error: "Orders load করা যায়নি।",
         },
         {
           status: 500,
@@ -387,6 +387,58 @@ export async function GET(request: Request) {
       {
         status: 500,
       },
+    );
+  }
+}
+
+// =====================================================
+// PATCH - প্রোফাইল আপডেট করার ফাংশন
+// =====================================================
+export async function PATCH(request: Request) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    
+    if (!auth.user) {
+      return auth.errorResponse!;
+    }
+
+    const body = await request.json();
+    const { fullName, phone } = body;
+
+    if (!fullName) {
+      return NextResponse.json(
+        { error: "Name is required" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        phone: phone || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", auth.user.id);
+
+    if (error) {
+      console.error("PROFILE UPDATE ERROR:", error);
+      return NextResponse.json(
+        { error: "Profile আপডেট করা যায়নি।" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Profile updated successfully",
+    });
+
+  } catch (error) {
+    console.error("ACCOUNT PATCH ERROR:", error);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
     );
   }
 }
