@@ -454,20 +454,19 @@ export default function UIDTopUpPage() {
                   )}
 
                   <div className="flex min-h-[90px] flex-col items-center justify-center p-2 sm:min-h-[120px] sm:p-4">
-                    <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-                      {["bkash", "rocket", "nagad", "upay"].map((method) => (
-                        <div key={method} className="flex h-8 w-10 items-center justify-center rounded border border-slate-200 bg-white p-1 shadow-sm sm:h-10 sm:w-14 sm:rounded-md sm:p-1.5">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                      {["bkash", "nagad", "rocket", "upay"].map((method) => (
+                        <div key={method} className="flex h-8 w-14 items-center justify-center rounded border border-slate-200 bg-white p-1 shadow-sm sm:h-10 sm:w-16 sm:rounded-md sm:p-1.5">
                           <Image
                             src={`/payment/${method}.png`}
                             alt={method}
-                            width={45}
-                            height={20}
+                            width={50}
+                            height={24}
                             className="max-h-5 w-auto object-contain sm:max-h-6"
                           />
                         </div>
                       ))}
                     </div>
-                    {/* INSTANT PAY label removed from inside as requested */}
                   </div>
 
                   <div className="bg-slate-200 px-3 py-2 text-center text-[11px] font-black text-slate-500 transition group-hover:bg-slate-300 group-hover:text-slate-700 sm:px-4 sm:py-3 sm:text-left sm:text-sm">
