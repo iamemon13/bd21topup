@@ -22,7 +22,7 @@ export default function Home() {
         setIsLoggedIn(true);
 
         try {
-          // Account পেইজের মতো হুবহু একই API কল করে রিয়েল-টাইম ডাটা আনবো
+          // Account পেইজের মতো হুবহু একই API কল করে রিয়েল-টাইম ডাটা আনবো
           const response = await fetch("/api/account", {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
@@ -53,7 +53,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#07182f] text-white">
       {/* Header */}
       <header className="border-b border-cyan-400/15 bg-[#081c36]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-5 sm:py-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
             <Image
@@ -61,7 +61,7 @@ export default function Home() {
               alt="BD21 Top Up"
               width={64}
               height={64}
-              className="h-14 w-14 rounded-xl object-cover sm:h-16 sm:w-16"
+              className="h-10 w-10 rounded-xl object-cover sm:h-16 sm:w-16"
               priority
             />
 
@@ -77,7 +77,7 @@ export default function Home() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex items-center gap-3 text-xs font-medium sm:gap-5 sm:text-sm">
+          <nav className="flex items-center gap-2 text-xs font-medium sm:gap-5 sm:text-sm">
             <a
               href="#topup"
               className="hidden transition hover:text-cyan-400 sm:block"
@@ -85,25 +85,31 @@ export default function Home() {
               Topup
             </a>
 
-            <a href="#contact" className="transition hover:text-cyan-400">
+            <a
+              href="#contact"
+              className="hidden transition hover:text-cyan-400 sm:block"
+            >
               Contact Us
             </a>
 
             {/* Login / My Account Logic */}
             {isLoggedIn ? (
-              <Link href="/account" className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-full bg-[#e63946] px-3 py-1.5 font-bold text-white shadow-sm transition hover:bg-rose-600">
+              <Link
+                href="/account"
+                className="flex items-center gap-1.5 sm:gap-2"
+              >
+                <div className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-cyan-400/20 bg-[#0b2545] px-2.5 py-1 text-[11px] font-bold text-cyan-300 shadow-sm transition hover:border-cyan-400 sm:px-3 sm:py-1.5 sm:text-sm">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="currentColor"
-                    className="h-4 w-4"
+                    className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                   >
                     <path d="M2.25 6a3 3 0 013-3h13.5a3 3 0 013 3v12a3 3 0 01-3 3H5.25a3 3 0 01-3-3V6zM3.75 6v1.5h16.5V6a1.5 1.5 0 00-1.5-1.5H5.25A1.5 1.5 0 003.75 6zM3.75 9v9a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V9H3.75zm10.5 4.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
                   </svg>
                   ৳{balance}
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#e63946] bg-cyan-400/10 text-lg font-black text-cyan-400 shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-cyan-400/10 text-sm font-black text-cyan-400 shadow-sm transition hover:border-cyan-300 sm:h-9 sm:w-9 sm:text-lg">
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
@@ -118,7 +124,7 @@ export default function Home() {
             ) : (
               <Link
                 href="/login"
-                className="rounded-lg bg-cyan-400 px-4 py-2 font-bold text-[#06172e] transition hover:bg-cyan-300 sm:px-5"
+                className="rounded-lg bg-cyan-400 px-3 py-1.5 text-xs font-bold text-[#06172e] transition hover:bg-cyan-300 sm:px-5 sm:py-2 sm:text-sm"
               >
                 Login
               </Link>
