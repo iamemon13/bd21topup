@@ -4,12 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
     const { uid, playerName, packageName, amount } = body;
-
-    // =====================================================
-    // VALIDATE INPUT
-    // =====================================================
 
     const cleanUid = String(uid || "").trim();
     const cleanPlayerName = String(playerName || "").trim();
@@ -24,45 +19,26 @@ export async function POST(request: Request) {
       numericAmount <= 0
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Missing or invalid payment data",
-        },
+        { success: false, message: "Missing or invalid payment data" },
         { status: 400 },
       );
     }
 
-    // =====================================================
-    // GET ACCESS TOKEN
-    // =====================================================
-
     const authHeader = request.headers.get("authorization");
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 },
       );
     }
 
     const token = authHeader.replace("Bearer ", "").trim();
-
     if (!token) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 },
       );
     }
-
-    // =====================================================
-    // VERIFY USER
-    // =====================================================
 
     const {
       data: { user },
@@ -70,21 +46,13 @@ export async function POST(request: Request) {
     } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
-      console.error("WALLET PAY AUTH ERROR:", userError);
-
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid or expired session",
-        },
+        { success: false, message: "Invalid or expired session" },
         { status: 401 },
       );
     }
 
-    // =====================================================
-    // PAY WITH WALLET
-    // =====================================================
-
+    // RPC কল করে Wallet থেকে পেমেন্ট কাটা
     const { data, error } = await supabaseAdmin.rpc("pay_with_wallet", {
       p_user_id: user.id,
       p_uid: cleanUid,
@@ -94,35 +62,33 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      console.error("WALLET PAY RPC ERROR:", error);
-
       return NextResponse.json(
-        {
-          success: false,
-          message: error.message || "Wallet payment failed",
-        },
+        { success: false, message: error.message || "Wallet payment failed" },
         { status: 400 },
       );
     }
 
-    // =====================================================
-    // RPC RESPONSE
-    // =====================================================
+    // পেমেন্ট সফল হলে ওয়েবসাইটের নাম আপডেট করা
+    const accountName = user.user_metadata?.full_name || user.email?.split('@')[0] || "User";
+    
+    // RPC যেহেতু নতুন অর্ডার তৈরি করে, আমরা ইউজারের সর্বশেষ অর্ডারে ওয়েবসাইটের নাম বসিয়ে দিচ্ছি
+    await supabaseAdmin
+      .from("orders")
+      .update({ account_name: accountName })
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
     return NextResponse.json(
       data ?? {
         success: false,
-        message: "Wallet payment response পাওয়া যায়নি",
+        message: "Wallet payment response পাওয়া যায়নি",
       },
     );
   } catch (error) {
     console.error("WALLET PAY SERVER ERROR:", error);
-
     return NextResponse.json(
-      {
-        success: false,
-        message: "Server error",
-      },
+      { success: false, message: "Server error" },
       { status: 500 },
     );
   }
