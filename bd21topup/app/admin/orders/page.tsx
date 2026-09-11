@@ -579,9 +579,7 @@ export default function AdminOrdersPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="
-                  Search Order ID, UID, Player, Transaction ID...
-                "
+                placeholder="Search Order ID, UID, Player, Transaction ID..."
                 className="
                   h-11
                   w-full
@@ -921,7 +919,8 @@ export default function AdminOrdersPage() {
                           gap-2
                         "
                     >
-                      <Info label="UID" value={order.uid} />
+                      {/* UID with copyable flag */}
+                      <Info label="UID" value={order.uid} copyable />
 
                       <Info label="Package" value={order.package_name} />
 
@@ -1037,9 +1036,7 @@ export default function AdminOrdersPage() {
                           disabled={isActioning}
                           onClick={() => {
                             setCancelOrderId(order.id);
-
                             setCancelNote("");
-
                             setActionMessage("");
                           }}
                           className="
@@ -1245,14 +1242,46 @@ function StatCard({ label, value }: { label: string; value: number }) {
 }
 
 /* =========================================================
-   INFO
+   INFO WITH COPY BUTTON
 ========================================================= */
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({
+  label,
+  value,
+  copyable,
+}: {
+  label: string;
+  value: string;
+  copyable?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Copy failed", err);
+    }
+  };
+
   return (
     <div
       className="
         mt-2
+        flex
+        items-center
+        justify-between
         rounded-lg
         border
         border-cyan-400/10
@@ -1261,28 +1290,55 @@ function Info({ label, value }: { label: string; value: string }) {
         py-2
       "
     >
-      <p
-        className="
-          text-[9px]
-          font-bold
-          uppercase
-          text-slate-500
-        "
-      >
-        {label}
-      </p>
+      <div className="min-w-0">
+        <p
+          className="
+            text-[9px]
+            font-bold
+            uppercase
+            text-slate-500
+          "
+        >
+          {label}
+        </p>
 
-      <p
-        className="
-          mt-1
-          break-all
-          text-[11px]
-          font-bold
-          text-slate-200
-        "
-      >
-        {value}
-      </p>
+        <p
+          className="
+            mt-1
+            break-all
+            text-[11px]
+            font-bold
+            text-slate-200
+          "
+        >
+          {value}
+        </p>
+      </div>
+
+      {copyable && (
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={`
+            ml-2
+            shrink-0
+            rounded-md
+            px-2
+            py-1
+            text-[10px]
+            font-black
+            transition
+            ${
+              copied
+                ? "bg-green-400/20 text-green-300"
+                : "bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-[#06172e]"
+            }
+          `}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      )}
     </div>
   );
 }
+      
