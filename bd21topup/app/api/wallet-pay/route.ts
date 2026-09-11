@@ -68,13 +68,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // পেমেন্ট সফল হলে ওয়েবসাইটের নাম আপডেট করা
+    // ওয়েবসাইটের নাম বের করা
     const accountName = user.user_metadata?.full_name || user.email?.split('@')[0] || "User";
     
-    // RPC যেহেতু নতুন অর্ডার তৈরি করে, আমরা ইউজারের সর্বশেষ অর্ডারে ওয়েবসাইটের নাম বসিয়ে দিচ্ছি
+    // ⚠️ আপডেট: এখানে account_name এর পাশাপাশি status: "pending" করে দেওয়া হলো
     await supabaseAdmin
       .from("orders")
-      .update({ account_name: accountName })
+      .update({ 
+        account_name: accountName,
+        status: "pending" 
+      })
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1);
