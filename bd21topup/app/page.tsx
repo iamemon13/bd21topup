@@ -10,6 +10,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [balance, setBalance] = useState(0);
   const [userName, setUserName] = useState("U");
+  const [avatarUrl, setAvatarUrl] = useState("");
 
   useEffect(() => {
     async function loadUserData() {
@@ -20,18 +21,27 @@ export default function Home() {
       if (session) {
         setIsLoggedIn(true);
 
-        // ইউজারের প্রোফাইল থেকে ব্যালেন্স এবং নাম নিয়ে আসা
-        const { data } = await supabase
-          .from("profiles")
-          .select("wallet_balance, full_name")
-          .eq("id", session.user.id)
-          .single();
+        try {
+          // Account পেইজের মতো হুবহু একই API কল করে রিয়েল-টাইম ডাটা আনবো
+          const response = await fetch("/api/account", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
 
-        if (data) {
-          setBalance(data.wallet_balance || 0);
-          if (data.full_name) {
-            setUserName(data.full_name.charAt(0).toUpperCase());
+          const result = await response.json();
+
+          if (result.success && result.account) {
+            setBalance(result.account.walletBalance || 0);
+
+            if (result.account.avatarUrl) {
+              setAvatarUrl(result.account.avatarUrl);
+            } else if (result.account.fullName) {
+              setUserName(result.account.fullName.charAt(0).toUpperCase());
+            }
           }
+        } catch (error) {
+          console.error("Error loading account data:", error);
         }
       }
     }
@@ -93,8 +103,16 @@ export default function Home() {
                   </svg>
                   ৳{balance}
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#e63946] bg-cyan-400/10 text-lg font-black text-cyan-400 shadow-sm">
-                  {userName}
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#e63946] bg-cyan-400/10 text-lg font-black text-cyan-400 shadow-sm">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Profile"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    userName
+                  )}
                 </div>
               </Link>
             ) : (
