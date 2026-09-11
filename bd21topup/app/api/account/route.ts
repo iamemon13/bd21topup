@@ -74,14 +74,9 @@ async function getAuthenticatedUser(request: Request) {
   if (!authHeader?.startsWith("Bearer ")) {
     return {
       user: null,
-
       errorResponse: NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
+        { error: "Unauthorized" },
+        { status: 401 },
       ),
     };
   }
@@ -91,14 +86,9 @@ async function getAuthenticatedUser(request: Request) {
   if (!token) {
     return {
       user: null,
-
       errorResponse: NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
+        { error: "Unauthorized" },
+        { status: 401 },
       ),
     };
   }
@@ -111,14 +101,9 @@ async function getAuthenticatedUser(request: Request) {
   if (error || !user) {
     return {
       user: null,
-
       errorResponse: NextResponse.json(
-        {
-          error: "Invalid session",
-        },
-        {
-          status: 401,
-        },
+        { error: "Invalid session" },
+        { status: 401 },
       ),
     };
   }
@@ -131,10 +116,6 @@ async function getAuthenticatedUser(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    // =====================================================
-    // AUTH
-    // =====================================================
-
     const auth = await getAuthenticatedUser(request);
 
     if (!auth.user) {
@@ -142,10 +123,6 @@ export async function GET(request: Request) {
     }
 
     const user = auth.user;
-
-    // =====================================================
-    // FALLBACK USER INFORMATION
-    // =====================================================
 
     const fallbackName = String(
       user.user_metadata?.full_name || user.user_metadata?.name || "",
@@ -155,10 +132,6 @@ export async function GET(request: Request) {
       String(user.user_metadata?.phone || "").trim() || null;
 
     const authEmail = user.email ?? null;
-
-    // =====================================================
-    // LOAD PROFILE
-    // =====================================================
 
     let { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
@@ -180,18 +153,10 @@ export async function GET(request: Request) {
       console.error("ACCOUNT PROFILE ERROR:", profileError);
 
       return NextResponse.json(
-        {
-          error: "Profile load করা যায়নি।",
-        },
-        {
-          status: 500,
-        },
+        { error: "Profile load করা যায়নি।" },
+        { status: 500 },
       );
     }
-
-    // =====================================================
-    // CREATE PROFILE IF MISSING
-    // =====================================================
 
     if (!profile) {
       const { error: createProfileError } = await supabaseAdmin
@@ -205,21 +170,15 @@ export async function GET(request: Request) {
             role: "user",
             wallet_balance: 0,
           },
-          {
-            onConflict: "id",
-          },
+          { onConflict: "id" },
         );
 
       if (createProfileError) {
         console.error("PROFILE CREATE ERROR:", createProfileError);
 
         return NextResponse.json(
-          {
-            error: "Profile তৈরি করা যায়নি।",
-          },
-          {
-            status: 500,
-          },
+          { error: "Profile তৈরি করা যায়নি।" },
+          { status: 500 },
         );
       }
 
@@ -227,35 +186,27 @@ export async function GET(request: Request) {
         .from("profiles")
         .select(
           `
-              id,
-              full_name,
-              phone,
-              email,
-              wallet_balance,
-              role,
-              created_at
-            `,
+            id,
+            full_name,
+            phone,
+            email,
+            wallet_balance,
+            role,
+            created_at
+          `,
         )
         .eq("id", user.id)
         .single();
 
       if (reloadError || !loadedProfile) {
         return NextResponse.json(
-          {
-            error: "Profile load করা যায়নি।",
-          },
-          {
-            status: 500,
-          },
+          { error: "Profile load করা যায়নি।" },
+          { status: 500 },
         );
       }
 
       profile = loadedProfile;
     }
-
-    // =====================================================
-    // SYNC EMAIL
-    // =====================================================
 
     if (profile.email !== authEmail) {
       await supabaseAdmin
@@ -269,135 +220,80 @@ export async function GET(request: Request) {
       profile.email = authEmail;
     }
 
-    // =====================================================
-    // LOAD ORDERS
-    // =====================================================
-
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
       .select("id, amount, status, created_at")
       .eq("user_id", user.id)
-      .order("created_at", {
-        ascending: false,
-      });
+      .order("created_at", { ascending: false });
 
     if (ordersError) {
       console.error("ACCOUNT ORDERS ERROR:", ordersError);
 
       return NextResponse.json(
-        {
-          error: "Orders load করা যায়নি।",
-        },
-        {
-          status: 500,
-        },
+        { error: "Orders load করা যায়নি।" },
+        { status: 500 },
       );
     }
 
     const allOrders = orders ?? [];
 
-    // =====================================================
-    // COMPLETED ORDERS
-    // =====================================================
-
     const completedOrders = allOrders.filter(
       (order) => order.status === "completed",
     );
-
-    // =====================================================
-    // TOTAL SPEND
-    // =====================================================
 
     const totalSpend = completedOrders.reduce(
       (sum, order) => sum + Number(order.amount || 0),
       0,
     );
 
-    // =====================================================
-    // WEEKLY SPEND
-    // Last 7 days
-    // Only completed orders
-    // =====================================================
-
     const now = Date.now();
-
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
     const weeklySpend = completedOrders
       .filter((order) => {
         const createdAt = new Date(order.created_at).getTime();
-
         return createdAt >= sevenDaysAgo && createdAt <= now;
       })
       .reduce((sum, order) => sum + Number(order.amount || 0), 0);
 
-    // =====================================================
-    // RANK
-    // =====================================================
-
     const rank = getRank(totalSpend);
-
-    // =====================================================
-    // RESPONSE
-    // =====================================================
 
     return NextResponse.json({
       success: true,
-
       account: {
         id: user.id,
-
         email: profile.email || authEmail || "",
-
         fullName: profile.full_name || fallbackName || "BD21 User",
-
         phone: profile.phone,
-
         role: profile.role || "user",
-
         walletBalance: Number(profile.wallet_balance || 0),
-
         avatarUrl:
           user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-
         verified: Boolean(user.email_confirmed_at),
-
         createdAt: profile.created_at,
       },
-
       stats: {
         orders: allOrders.length,
-
         completedOrders: completedOrders.length,
-
         totalSpend,
-
         weeklySpend,
       },
-
       rank,
     });
   } catch (error) {
     console.error("ACCOUNT API ERROR:", error);
 
     return NextResponse.json(
-      {
-        error: "Server error",
-      },
-      {
-        status: 500,
-      },
+      { error: "Server error" },
+      { status: 500 },
     );
   }
 }
 
-// =====================================================
-// PATCH - প্রোফাইল আপডেট করার ফাংশন
-// =====================================================
 export async function PATCH(request: Request) {
   try {
     const auth = await getAuthenticatedUser(request);
-    
+
     if (!auth.user) {
       return auth.errorResponse!;
     }
@@ -408,11 +304,12 @@ export async function PATCH(request: Request) {
     if (!fullName) {
       return NextResponse.json(
         { error: "Name is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { error } = await supabaseAdmin
+    // ১. profiles টেবিলে আপডেট
+    const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         full_name: fullName,
@@ -421,24 +318,32 @@ export async function PATCH(request: Request) {
       })
       .eq("id", auth.user.id);
 
-    if (error) {
-      console.error("PROFILE UPDATE ERROR:", error);
+    if (profileError) {
+      console.error("PROFILE UPDATE ERROR:", profileError);
       return NextResponse.json(
         { error: "Profile আপডেট করা যায়নি।" },
-        { status: 500 }
+        { status: 500 },
       );
     }
+
+    // ২. Supabase Auth সেশনের user_metadata আপডেট
+    await supabaseAdmin.auth.admin.updateUserById(auth.user.id, {
+      user_metadata: {
+        ...auth.user.user_metadata,
+        full_name: fullName,
+        name: fullName,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       message: "Profile updated successfully",
     });
-
   } catch (error) {
     console.error("ACCOUNT PATCH ERROR:", error);
     return NextResponse.json(
       { error: "Server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
