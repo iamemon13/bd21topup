@@ -28,6 +28,7 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showNotif, setShowNotif] = useState(false); // নোটিফিকেশন ড্রপডাউন স্টেট
 
   async function loadStats() {
     try {
@@ -92,9 +93,14 @@ export default function AdminDashboard() {
     }
   }
 
+  const totalNotifications = stats.pendingOrders + stats.addMoneyRequests;
+
   return (
     <main className="min-h-screen bg-[#061b35] p-4 text-white">
       <div className="mx-auto w-full max-w-6xl">
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
         <div className="rounded-2xl border border-cyan-500/30 bg-[#0b294d] p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -103,16 +109,90 @@ export default function AdminDashboard() {
                 Customer, Order & Wallet Management
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loggingOut ? "Logging out..." : "Logout"}
-            </button>
+
+            <div className="flex items-center gap-3">
+              {/* Notification Bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotif(!showNotif)}
+                  className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-xl text-cyan-400 transition hover:bg-cyan-400/20"
+                >
+                  🔔
+                  {!loading && totalNotifications > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white shadow-md">
+                      {totalNotifications}
+                    </span>
+                  )}
+                </button>
+
+                {/* Dropdown Overlay (বাইরে ক্লিক করলে বন্ধ হবে) */}
+                {showNotif && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowNotif(false)}
+                  ></div>
+                )}
+
+                {/* Notification Dropdown Box */}
+                {showNotif && (
+                  <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-cyan-400/30 bg-[#0b294d] p-3 shadow-2xl">
+                    <h3 className="mb-2 px-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">
+                      Notifications
+                    </h3>
+
+                    <div className="flex flex-col gap-2">
+                      {loading ? (
+                        <div className="px-2 py-3 text-center text-xs text-slate-400">Loading...</div>
+                      ) : totalNotifications === 0 ? (
+                        <div className="px-2 py-3 text-center text-xs text-slate-400">
+                          সব ক্লিয়ার! কোনো পেন্ডিং রিকোয়েস্ট নেই। 🎉
+                        </div>
+                      ) : (
+                        <>
+                          {stats.pendingOrders > 0 && (
+                            <Link
+                              href="/admin/orders"
+                              className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                            >
+                              <span className="text-xs font-bold text-white">Pending Orders</span>
+                              <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
+                                {stats.pendingOrders}
+                              </span>
+                            </Link>
+                          )}
+
+                          {stats.addMoneyRequests > 0 && (
+                            <Link
+                              href="/admin/add-money"
+                              className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                            >
+                              <span className="text-xs font-bold text-white">Add Money Req</span>
+                              <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
+                                {stats.addMoneyRequests}
+                              </span>
+                            </Link>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loggingOut ? "Logging out..." : "Logout"}
+              </button>
+            </div>
           </div>
 
+          {/* =================================================
+              NAVIGATION
+          ================================================= */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Link
               href="/admin"
@@ -147,6 +227,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* =====================================================
+            ORDER / USER STATS
+        ===================================================== */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
             title="TOTAL ORDERS"
@@ -180,6 +263,9 @@ export default function AdminDashboard() {
           />
         </div>
 
+        {/* =====================================================
+            QUICK ACTIONS
+        ===================================================== */}
         <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-[#0b294d] p-5">
           <h2 className="text-xl font-bold">Quick Actions</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -190,6 +276,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* =====================================================
+            IMPORTANT ACTIONS (ATTENTION REQUIRED)
+        ===================================================== */}
         {!loading && (stats.pendingOrders > 0 || stats.addMoneyRequests > 0) && (
           <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
             <h2 className="text-lg font-black text-yellow-300">
@@ -201,7 +290,7 @@ export default function AdminDashboard() {
                   href="/admin/orders"
                   className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
                 >
-                  <span className="text-sm">Pending Orders</span>
+                  <span className="text-sm font-bold">Pending Orders</span>
                   <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
                     {stats.pendingOrders}
                   </span>
@@ -213,7 +302,7 @@ export default function AdminDashboard() {
                   href="/admin/add-money"
                   className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
                 >
-                  <span className="text-sm">Pending Add Money Requests</span>
+                  <span className="text-sm font-bold">Pending Add Money Requests</span>
                   <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
                     {stats.addMoneyRequests}
                   </span>
@@ -227,6 +316,9 @@ export default function AdminDashboard() {
   );
 }
 
+/* =========================================================
+   STAT CARD
+========================================================= */
 function StatCard({
   title,
   value,
@@ -254,6 +346,9 @@ function StatCard({
   );
 }
 
+/* =========================================================
+   QUICK ACTION LINK
+========================================================= */
 function ActionLink({ href, text }: { href: string; text: string }) {
   return (
     <Link
