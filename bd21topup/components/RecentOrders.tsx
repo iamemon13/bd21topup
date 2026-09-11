@@ -95,30 +95,30 @@ export default function RecentOrders() {
 
   const getStatusUI = (rawStatus: string) => {
     const s = rawStatus?.toLowerCase() || "";
-    // ডেটাবেসের স্ট্যাটাসের প্রথম অক্ষর বড় হাতের করে দেখানোর জন্য
-    const displayStatus = rawStatus ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1) : "Unknown";
-
+    
+    // কমপ্লিট হলে ডাইরেক্ট '✓ Done' দেখাবে
     if (s === "approved" || s === "completed" || s === "success") {
       return (
         <span className="inline-flex rounded-full bg-green-400/10 px-3 py-1 text-xs font-bold text-green-400">
-          ✓ {displayStatus}
+          ✓ Done
         </span>
       );
     }
-    if (s === "processing") {
-      return (
-        <span className="inline-flex rounded-full bg-blue-400/10 px-3 py-1 text-xs font-bold text-blue-400">
-          🔄 {displayStatus}
-        </span>
-      );
-    }
+    // পেন্ডিং থাকলে '⏳ Pending' দেখাবে
     if (s === "pending") {
       return (
         <span className="inline-flex rounded-full bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-400">
-          ⏳ {displayStatus}
+          ⏳ Pending
         </span>
       );
     }
+    // ক্যান্সেল বা অন্য কিছুর জন্য
+    return (
+      <span className="inline-flex rounded-full bg-red-400/10 px-3 py-1 text-xs font-bold text-red-400">
+        ✕ Cancelled
+      </span>
+    );
+  };
     // Cancelled বা অন্য কিছুর জন্য
     return (
       <span className="inline-flex rounded-full bg-red-400/10 px-3 py-1 text-xs font-bold text-red-400">
