@@ -51,7 +51,6 @@ type TransactionsResponse = {
   walletTransactions: WalletTransaction[];
 };
 
-// Order ফিল্টার আপডেট করা হয়েছে
 const orderFilters = [
   { id: "all", label: "All" },
   { id: "pending", label: "Pending" },
@@ -59,9 +58,10 @@ const orderFilters = [
   { id: "cancelled", label: "Cancelled" },
 ] as const;
 
-// Wallet ফিল্টার নতুন তৈরি করা হয়েছে
+// Pending অ্যাড করা হয়েছে
 const walletFilters = [
   { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
   { id: "approved", label: "Approved" },
   { id: "rejected", label: "Rejected" },
 ] as const;
@@ -179,9 +179,6 @@ export default function TransactionsPage() {
   const transactions = data?.transactions ?? [];
   const walletTransactions = data?.walletTransactions ?? [];
 
-  // =====================================================
-  // ORDER SEARCH + FILTER
-  // =====================================================
   const filteredTransactions = useMemo(() => {
     const searchText = search.trim().toLowerCase();
 
@@ -208,19 +205,14 @@ export default function TransactionsPage() {
     });
   }, [transactions, activeFilter, search]);
 
-  // =====================================================
-  // WALLET SEARCH + FILTER
-  // =====================================================
   const filteredWalletTransactions = useMemo(() => {
     const searchText = search.trim().toLowerCase();
 
     return walletTransactions.filter((transaction) => {
-      // Wallet status check (add money approved/rejected matching)
       const txStatus = transaction.status?.toLowerCase() || "";
       const txDesc = transaction.description?.toLowerCase() || "";
       const txType = transaction.transactionType?.toLowerCase() || "";
 
-      // All এর ভেতর ডেবিট-সহ সব দেখাবে, Approved এ শুধু approved, Rejected এ শুধু rejected
       const matchesStatus =
         activeWalletFilter === "all" ||
         txStatus === activeWalletFilter ||
@@ -402,7 +394,6 @@ export default function TransactionsPage() {
           </div>
         ) : activeTab === "orders" ? (
           <>
-            {/* ORDER FILTERS */}
             <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {orderFilters.map((filter) => {
                 const selected = activeFilter === filter.id;
@@ -564,8 +555,7 @@ export default function TransactionsPage() {
           </>
         ) : (
           <>
-            {/* WALLET FILTERS */}
-            <div className="mb-6 grid grid-cols-3 gap-2 sm:max-w-md">
+            <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {walletFilters.map((filter) => {
                 const selected = activeWalletFilter === filter.id;
                 const count =
@@ -619,14 +609,17 @@ export default function TransactionsPage() {
               <div className="space-y-4">
                 {filteredWalletTransactions.map((transaction) => {
                   const isCredit = transaction.direction === "credit";
-                  // Add money-এর স্ট্যাটাস বের করার লজিক
-                  const isApproved = transaction.description?.toLowerCase().includes("approved") || transaction.transactionType?.toLowerCase().includes("approved");
-                  const isRejected = transaction.description?.toLowerCase().includes("rejected") || transaction.transactionType?.toLowerCase().includes("rejected");
+                  const isPending = transaction.description?.toLowerCase().includes("pending") || transaction.transactionType?.toLowerCase().includes("pending") || transaction.status?.toLowerCase() === "pending";
+                  const isApproved = transaction.description?.toLowerCase().includes("approved") || transaction.transactionType?.toLowerCase().includes("approved") || transaction.status?.toLowerCase() === "approved";
+                  const isRejected = transaction.description?.toLowerCase().includes("rejected") || transaction.transactionType?.toLowerCase().includes("rejected") || transaction.status?.toLowerCase() === "rejected";
                   
                   let badgeStatus = isCredit ? "CREDIT" : "DEBIT";
                   let badgeColor = isCredit ? "border-green-400/25 bg-green-400/10 text-green-300" : "border-red-400/25 bg-red-400/10 text-red-300";
 
-                  if (isApproved) {
+                  if (isPending) {
+                    badgeStatus = "PENDING";
+                    badgeColor = "border-amber-400/25 bg-amber-400/10 text-amber-300";
+                  } else if (isApproved) {
                     badgeStatus = "APPROVED";
                     badgeColor = "border-cyan-400/25 bg-cyan-400/10 text-cyan-300";
                   } else if (isRejected) {
