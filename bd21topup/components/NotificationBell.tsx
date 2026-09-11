@@ -228,10 +228,11 @@ export default function NotificationBell() {
         <div
           className="
             absolute
-            right-0
+            -right-16
+            sm:right-0
             top-[calc(100%+8px)]
             z-[100]
-            w-[min(88vw,320px)]
+            w-[min(92vw,320px)]
             overflow-hidden
             rounded-2xl
             border
