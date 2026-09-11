@@ -323,7 +323,7 @@ export async function PATCH(request: Request) {
 
     const allowedTransitions: Record<string, string[]> = {
       // এখন pending থেকে সরাসরি completed এ যাওয়া যাবে
-      pending: ["processing", "completed", "rejected"], 
+      pending: ["processing", "completed", "rejected"],
       approved: ["processing", "completed"],
       processing: ["completed"],
       completed: [],

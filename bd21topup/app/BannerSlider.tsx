@@ -46,9 +46,7 @@ export default function BannerSlider() {
             type="button"
             onClick={() => setCurrent(index)}
             className={`h-2 rounded-full transition-all ${
-              current === index
-                ? "w-7 bg-cyan-400"
-                : "w-2 bg-slate-500"
+              current === index ? "w-7 bg-cyan-400" : "w-2 bg-slate-500"
             }`}
             aria-label={`Banner ${index + 1}`}
           />

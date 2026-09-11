@@ -65,7 +65,9 @@ function PaymentContent() {
   const packageName = searchParams.get("package") || "";
   const amount = Number(searchParams.get("amount") || "0");
 
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
+    null,
+  );
   const [transactionId, setTransactionId] = useState("");
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState("");
@@ -159,7 +161,6 @@ function PaymentContent() {
       // অর্ডার সফল হলে সরাসরি /orders পেজে রিডাইরেক্ট করে দেবে
       setMessage("Order submitted successfully! Redirecting...");
       router.push("/orders");
-      
     } catch (error) {
       console.error("ORDER SUBMIT ERROR:", error);
       setMessage("Server-এর সাথে connection করা যায়নি।");

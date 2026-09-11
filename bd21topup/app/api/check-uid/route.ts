@@ -13,7 +13,7 @@ export async function POST(request: Request) {
           success: false,
           message: "আগে Player UID লিখুন",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -24,16 +24,14 @@ export async function POST(request: Request) {
           success: false,
           message: "সঠিক Player UID লিখুন",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const result = await checkFreeFireUid(uid);
 
     if (result.success) {
-      console.log(
-        `UID VERIFIED: ${result.uid} via ${result.provider}`
-      );
+      console.log(`UID VERIFIED: ${result.uid} via ${result.provider}`);
 
       return NextResponse.json({
         success: true,
@@ -54,7 +52,7 @@ export async function POST(request: Request) {
         success: false,
         message: "UID check করা যাচ্ছে না",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

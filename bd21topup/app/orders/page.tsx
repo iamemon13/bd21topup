@@ -6,10 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type OrderStatus =
-  | "pending"
-  | "completed"
-  | "cancelled";
+type OrderStatus = "pending" | "completed" | "cancelled";
 
 type Order = {
   id: string;
@@ -61,7 +58,8 @@ export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]["id"]>("all");
+  const [activeFilter, setActiveFilter] =
+    useState<(typeof filters)[number]["id"]>("all");
   const [copied, setCopied] = useState("");
   const [search, setSearch] = useState("");
 
@@ -343,8 +341,12 @@ export default function MyOrdersPage() {
 
                 <div className="space-y-3 p-3">
                   <div className="rounded-xl bg-[#07182f] p-3">
-                    <p className="text-[10px] font-bold text-slate-500">PLAYER</p>
-                    <p className="mt-1 text-sm font-bold">{order.player_name}</p>
+                    <p className="text-[10px] font-bold text-slate-500">
+                      PLAYER
+                    </p>
+                    <p className="mt-1 text-sm font-bold">
+                      {order.player_name}
+                    </p>
                     <div className="mt-3 flex items-center justify-between">
                       <div>
                         <p className="text-[10px] text-slate-500">UID</p>
@@ -361,7 +363,9 @@ export default function MyOrdersPage() {
                   </div>
 
                   <div className="rounded-xl bg-[#07182f] p-3">
-                    <p className="text-[10px] font-bold text-slate-500">PAYMENT</p>
+                    <p className="text-[10px] font-bold text-slate-500">
+                      PAYMENT
+                    </p>
                     <p className="mt-1 text-sm font-bold capitalize">
                       {order.payment_method}
                     </p>

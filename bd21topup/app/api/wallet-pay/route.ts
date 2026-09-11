@@ -69,14 +69,15 @@ export async function POST(request: Request) {
     }
 
     // ওয়েবসাইটের নাম বের করা
-    const accountName = user.user_metadata?.full_name || user.email?.split('@')[0] || "User";
-    
+    const accountName =
+      user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+
     // ⚠️ আপডেট: এখানে account_name এর পাশাপাশি status: "pending" করে দেওয়া হলো
     await supabaseAdmin
       .from("orders")
-      .update({ 
+      .update({
         account_name: accountName,
-        status: "pending" 
+        status: "pending",
       })
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })

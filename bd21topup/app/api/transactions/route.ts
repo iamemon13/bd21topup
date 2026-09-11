@@ -174,18 +174,20 @@ export async function GET(request: Request) {
     // FORMAT WALLET TRANSACTIONS
     // =====================================================
 
-    const formattedWalletTransactions = (walletRows ?? []).map((transaction) => ({
-      id: transaction.id,
-      type: "wallet_transaction" as const,
-      transactionType: transaction.type || "wallet_transaction",
-      direction: transaction.direction || "debit",
-      amount: Number(transaction.amount || 0),
-      balanceAfter: Number(transaction.balance_after || 0),
-      referenceId: transaction.reference_id || null,
-      description: transaction.description || null,
-      createdAt: transaction.created_at,
-      status: "completed", // wallet_transactions-এ থাকা মানেই তা কমপ্লিট বা এপ্রুভড
-    }));
+    const formattedWalletTransactions = (walletRows ?? []).map(
+      (transaction) => ({
+        id: transaction.id,
+        type: "wallet_transaction" as const,
+        transactionType: transaction.type || "wallet_transaction",
+        direction: transaction.direction || "debit",
+        amount: Number(transaction.amount || 0),
+        balanceAfter: Number(transaction.balance_after || 0),
+        referenceId: transaction.reference_id || null,
+        description: transaction.description || null,
+        createdAt: transaction.created_at,
+        status: "completed", // wallet_transactions-এ থাকা মানেই তা কমপ্লিট বা এপ্রুভড
+      }),
+    );
 
     // =====================================================
     // FORMAT PENDING/REJECTED ADD MONEY
@@ -205,8 +207,12 @@ export async function GET(request: Request) {
     }));
 
     // দুইটা ডাটা একসাথে করে তারিখ অনুযায়ী সাজানো
-    const walletTransactions = [...formattedWalletTransactions, ...formattedAddMoneyRequests].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    const walletTransactions = [
+      ...formattedWalletTransactions,
+      ...formattedAddMoneyRequests,
+    ].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
 
     // =====================================================

@@ -65,7 +65,7 @@ export default function AddMoneyPage() {
 
   const selected = useMemo(
     () => methods.find((item) => item.id === selectedMethod)!,
-    [selectedMethod]
+    [selectedMethod],
   );
 
   const receiverNumber = paymentConfig[selectedMethod].number;
@@ -165,13 +165,10 @@ export default function AddMoneyPage() {
 
       setAmount("");
       setTransactionId("");
-      setMessage(
-        "Request submitted ✅ Redirecting..."
-      );
+      setMessage("Request submitted ✅ Redirecting...");
 
       // সফল হলে Transactions পেজের Wallet ট্যাবে রিডাইরেক্ট করে দেবে
       router.push("/transactions?tab=wallet");
-      
     } catch (error) {
       console.error("ADD MONEY SUBMIT ERROR:", error);
       setMessage("Server-এর সাথে connection করা যায়নি।");
@@ -228,7 +225,8 @@ export default function AddMoneyPage() {
           </p>
           <h1 className="mt-1 text-3xl font-black">Add Money</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Payment send করে Transaction ID submit করুন। Admin approve করার পর wallet balance বাড়বে।
+            Payment send করে Transaction ID submit করুন। Admin approve করার পর
+            wallet balance বাড়বে।
           </p>
         </div>
 
@@ -336,7 +334,8 @@ export default function AddMoneyPage() {
               </button>
 
               <p className="mt-3 text-[11px] leading-5 text-slate-500">
-                এই stage-এ payment automatically verify হচ্ছে না। Admin payment claim review করে approve/reject করবে।
+                এই stage-এ payment automatically verify হচ্ছে না। Admin payment
+                claim review করে approve/reject করবে।
               </p>
             </div>
           </div>
@@ -346,9 +345,7 @@ export default function AddMoneyPage() {
               <h2 className="text-lg font-black">Recent Requests</h2>
 
               {loadingHistory ? (
-                <div className="mt-4 text-sm text-slate-400">
-                  Loading...
-                </div>
+                <div className="mt-4 text-sm text-slate-400">Loading...</div>
               ) : requests.length === 0 ? (
                 <div className="mt-4 rounded-xl bg-[#07182f] p-4 text-sm text-slate-400">
                   কোনো Add Money request নেই।
@@ -372,7 +369,7 @@ export default function AddMoneyPage() {
 
                         <span
                           className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase ${statusClass(
-                            request.status
+                            request.status,
                           )}`}
                         >
                           {request.status}

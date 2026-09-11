@@ -40,9 +40,30 @@ export default function RecentOrders() {
 
   // ডামি ডেটা
   const dummyOrders: Order[] = [
-    { id: "1", user_name: "Rahim", packageName: "25 Diamond", amount: 22, status: "completed", created_at: new Date(Date.now() - 60000).toISOString() },
-    { id: "2", user_name: "Karim", packageName: "115 Diamond", amount: 79, status: "pending", created_at: new Date(Date.now() - 120000).toISOString() },
-    { id: "3", user_name: "Saddam", packageName: "1x Weekly", amount: 158, status: "completed", created_at: new Date(Date.now() - 240000).toISOString() },
+    {
+      id: "1",
+      user_name: "Rahim",
+      packageName: "25 Diamond",
+      amount: 22,
+      status: "completed",
+      created_at: new Date(Date.now() - 60000).toISOString(),
+    },
+    {
+      id: "2",
+      user_name: "Karim",
+      packageName: "115 Diamond",
+      amount: 79,
+      status: "pending",
+      created_at: new Date(Date.now() - 120000).toISOString(),
+    },
+    {
+      id: "3",
+      user_name: "Saddam",
+      packageName: "1x Weekly",
+      amount: 158,
+      status: "completed",
+      created_at: new Date(Date.now() - 240000).toISOString(),
+    },
   ];
 
   const fetchOrders = async () => {
@@ -79,9 +100,13 @@ export default function RecentOrders() {
 
     const channel = supabase
       .channel("public:orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        fetchOrders();
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          fetchOrders();
+        },
+      )
       .subscribe();
 
     return () => {
@@ -91,7 +116,7 @@ export default function RecentOrders() {
 
   const getStatusUI = (rawStatus: string) => {
     const s = rawStatus?.toLowerCase() || "";
-    
+
     // কমপ্লিট হলে ডাইরেক্ট '✓ Done' দেখাবে
     if (s === "approved" || s === "completed" || s === "success") {
       return (
@@ -156,8 +181,19 @@ export default function RecentOrders() {
           </div>
         ) : (
           orders.map((order, index) => {
-            const name = order.user_name || order.account_name || order.user_email || order.player_name || order.playerName || order.player || "User";
-            const pkg = order.package_name || order.packageName || order.package || "Package";
+            const name =
+              order.user_name ||
+              order.account_name ||
+              order.user_email ||
+              order.player_name ||
+              order.playerName ||
+              order.player ||
+              "User";
+            const pkg =
+              order.package_name ||
+              order.packageName ||
+              order.package ||
+              "Package";
             const price = order.amount || order.price || 0;
             const initial = name.charAt(0).toUpperCase();
 
@@ -182,9 +218,7 @@ export default function RecentOrders() {
                     ◷ {timeAgo(order.created_at)}
                   </span>
                 </div>
-                <div className="text-right">
-                  {getStatusUI(order.status)}
-                </div>
+                <div className="text-right">{getStatusUI(order.status)}</div>
               </div>
             );
           })

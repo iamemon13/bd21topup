@@ -6,10 +6,7 @@ export async function GET(request: Request) {
     const authHeader = request.headers.get("authorization");
 
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const accessToken = authHeader.replace("Bearer ", "").trim();
@@ -20,10 +17,7 @@ export async function GET(request: Request) {
     } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (error || !user) {
-      return NextResponse.json(
-        { error: "Invalid session" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const adminUserId = process.env.ADMIN_USER_ID;
@@ -31,7 +25,7 @@ export async function GET(request: Request) {
     if (!adminUserId || user.id !== adminUserId) {
       return NextResponse.json(
         { error: "Admin access denied" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -46,9 +40,6 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("ADMIN CHECK ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

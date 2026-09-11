@@ -6,10 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type TransactionStatus =
-  | "pending"
-  | "completed"
-  | "cancelled";
+type TransactionStatus = "pending" | "completed" | "cancelled";
 
 type OrderTransaction = {
   id: string;
@@ -36,7 +33,7 @@ type WalletTransaction = {
   referenceId: string | null;
   description: string | null;
   createdAt: string;
-  status?: string; 
+  status?: string;
 };
 
 type TransactionsResponse = {
@@ -98,8 +95,10 @@ export default function TransactionsPage() {
   const router = useRouter();
   const [data, setData] = useState<TransactionsResponse | null>(null);
   const [activeTab, setActiveTab] = useState<MainTab>("orders");
-  const [activeFilter, setActiveFilter] = useState<(typeof orderFilters)[number]["id"]>("all");
-  const [activeWalletFilter, setActiveWalletFilter] = useState<(typeof walletFilters)[number]["id"]>("all");
+  const [activeFilter, setActiveFilter] =
+    useState<(typeof orderFilters)[number]["id"]>("all");
+  const [activeWalletFilter, setActiveWalletFilter] =
+    useState<(typeof walletFilters)[number]["id"]>("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Loading transactions...");
@@ -199,7 +198,9 @@ export default function TransactionsPage() {
         transaction.paymentMethod,
         transaction.transactionId,
         transaction.status,
-      ].join(" ").toLowerCase();
+      ]
+        .join(" ")
+        .toLowerCase();
 
       return searchableText.includes(searchText);
     });
@@ -231,17 +232,22 @@ export default function TransactionsPage() {
         transaction.referenceId || "",
         transaction.description || "",
         txStatus,
-      ].join(" ").toLowerCase();
+      ]
+        .join(" ")
+        .toLowerCase();
 
       return searchableText.includes(searchText);
     });
   }, [walletTransactions, search, activeWalletFilter]);
 
   const statusCounts = useMemo(() => {
-    return transactions.reduce<Record<string, number>>((counts, transaction) => {
-      counts[transaction.status] = (counts[transaction.status] || 0) + 1;
-      return counts;
-    }, {});
+    return transactions.reduce<Record<string, number>>(
+      (counts, transaction) => {
+        counts[transaction.status] = (counts[transaction.status] || 0) + 1;
+        return counts;
+      },
+      {},
+    );
   }, [transactions]);
 
   return (
@@ -260,7 +266,9 @@ export default function TransactionsPage() {
               <div className="text-lg font-black">
                 BD<span className="text-cyan-400">21</span>
               </div>
-              <div className="text-[8px] tracking-[3px] text-slate-400">TOP UP</div>
+              <div className="text-[8px] tracking-[3px] text-slate-400">
+                TOP UP
+              </div>
             </div>
           </Link>
           <Link
@@ -422,7 +430,9 @@ export default function TransactionsPage() {
             {filteredTransactions.length === 0 ? (
               <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-8 text-center">
                 <div className="text-4xl">🔍</div>
-                <h2 className="mt-3 text-lg font-black">No transactions found</h2>
+                <h2 className="mt-3 text-lg font-black">
+                  No transactions found
+                </h2>
                 <p className="mt-2 text-sm text-slate-400">
                   Search বা filter পরিবর্তন করে আবার চেষ্টা করুন।
                 </p>
@@ -535,7 +545,9 @@ export default function TransactionsPage() {
                             }
                             className="rounded-md bg-cyan-400/10 px-2 py-1 text-[9px] font-bold text-cyan-300 hover:bg-cyan-400/20"
                           >
-                            {copied === `orderid-${transaction.id}` ? "✓" : "Copy"}
+                            {copied === `orderid-${transaction.id}`
+                              ? "✓"
+                              : "Copy"}
                           </button>
                         </div>
                       </div>
@@ -565,7 +577,11 @@ export default function TransactionsPage() {
                         const s = tx.status?.toLowerCase() || "";
                         const d = tx.description?.toLowerCase() || "";
                         const t = tx.transactionType?.toLowerCase() || "";
-                        return s === filter.id || d.includes(filter.id) || t.includes(filter.id);
+                        return (
+                          s === filter.id ||
+                          d.includes(filter.id) ||
+                          t.includes(filter.id)
+                        );
                       }).length;
 
                 return (
@@ -609,19 +625,44 @@ export default function TransactionsPage() {
               <div className="space-y-4">
                 {filteredWalletTransactions.map((transaction) => {
                   const isCredit = transaction.direction === "credit";
-                  const isPending = transaction.description?.toLowerCase().includes("pending") || transaction.transactionType?.toLowerCase().includes("pending") || transaction.status?.toLowerCase() === "pending";
-                  const isApproved = transaction.description?.toLowerCase().includes("approved") || transaction.transactionType?.toLowerCase().includes("approved") || transaction.status?.toLowerCase() === "approved";
-                  const isRejected = transaction.description?.toLowerCase().includes("rejected") || transaction.transactionType?.toLowerCase().includes("rejected") || transaction.status?.toLowerCase() === "rejected";
-                  
+                  const isPending =
+                    transaction.description
+                      ?.toLowerCase()
+                      .includes("pending") ||
+                    transaction.transactionType
+                      ?.toLowerCase()
+                      .includes("pending") ||
+                    transaction.status?.toLowerCase() === "pending";
+                  const isApproved =
+                    transaction.description
+                      ?.toLowerCase()
+                      .includes("approved") ||
+                    transaction.transactionType
+                      ?.toLowerCase()
+                      .includes("approved") ||
+                    transaction.status?.toLowerCase() === "approved";
+                  const isRejected =
+                    transaction.description
+                      ?.toLowerCase()
+                      .includes("rejected") ||
+                    transaction.transactionType
+                      ?.toLowerCase()
+                      .includes("rejected") ||
+                    transaction.status?.toLowerCase() === "rejected";
+
                   let badgeStatus = isCredit ? "CREDIT" : "DEBIT";
-                  let badgeColor = isCredit ? "border-green-400/25 bg-green-400/10 text-green-300" : "border-red-400/25 bg-red-400/10 text-red-300";
+                  let badgeColor = isCredit
+                    ? "border-green-400/25 bg-green-400/10 text-green-300"
+                    : "border-red-400/25 bg-red-400/10 text-red-300";
 
                   if (isPending) {
                     badgeStatus = "PENDING";
-                    badgeColor = "border-amber-400/25 bg-amber-400/10 text-amber-300";
+                    badgeColor =
+                      "border-amber-400/25 bg-amber-400/10 text-amber-300";
                   } else if (isApproved) {
                     badgeStatus = "APPROVED";
-                    badgeColor = "border-cyan-400/25 bg-cyan-400/10 text-cyan-300";
+                    badgeColor =
+                      "border-cyan-400/25 bg-cyan-400/10 text-cyan-300";
                   } else if (isRejected) {
                     badgeStatus = "REJECTED";
                     badgeColor = "border-red-500/30 bg-red-500/10 text-red-400";
@@ -697,7 +738,9 @@ export default function TransactionsPage() {
                                 }
                                 className="shrink-0 rounded-md bg-cyan-400/20 px-2 py-1 text-[10px] font-bold text-cyan-300"
                               >
-                                {copied === `ref-${transaction.id}` ? "✓" : "Copy"}
+                                {copied === `ref-${transaction.id}`
+                                  ? "✓"
+                                  : "Copy"}
                               </button>
                             </div>
                           </div>

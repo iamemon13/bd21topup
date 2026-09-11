@@ -57,7 +57,13 @@ export async function POST(request: Request) {
     const paymentMethod = String(body.paymentMethod || "").trim();
     const transactionId = String(body.transactionId || "").trim();
 
-    if (!uid || !playerName || !packageName || !paymentMethod || !transactionId) {
+    if (
+      !uid ||
+      !playerName ||
+      !packageName ||
+      !paymentMethod ||
+      !transactionId
+    ) {
       return NextResponse.json(
         { error: "সব তথ্য পূরণ করুন।" },
         { status: 400 },
@@ -91,7 +97,10 @@ export async function POST(request: Request) {
     const receiverNumber = paymentConfig[method].number;
 
     // ওয়েবসাইটের একাউন্টের নাম বা ইমেইল বের করা
-    const accountName = auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || "User";
+    const accountName =
+      auth.user.user_metadata?.full_name ||
+      auth.user.email?.split("@")[0] ||
+      "User";
 
     const { data, error } = await supabaseAdmin
       .from("orders")

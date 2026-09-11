@@ -142,7 +142,9 @@ export default function AdminDashboard() {
 
                     <div className="flex flex-col gap-2">
                       {loading ? (
-                        <div className="px-2 py-3 text-center text-xs text-slate-400">Loading...</div>
+                        <div className="px-2 py-3 text-center text-xs text-slate-400">
+                          Loading...
+                        </div>
                       ) : totalNotifications === 0 ? (
                         <div className="px-2 py-3 text-center text-xs text-slate-400">
                           সব ক্লিয়ার! কোনো পেন্ডিং রিকোয়েস্ট নেই। 🎉
@@ -154,7 +156,9 @@ export default function AdminDashboard() {
                               href="/admin/orders"
                               className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
                             >
-                              <span className="text-xs font-bold text-white">Pending Orders</span>
+                              <span className="text-xs font-bold text-white">
+                                Pending Orders
+                              </span>
                               <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
                                 {stats.pendingOrders}
                               </span>
@@ -166,7 +170,9 @@ export default function AdminDashboard() {
                               href="/admin/add-money"
                               className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
                             >
-                              <span className="text-xs font-bold text-white">Add Money Req</span>
+                              <span className="text-xs font-bold text-white">
+                                Add Money Req
+                              </span>
                               <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
                                 {stats.addMoneyRequests}
                               </span>
@@ -279,38 +285,41 @@ export default function AdminDashboard() {
         {/* =====================================================
             IMPORTANT ACTIONS (ATTENTION REQUIRED)
         ===================================================== */}
-        {!loading && (stats.pendingOrders > 0 || stats.addMoneyRequests > 0) && (
-          <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
-            <h2 className="text-lg font-black text-yellow-300">
-              Attention Required
-            </h2>
-            <div className="mt-3 space-y-2">
-              {stats.pendingOrders > 0 && (
-                <Link
-                  href="/admin/orders"
-                  className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
-                >
-                  <span className="text-sm font-bold">Pending Orders</span>
-                  <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-                    {stats.pendingOrders}
-                  </span>
-                </Link>
-              )}
+        {!loading &&
+          (stats.pendingOrders > 0 || stats.addMoneyRequests > 0) && (
+            <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
+              <h2 className="text-lg font-black text-yellow-300">
+                Attention Required
+              </h2>
+              <div className="mt-3 space-y-2">
+                {stats.pendingOrders > 0 && (
+                  <Link
+                    href="/admin/orders"
+                    className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                  >
+                    <span className="text-sm font-bold">Pending Orders</span>
+                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
+                      {stats.pendingOrders}
+                    </span>
+                  </Link>
+                )}
 
-              {stats.addMoneyRequests > 0 && (
-                <Link
-                  href="/admin/add-money"
-                  className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
-                >
-                  <span className="text-sm font-bold">Pending Add Money Requests</span>
-                  <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-                    {stats.addMoneyRequests}
-                  </span>
-                </Link>
-              )}
+                {stats.addMoneyRequests > 0 && (
+                  <Link
+                    href="/admin/add-money"
+                    className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                  >
+                    <span className="text-sm font-bold">
+                      Pending Add Money Requests
+                    </span>
+                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
+                      {stats.addMoneyRequests}
+                    </span>
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     </main>
   );

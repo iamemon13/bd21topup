@@ -13,7 +13,7 @@ async function getUserFromRequest(request: Request) {
       user: null,
       response: NextResponse.json(
         { error: "Login required." },
-        { status: 401 }
+        { status: 401 },
       ),
     };
   }
@@ -30,7 +30,7 @@ async function getUserFromRequest(request: Request) {
       user: null,
       response: NextResponse.json(
         { error: "Invalid or expired session." },
-        { status: 401 }
+        { status: 401 },
       ),
     };
   }
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("add_money_requests")
       .select(
-        "id, amount, payment_method, receiver_number, transaction_id, status, admin_note, created_at, reviewed_at"
+        "id, amount, payment_method, receiver_number, transaction_id, status, admin_note, created_at, reviewed_at",
       )
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false });
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json(
         { error: "Add Money history load করা যায়নি।" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -70,10 +70,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("ADD MONEY GET SERVER ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
 
@@ -96,21 +93,21 @@ export async function POST(request: Request) {
     if (!Number.isFinite(amount) || amount < 10 || amount > 100000) {
       return NextResponse.json(
         { error: "Amount ৳10 থেকে ৳100,000 এর মধ্যে হতে হবে।" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!allowedMethods.includes(paymentMethod)) {
       return NextResponse.json(
         { error: "সঠিক payment method select করুন।" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (transactionId.length < 4 || transactionId.length > 80) {
       return NextResponse.json(
         { error: "সঠিক Transaction ID দিন।" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -119,7 +116,7 @@ export async function POST(request: Request) {
     if (!receiverNumber) {
       return NextResponse.json(
         { error: "Payment receiver configured না।" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -134,7 +131,7 @@ export async function POST(request: Request) {
         status: "pending",
       })
       .select(
-        "id, amount, payment_method, receiver_number, transaction_id, status, created_at"
+        "id, amount, payment_method, receiver_number, transaction_id, status, created_at",
       )
       .single();
 
@@ -142,7 +139,7 @@ export async function POST(request: Request) {
       if (error.code === "23505") {
         return NextResponse.json(
           { error: "এই Transaction ID আগে ব্যবহার করা হয়েছে।" },
-          { status: 409 }
+          { status: 409 },
         );
       }
 
@@ -150,7 +147,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { error: "Add Money request submit করা যায়নি।" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -158,7 +155,7 @@ export async function POST(request: Request) {
       "ADD MONEY REQUEST CREATED:",
       data.id,
       `user=${auth.user.id}`,
-      `amount=${amount}`
+      `amount=${amount}`,
     );
 
     return NextResponse.json({
@@ -169,9 +166,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("ADD MONEY POST SERVER ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }

@@ -154,10 +154,7 @@ export default function AdminOrdersPage() {
     });
   }, [orders, search, statusFilter]);
 
-  async function updateOrderStatus(
-    orderId: string,
-    status: "completed",
-  ) {
+  async function updateOrderStatus(orderId: string, status: "completed") {
     setActionOrderId(orderId);
     setActionMessage("");
 
@@ -434,7 +431,8 @@ export default function AdminOrdersPage() {
 
             <div className="mt-3 space-y-3">
               {filteredOrders.map((order) => {
-                const canComplete = order.status === "pending" || order.status === "approved";
+                const canComplete =
+                  order.status === "pending" || order.status === "approved";
                 const isActioning = actionOrderId === order.id;
 
                 return (
