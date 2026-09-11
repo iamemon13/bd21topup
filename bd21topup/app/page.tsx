@@ -11,6 +11,7 @@ export default function Home() {
   const [balance, setBalance] = useState(0);
   const [userName, setUserName] = useState("U");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [loadingAuth, setLoadingAuth] = useState(true); // নতুন লোডিং স্টেট
 
   useEffect(() => {
     async function loadUserData() {
@@ -22,7 +23,6 @@ export default function Home() {
         setIsLoggedIn(true);
 
         try {
-          // Account পেইজের মতো হুবহু একই API কল করে রিয়েল-টাইম ডাটা আনবো
           const response = await fetch("/api/account", {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
@@ -44,6 +44,8 @@ export default function Home() {
           console.error("Error loading account data:", error);
         }
       }
+      // ডাটা লোড হওয়া শেষ হলে লোডিং বন্ধ করে দেব
+      setLoadingAuth(false);
     }
 
     loadUserData();
@@ -93,7 +95,10 @@ export default function Home() {
             </a>
 
             {/* Login / My Account Logic */}
-            {isLoggedIn ? (
+            {loadingAuth ? (
+              // ডাটা আসার আগে লোডিং এনিমেশন দেখাবে
+              <div className="h-8 sm:h-9 w-24 sm:w-28 animate-pulse rounded-full bg-cyan-400/20"></div>
+            ) : isLoggedIn ? (
               <Link
                 href="/account"
                 className="flex items-center gap-1.5 sm:gap-2"
@@ -132,6 +137,8 @@ export default function Home() {
           </nav>
         </div>
       </header>
+
+      {/* Notice */}
 
       {/* Notice */}
       <section className="mx-auto max-w-7xl px-5 pt-5">
