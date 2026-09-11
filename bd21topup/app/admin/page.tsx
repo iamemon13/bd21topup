@@ -335,7 +335,7 @@ export default function AdminDashboard() {
         ===================================================== */}
 
         {!loading &&
-          (stats.pendingOrders > 0 || stats.addMoneyRequests > 0) && (
+          (stats.pendingOrders > 0 || stats.processingOrders > 0 || stats.addMoneyRequests > 0) && (
             <div
               className="
               mt-5
@@ -390,6 +390,38 @@ export default function AdminDashboard() {
                   "
                     >
                       {stats.pendingOrders}
+                    </span>
+                  </Link>
+                )}
+
+                {stats.processingOrders > 0 && (
+                  <Link
+                    href="/admin/orders"
+                    className="
+                    flex
+                    items-center
+                    justify-between
+                    rounded-xl
+                    bg-[#07182f]
+                    p-3
+                    transition
+                    hover:bg-[#102a49]
+                  "
+                  >
+                    <span className="text-sm">Processing Orders</span>
+
+                    <span
+                      className="
+                    rounded-full
+                    bg-blue-400
+                    px-3
+                    py-1
+                    text-xs
+                    font-black
+                    text-black
+                  "
+                    >
+                      {stats.processingOrders}
                     </span>
                   </Link>
                 )}
