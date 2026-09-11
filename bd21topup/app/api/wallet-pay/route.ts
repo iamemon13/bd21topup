@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // RPC কল করে Wallet থেকে পেমেন্ট কাটা এবং অর্ডার তৈরি
+    // RPC কল করে Wallet থেকে পেমেন্ট কাটা
     const { data, error } = await supabaseAdmin.rpc("pay_with_wallet", {
       p_user_id: user.id,
       p_uid: cleanUid,
@@ -68,34 +68,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // RPC যদি সফলভাবে নতুন অর্ডারের ID বা অবজেক্ট রিটার্ন করে থাকে, তবে শুধু সেই নির্দিষ্ট অর্ডারের account_name আপডেট হবে
-    const createdOrderId = data?.order_id || data?.id;
+    // ওয়েবসাইটের নাম বের করা
+    const accountName =
+      user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
 
-    if (createdOrderId) {
-      const { data: profileData } = await supabaseAdmin
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const accountName =
-        profileData?.full_name ||
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "User";
-
-      await supabaseAdmin
-        .from("orders")
-        .update({
-          account_name: accountName,
-        })
-        .eq("id", createdOrderId);
-    }
+    // ⚠️ আপডেট: এখানে account_name এর পাশাপাশি status: "pending" করে দেওয়া হলো
+    await supabaseAdmin
+      .from("orders")
+      .update({
+        account_name: accountName,
+        status: "pending",
+      })
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
     return NextResponse.json(
       data ?? {
-        success: true,
-        message: "Order placed successfully",
+        success: false,
+        message: "Wallet payment response পাওয়া যায়নি",
       },
     );
   } catch (error) {
