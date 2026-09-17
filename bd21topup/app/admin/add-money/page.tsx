@@ -89,7 +89,8 @@ export default function AdminAddMoneyPage() {
       setMessage("Server-এর সাথে connection করা যায়নি।");
     } finally { setLoading(false); }
   }
-   async function reviewRequest(requestId: string, action: "approved" | "rejected") {
+
+  async function reviewRequest(requestId: string, action: "approved" | "rejected") {
     setWorkingId(requestId);
     setMessage("");
     try {
@@ -139,14 +140,17 @@ export default function AdminAddMoneyPage() {
     } finally { setWorkingId(""); }
   }
 
+  // একদম নিখুঁত Bulk Action (API Route-এর মাধ্যমে)
   async function handleBulkAction(action: "approved" | "rejected") {
     if (selectedIds.length === 0) return;
     if (action === "rejected" && !bulkRejectNote.trim()) {
       setMessage("বাতিল করার কারণ (Admin Note) উল্লেখ করা বাধ্যতামূলক!");
       return;
     }
+    
     setIsBulkLoading(true);
     setMessage("");
+
     try {
       const session = await getAdminSession();
       if (!session) return;
@@ -155,16 +159,22 @@ export default function AdminAddMoneyPage() {
         const reqItem = requests.find((r) => r.id === reqId);
         if (!reqItem || reqItem.status !== "pending") continue;
 
-        if (action === "approved") {
-          const newBalance = Number(reqItem.customer.walletBalance || 0) + Number(reqItem.amount);
-          await supabase.from("profiles").update({ wallet_balance: newBalance }).eq("id", reqItem.userId);
-          await supabase.from("add_money_requests").update({
-            status: "approved", admin_note: bulkRejectNote.trim() || null, reviewed_at: new Date().toISOString(),
-          }).eq("id", reqId);
-        } else {
-          await supabase.from("add_money_requests").update({
-            status: "rejected", admin_note: bulkRejectNote.trim(), reviewed_at: new Date().toISOString(),
-          }).eq("id", reqId);
+        const response = await fetch("/api/admin/add-money", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            requestId: reqId,
+            action: action,
+            adminNote: action === "rejected" ? bulkRejectNote.trim() : undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          const resJson = await response.json();
+          throw new Error(resJson.error || `Failed for ID: ${reqId}`);
         }
       }
 
@@ -173,10 +183,12 @@ export default function AdminAddMoneyPage() {
       setIsBulkRejectOpen(false);
       setBulkRejectNote("");
       await loadRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error("ADD MONEY BULK ACTION ERROR:", error);
-      setMessage("সার্ভারে সমস্যা হয়েছে।");
-    } finally { setIsBulkLoading(false); }
+      setMessage("সার্ভারে সমস্যা হয়েছে: " + (error.message || ""));
+    } finally { 
+      setIsBulkLoading(false); 
+    }
   }
 
   async function logout() {
@@ -229,7 +241,8 @@ export default function AdminAddMoneyPage() {
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   }
-   return (
+
+  return (
     <>
       <main className="min-h-screen w-full overflow-x-hidden bg-[#07182f] pb-24 text-white">
         <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-5">
@@ -397,7 +410,7 @@ export default function AdminAddMoneyPage() {
         </section>
       </main>
 
-      {/* Floating Bar with high z-index */}
+      {/* Floating Bulk Action Bar with high z-index */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-16 left-1/2 z-[99999] flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-cyan-400/40 bg-[#07182f]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
           <span className="whitespace-nowrap text-xs font-black text-cyan-300">{selectedIds.length} Selected</span>
@@ -422,4 +435,4 @@ export default function AdminAddMoneyPage() {
   );
 }
 
- 
+                        
