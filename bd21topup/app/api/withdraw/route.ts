@@ -1,30 +1,31 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 
-// সার্ভার সাইড সুপাবেস ক্লায়েন্ট (আপনার ভেরসেলের SUPABASE_SECRET_KEY অনুযায়ী সেট করা)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+// অ্যাডমিন ক্লায়েন্ট যা RLS পলিসি বাইপাস করে সরাসরি ডেটা ইনসার্ট করতে পারে
+const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized: No token provided" }, { status: 401 });
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    // টোকেন দিয়ে সরাসরি ইউজারের তথ্য যাচাই করা
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      return NextResponse.json({ error: "Invalid session or unauthorized user" }, { status: 401 });
     }
 
     const { amount, method, accountNumber } = await req.json();
 
-    if (!amount || amount < 100) {
+    if (!amount || Number(amount) < 100) {
       return NextResponse.json({ error: "সর্বনিম্ন ১০০ টাকা উইথড্র করতে হবে।" }, { status: 400 });
     }
 
@@ -32,13 +33,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "সঠিক পেমেন্ট মেথড এবং অ্যাকাউন্ট নম্বর দিন।" }, { status: 400 });
     }
 
-    // উইথড্রয়াল রিকোয়েস্ট ডেটাবেসে ইনসার্ট করা হচ্ছে
+    // সরাসরি অ্যাডমিন ক্লায়েন্ট দিয়ে withdrawals টেবিলে ডেটা ইনসার্ট করা
     const { error: insertError } = await supabaseAdmin
       .from("withdrawals")
       .insert([
         {
           user_id: user.id,
-          amount,
+          amount: Number(amount),
           method,
           account_number: accountNumber,
           status: "Pending",
@@ -46,12 +47,13 @@ export async function POST(req: Request) {
       ]);
 
     if (insertError) {
-      return NextResponse.json({ error: "উইথড্র রিকোয়েস্ট সাবমিট করা যায়নি।" }, { status: 500 });
+      console.error("SUPABASE INSERT ERROR:", insertError);
+      return NextResponse.json({ error: "উইথড্র রিকোয়েস্ট ডেটাবেসে সংরক্ষণ করা যায়নি।" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: "উইথড্রয়াল রিকোয়েস্ট সফলভাবে জমা হয়েছে!" });
   } catch (err) {
-    console.error("WITHDRAW API ERROR:", err);
-    return NextResponse.json({ error: "সার্ভারে সমস্যা হয়েছে।" }, { status: 500 });
+    console.error("WITHDRAW API CATCH ERROR:", err);
+    return NextResponse.json({ error: "সার্ভারে অনাকাঙ্ক্ষিত সমস্যা হয়েছে।" }, { status: 500 });
   }
 }
