@@ -12,6 +12,7 @@ type DashboardStats = {
   completedOrders: number;
   cancelledOrders: number;
   addMoneyRequests: number;
+  withdrawalRequests: number; // উইথড্রয়াল স্ট্যাটস যোগ করা হয়েছে
 };
 
 export default function AdminDashboard() {
@@ -24,6 +25,7 @@ export default function AdminDashboard() {
     completedOrders: 0,
     cancelledOrders: 0,
     addMoneyRequests: 0,
+    withdrawalRequests: 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -79,6 +81,7 @@ export default function AdminDashboard() {
           completedOrders: data.stats.completedOrders || 0,
           cancelledOrders: data.stats.cancelledOrders || 0,
           addMoneyRequests: data.stats.addMoneyRequests || 0,
+          withdrawalRequests: data.stats.withdrawalRequests || 0,
         });
       }
     } catch (error) {
@@ -106,7 +109,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const totalNotifications = stats.pendingOrders + stats.addMoneyRequests;
+  const totalNotifications = stats.pendingOrders + stats.addMoneyRequests + stats.withdrawalRequests;
 
   return (
     <main className="min-h-screen bg-[#061b35] p-4 text-white">
@@ -189,6 +192,20 @@ export default function AdminDashboard() {
                               </span>
                             </Link>
                           )}
+
+                          {(userRole === "super_admin" || userRole === "admin") && stats.withdrawalRequests > 0 && (
+                            <Link
+                              href="/admin/withdrawals"
+                              className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                            >
+                              <span className="text-xs font-bold text-white">
+                                Withdrawal Req
+                              </span>
+                              <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
+                                {stats.withdrawalRequests}
+                              </span>
+                            </Link>
+                          )}
                         </>
                       )}
                     </div>
@@ -210,7 +227,7 @@ export default function AdminDashboard() {
           {/* =================================================
               NAVIGATION
           ================================================= */}
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-6">
             <Link
               href="/admin"
               className="rounded-xl bg-cyan-400 px-4 py-2 text-center font-bold text-black transition hover:opacity-90"
@@ -231,6 +248,12 @@ export default function AdminDashboard() {
                   className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
                 >
                   Add Money
+                </Link>
+                <Link
+                  href="/admin/withdrawals"
+                  className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+                >
+                  Withdrawals
                 </Link>
                 <Link
                   href="/admin/users"
@@ -287,6 +310,11 @@ export default function AdminDashboard() {
                 value={loading ? "..." : stats.addMoneyRequests}
                 color="yellow"
               />
+              <StatCard
+                title="WITHDRAWAL REQ"
+                value={loading ? "..." : stats.withdrawalRequests}
+                color="yellow"
+              />
             </>
           )}
         </div>
@@ -302,6 +330,7 @@ export default function AdminDashboard() {
             {(userRole === "super_admin" || userRole === "admin") && (
               <>
                 <ActionLink href="/admin/add-money" text="Review Wallet" />
+                <ActionLink href="/admin/withdrawals" text="Review Withdrawals" />
                 <ActionLink href="/admin/users" text="View Users" />
               </>
             )}
@@ -314,7 +343,7 @@ export default function AdminDashboard() {
             IMPORTANT ACTIONS (ATTENTION REQUIRED)
         ===================================================== */}
         {!loading &&
-          (stats.pendingOrders > 0 || ((userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0)) && (
+          (stats.pendingOrders > 0 || ((userRole === "super_admin" || userRole === "admin") && (stats.addMoneyRequests > 0 || stats.withdrawalRequests > 0))) && (
             <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
               <h2 className="text-lg font-black text-yellow-300">
                 Attention Required
@@ -342,6 +371,20 @@ export default function AdminDashboard() {
                     </span>
                     <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
                       {stats.addMoneyRequests}
+                    </span>
+                  </Link>
+                )}
+
+                {(userRole === "super_admin" || userRole === "admin") && stats.withdrawalRequests > 0 && (
+                  <Link
+                    href="/admin/withdrawals"
+                    className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                  >
+                    <span className="text-sm font-bold">
+                      Pending Withdrawal Requests
+                    </span>
+                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
+                      {stats.withdrawalRequests}
                     </span>
                   </Link>
                 )}
