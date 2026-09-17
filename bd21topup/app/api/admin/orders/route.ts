@@ -1,34 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkUserRole } from "@/lib/admin-auth";
 
-async function getAdminUser(request: Request) {
-  const authHeader = request.headers.get("authorization");
-
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const accessToken = authHeader.replace("Bearer ", "").trim();
-
-  if (!accessToken) {
-    return null;
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(accessToken);
-
-  if (error || !user) {
-    return null;
-  }
-
-  if (user.id !== process.env.ADMIN_USER_ID) {
-    return null;
-  }
-
-  return user;
-}
+export const dynamic = "force-dynamic";
 
 /* =========================================================
    GET - Load all orders
@@ -36,10 +10,11 @@ async function getAdminUser(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const admin = await getAdminUser(request);
+    // Super Admin, Admin এবং Editor সবাই অর্ডার দেখতে পারবে
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
 
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
     const { data, error } = await supabaseAdmin
@@ -104,18 +79,18 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     /* -----------------------------------------------------
-       1. Check admin
+       1. Check admin/editor role
     ----------------------------------------------------- */
 
-    const admin = await getAdminUser(request);
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
 
-    if (!admin) {
+    if ("error" in authCheck) {
       return NextResponse.json(
         {
-          error: "Unauthorized",
+          error: authCheck.error,
         },
         {
-          status: 401,
+          status: authCheck.status,
         },
       );
     }
@@ -318,11 +293,10 @@ export async function PATCH(request: Request) {
     }
 
     /* -----------------------------------------------------
-       6. Allowed status transitions (আপডেট করা হয়েছে)
+       6. Allowed status transitions
     ----------------------------------------------------- */
 
     const allowedTransitions: Record<string, string[]> = {
-      // এখন pending থেকে সরাসরি completed এ যাওয়া যাবে
       pending: ["processing", "completed", "rejected"],
       approved: ["processing", "completed"],
       processing: ["completed"],
