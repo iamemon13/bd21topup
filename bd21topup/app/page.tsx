@@ -206,6 +206,7 @@ export default function Home() {
             {
               name: "Weekly / Monthly",
               image: "/products/weekly-monthly.png",
+              href: "/topup/weekly-monthly", // <-- লিংক যুক্ত করা হয়েছে
             },
             {
               name: "Weekly Lite",
