@@ -29,7 +29,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
-  const [userRole, setUserRole] = useState<string>("user"); // ইউজারের রোল ট্র্যাক করার স্টেট
+  const [userRole, setUserRole] = useState<string>("user");
 
   async function loadStats() {
     try {
@@ -40,7 +40,7 @@ export default function AdminDashboard() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
 
       if (res.status === 401 || res.status === 403) {
         await supabase.auth.signOut();
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -96,11 +96,11 @@ export default function AdminDashboard() {
     try {
       setLoggingOut(true);
       await supabase.auth.signOut();
-      router.replace("/admin/login");
+      router.replace("/login");
       router.refresh();
     } catch (error) {
       console.error("Admin logout error:", error);
-      router.replace("/admin/login");
+      router.replace("/login");
     } finally {
       setLoggingOut(false);
     }
@@ -176,7 +176,6 @@ export default function AdminDashboard() {
                             </Link>
                           )}
 
-                          {/* এডিটর এই নোটিফিকেশনটি দেখতে পাবে না যদি সে সুপার/অ্যাডমিন না হয় */}
                           {(userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0 && (
                             <Link
                               href="/admin/add-money"
@@ -209,7 +208,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* =================================================
-              NAVIGATION (রোল অনুযায়ী কন্ট্রোল করা হয়েছে)
+              NAVIGATION
           ================================================= */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Link
@@ -225,7 +224,6 @@ export default function AdminDashboard() {
               Orders
             </Link>
 
-            {/* শুধু Super Admin এবং Admin দেখতে পাবে */}
             {(userRole === "super_admin" || userRole === "admin") && (
               <>
                 <Link
@@ -277,7 +275,6 @@ export default function AdminDashboard() {
             color="red"
           />
 
-          {/* ফিনান্সিয়াল বা সেন্সিটিভ স্ট্যাটস শুধু সুপার/অ্যাডমিন দেখবে */}
           {(userRole === "super_admin" || userRole === "admin") && (
             <>
               <StatCard
@@ -356,9 +353,6 @@ export default function AdminDashboard() {
   );
 }
 
-/* =========================================================
-   STAT CARD
-========================================================= */
 function StatCard({
   title,
   value,
@@ -386,9 +380,6 @@ function StatCard({
   );
 }
 
-/* =========================================================
-   QUICK ACTION LINK
-========================================================= */
 function ActionLink({ href, text }: { href: string; text: string }) {
   return (
     <Link
