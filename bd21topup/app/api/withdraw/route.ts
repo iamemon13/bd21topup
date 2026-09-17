@@ -47,6 +47,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
     }
 
+    // 💡 (ঐচ্ছিক) যদি রিজেক্ট করলে ইউজারের ব্যালেন্স রিফান্ড করার সিস্টেম থাকে, 
+    // তবে এখানে profiles টেবিল আপডেট করার লজিক বসাতে পারেন।
+
     const { error: updateErr } = await supabaseAdmin
       .from("withdrawals")
       .update({ status: normalizedStatus })
