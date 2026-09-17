@@ -282,7 +282,7 @@ export default function AccountPage() {
     }
   }
 
-  async function handleWithdrawSubmit() {
+    async function handleWithdrawSubmit() {
     const amountNum = Number(withdrawAmount);
 
     if (!amountNum || amountNum < 100) {
@@ -331,10 +331,11 @@ export default function AccountPage() {
         return;
       }
 
-      setWithdrawMessage("উইথড্রয়াল রিকোয়েস্ট সফলভাবে সাবমিট হয়েছে!");
+      setWithdrawMessage("উইথড্রয়াল রিকোয়েস্ট সফলভাবে জমা হয়েছে!");
       setTimeout(() => {
         setShowWithdrawModal(false);
         loadAccount();
+        router.push("/transactions"); // সফল উইথড্র-এর পর সরাসরি ট্রানজেকশন পেজে রিডাইরেক্ট করবে
       }, 1500);
     } catch (error) {
       console.error("WITHDRAW ERROR:", error);
@@ -342,7 +343,8 @@ export default function AccountPage() {
     } finally {
       setIsSubmittingWithdraw(false);
     }
-  }
+    }
+  
     if (isLoading || !data) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07182f] px-4 text-white">
