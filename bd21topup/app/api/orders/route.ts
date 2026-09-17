@@ -1,155 +1,71 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { paymentConfig } from "@/lib/payment-config";
 
-type PaymentMethod = keyof typeof paymentConfig;
-
-async function getRequiredUser(request: Request) {
+async function verifyAdmin(request: Request) {
   const authHeader = request.headers.get("authorization");
-
   if (!authHeader?.startsWith("Bearer ")) {
-    return {
-      user: null,
-      error: "Order করতে আগে Login করুন।",
-    };
+    return { error: "Unauthorized", status: 401 };
   }
 
-  const accessToken = authHeader.replace("Bearer ", "").trim();
-
-  if (!accessToken) {
-    return {
-      user: null,
-      error: "Order করতে আগে Login করুন।",
-    };
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(accessToken);
+  const token = authHeader.replace("Bearer ", "").trim();
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
   if (error || !user) {
-    return {
-      user: null,
-      error: "আপনার Login session শেষ হয়েছে। আবার Login করুন।",
-    };
+    return { error: "Invalid session", status: 401 };
   }
 
-  return {
-    user: user,
-    error: null,
-  };
+  return { user };
 }
 
-export async function POST(request: Request) {
+// PATCH: উইথড্রাল রিকোয়েস্ট স্ট্যাটাস আপডেট (Approve / Reject)
+export async function PATCH(request: Request) {
   try {
-    const auth = await getRequiredUser(request);
-
-    if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error }, { status: 401 });
+    const authCheck = await verifyAdmin(request);
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
     const body = await request.json();
+    const { withdrawalId, status } = body;
 
-    const uid = String(body.uid || "").trim();
-    const playerName = String(body.playerName || "").trim();
-    const packageName = String(body.packageName || "").trim();
-    const paymentMethod = String(body.paymentMethod || "").trim();
-    const transactionId = String(body.transactionId || "").trim();
-
-    if (
-      !uid ||
-      !playerName ||
-      !packageName ||
-      !paymentMethod ||
-      !transactionId
-    ) {
-      return NextResponse.json(
-        { error: "সব তথ্য পূরণ করুন।" },
-        { status: 400 },
-      );
+    if (!withdrawalId || !["approved", "rejected"].includes(status?.toLowerCase())) {
+      return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
     }
 
-    if (!/^\d+$/.test(uid)) {
-      return NextResponse.json({ error: "Invalid UID." }, { status: 400 });
-    }
+    const normalizedStatus = status.toLowerCase();
 
-    const { data: packageData, error: packageError } = await supabaseAdmin
-      .from("packages")
-      .select("price")
-      .eq("name", packageName)
+    // উইথড্র রিকোয়েস্ট ফেচ করা
+    const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
+      .from("withdrawals")
+      .select("*")
+      .eq("id", withdrawalId)
       .single();
 
-    if (packageError || !packageData) {
-      return NextResponse.json({ error: "Invalid package." }, { status: 400 });
+    if (fetchErr || !withdrawalItem) {
+      return NextResponse.json({ error: "Withdrawal request পাওয়া যায়নি।" }, { status: 404 });
     }
 
-    const amount = packageData.price;
-
-    if (!(paymentMethod in paymentConfig)) {
-      return NextResponse.json(
-        { error: "Invalid payment method." },
-        { status: 400 },
-      );
+    if (withdrawalItem.status.toLowerCase() !== "pending") {
+      return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
     }
 
-    const method = paymentMethod as PaymentMethod;
-    const receiverNumber = paymentConfig[method].number;
+    // উইথড্র স্ট্যাটাস আপডেট
+    const { error: updateErr } = await supabaseAdmin
+      .from("withdrawals")
+      .update({ status: normalizedStatus })
+      .eq("id", withdrawalId);
 
-    // ১. profiles টেবিল থেকে সরাসরি বর্তমান নাম আনা
-    const { data: profileData } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name")
-      .eq("id", auth.user.id)
-      .maybeSingle();
-
-    // ২. profiles টেবিলের নামকে সর্বোচ্চ অগ্রাধিকার দেওয়া
-    const accountName =
-      profileData?.full_name ||
-      auth.user.user_metadata?.full_name ||
-      auth.user.user_metadata?.name ||
-      auth.user.email?.split("@")[0] ||
-      "User";
-
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: auth.user.id,
-        uid,
-        player_name: playerName,
-        account_name: accountName,
-        product_name: "Free Fire UID TopUp",
-        package_name: packageName,
-        amount,
-        payment_method: method,
-        receiver_number: receiverNumber,
-        transaction_id: transactionId,
-        status: "pending",
-      })
-      .select("id, user_id, status, created_at")
-      .single();
-
-    if (error) {
-      if (error.code === "23505") {
-        return NextResponse.json(
-          { error: "এই Transaction ID আগে ব্যবহার করা হয়েছে।" },
-          { status: 409 },
-        );
-      }
-      console.error("ORDER CREATE ERROR:", error);
-      return NextResponse.json(
-        { error: "Order তৈরি করা যায়নি।" },
-        { status: 500 },
-      );
+    if (updateErr) {
+      console.error("WITHDRAWAL UPDATE ERROR:", updateErr);
+      return NextResponse.json({ error: "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Order successfully submitted.",
-      order: data,
+      message: `Withdrawal request ${normalizedStatus} successfully.`,
     });
-  } catch (error) {
-    console.error("ORDER API ERROR:", error);
+  } catch (err) {
+    console.error("ADMIN WITHDRAWAL PATCH ERROR:", err);
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
