@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import BannerSlider from "./BannerSlider";
-import RecentOrders from "@/components/RecentOrders"; // <--- নতুন ইমপোর্ট
+import RecentOrders from "@/components/RecentOrders";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -168,15 +168,25 @@ export default function Home() {
 
       {/* Support Buttons */}
       <section className="mx-auto grid max-w-7xl grid-cols-2 gap-3 px-5 py-5 sm:gap-4">
-        <button className="rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400">
+        <a
+          href="https://t.me/BD21Support"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400 hover:bg-[#0d3159]"
+        >
           <div className="text-xs text-cyan-300">SUPPORT</div>
           <div className="font-bold">Telegram</div>
-        </button>
+        </a>
 
-        <button className="rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400">
-          <div className="text-xs text-cyan-300">GROUP</div>
-          <div className="font-bold">Join Group</div>
-        </button>
+        <a
+          href="https://t.me/bd21topup"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400 hover:bg-[#0d3159]"
+        >
+          <div className="text-xs text-cyan-300">OFFERS</div>
+          <div className="font-bold">Join Channel</div>
+        </a>
       </section>
 
       {/* Topup Section */}
@@ -282,7 +292,7 @@ export default function Home() {
               </p>
               <div className="mt-6 flex flex-wrap gap-4">
                 <a
-                  href="https://t.me/"
+                  href="https://t.me/bd21topup"
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl bg-cyan-400 px-6 py-3 font-bold text-[#06172e] transition hover:bg-cyan-300"
@@ -307,9 +317,14 @@ export default function Home() {
                   কোনো সমস্যা, প্রশ্ন বা অর্ডার আপডেটের জন্য Telegram-এ যোগাযোগ
                   করুন।
                 </p>
-                <div className="mt-5 rounded-xl bg-white/10 px-4 py-3 text-sm text-cyan-300">
+                <a
+                  href="https://t.me/BD21Support"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 block rounded-xl bg-white/10 px-4 py-3 text-sm text-cyan-300 transition hover:bg-cyan-400/20"
+                >
                   Fast Response • Offer Update • Support Help
-                </div>
+                </a>
               </div>
             </div>
           </div>
@@ -332,16 +347,32 @@ export default function Home() {
           </div>
           <div>
             <h3 className="text-xl font-black">Contact Us</h3>
-            <div className="mt-4 rounded-xl bg-[#0b2545] p-5">
-              <div className="font-semibold">Telegram HelpLine</div>
+            <a
+              href="https://t.me/BD21Support"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 block rounded-xl bg-[#0b2545] p-5 transition hover:border hover:border-cyan-400"
+            >
+              <div className="font-semibold text-white">Telegram HelpLine</div>
               <div className="mt-1 text-sm text-slate-400">
-                Support available every day
+                Support available every day (Click to message)
               </div>
-            </div>
+            </a>
           </div>
         </div>
         <div className="border-t border-white/5 py-5 text-center text-xs text-slate-500">
-          © 2026 BD21 Top Up. All Rights Reserved.
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <span>© 2026 BD21 Top Up. All Rights Reserved.</span>
+            <span className="hidden sm:inline">|</span>
+            <div className="flex gap-4">
+              <Link href="/privacy" className="hover:text-cyan-400 transition">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:text-cyan-400 transition">
+                Terms of Service
+              </Link>
+            </div>
+          </div>
         </div>
       </footer>
     </main>
