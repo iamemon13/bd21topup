@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import NotificationBell from "@/components/NotificationBell";
+
 type RankJourneyItem = {
   name: string;
   min: number;
@@ -85,7 +86,14 @@ export default function AccountPage() {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  async function loadAccount() {
+  // Withdraw States
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawMethod, setWithdrawMethod] = useState("bKash");
+  const [withdrawAccountNumber, setWithdrawAccountNumber] = useState("");
+  const [withdrawMessage, setWithdrawMessage] = useState("");
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
+    async function loadAccount() {
     setIsLoading(true);
     setMessage("Loading account...");
 
@@ -272,6 +280,68 @@ export default function AccountPage() {
       setIsChangingPassword(false);
     }
   }
+
+  async function handleWithdrawSubmit() {
+    const amountNum = Number(withdrawAmount);
+
+    if (!amountNum || amountNum < 100) {
+      setWithdrawMessage("কমপক্ষে ১০০ টাকা উইথড্র করতে হবে।");
+      return;
+    }
+
+    if (data && amountNum > data.account.walletBalance) {
+      setWithdrawMessage("আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।");
+      return;
+    }
+
+    if (!/^01\d{9}$/.test(withdrawAccountNumber)) {
+      setWithdrawMessage("সঠিক ১১ ডিজিটের বিকাশ/নগদ নম্বর দিন।");
+      return;
+    }
+
+    setIsSubmittingWithdraw(true);
+    setWithdrawMessage("");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
+        return;
+      }
+
+      const response = await fetch("/api/withdraw", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          amount: amountNum,
+          method: withdrawMethod,
+          accountNumber: withdrawAccountNumber,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setWithdrawMessage(result.error || "রিকোয়েস্ট পাঠানো ব্যর্থ হয়েছে।");
+        setIsSubmittingWithdraw(false);
+        return;
+      }
+
+      setWithdrawMessage("উইথড্রয়াল রিকোয়েস্ট সফলভাবে সাবমিট হয়েছে!");
+      setTimeout(() => {
+        setShowWithdrawModal(false);
+        loadAccount();
+      }, 1500);
+    } catch (error) {
+      console.error("WITHDRAW ERROR:", error);
+      setWithdrawMessage("সার্ভারে সমস্যা হয়েছে।");
+    } finally {
+      setIsSubmittingWithdraw(false);
+    }
+          }
     if (isLoading || !data) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07182f] px-4 text-white">
@@ -374,12 +444,28 @@ export default function AccountPage() {
               </div>
             </div>
 
-            <Link
-              href="/add-money"
-              className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-cyan-400 text-sm font-black text-[#06172e] transition hover:brightness-95"
-            >
-              Add Money
-            </Link>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Link
+                href="/add-money"
+                className="flex h-11 w-full items-center justify-center rounded-xl bg-cyan-400 text-sm font-black text-[#06172e] transition hover:brightness-95"
+              >
+                Add Money
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setWithdrawMessage("");
+                  setWithdrawAmount("");
+                  setWithdrawMethod("bKash");
+                  setWithdrawAccountNumber("");
+                  setShowWithdrawModal(true);
+                }}
+                className="flex h-11 w-full items-center justify-center rounded-xl border border-cyan-400/30 bg-[#07182f] text-sm font-black text-cyan-300 transition hover:border-cyan-400"
+              >
+                Withdraw
+              </button>
+            </div>
           </div>
         </section>
 
@@ -483,7 +569,7 @@ export default function AccountPage() {
               <h3 className="mt-1 text-sm font-black">User Information</h3>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -495,7 +581,7 @@ export default function AccountPage() {
                 }}
                 className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-[10px] font-black text-cyan-300 transition hover:border-cyan-400"
               >
-                🔒 Change Password
+                🔒 Password
               </button>
 
               <button
@@ -541,7 +627,6 @@ export default function AccountPage() {
                   }
                 }}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#07182f] text-xl text-slate-400"
-                aria-label="Close edit profile"
               >
                 ×
               </button>
@@ -585,8 +670,7 @@ export default function AccountPage() {
                   {account.email}
                 </div>
                 <p className="mt-2 text-[10px] leading-4 text-slate-500">
-                  Email আপনার login account থেকে আসে, তাই Profile Edit থেকে
-                  পরিবর্তন করা যাবে না।
+                  Email আপনার login account থেকে আসে, তাই Profile Edit থেকে পরিবর্তন করা যাবে না।
                 </p>
               </div>
             </div>
@@ -644,7 +728,6 @@ export default function AccountPage() {
                   }
                 }}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#07182f] text-xl text-slate-400"
-                aria-label="Close change password"
               >
                 ×
               </button>
@@ -728,6 +811,108 @@ export default function AccountPage() {
           </div>
         </div>
       )}
+{/* Withdraw Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                  Wallet
+                </p>
+                <h2 className="mt-1 text-xl font-black">Withdraw Money</h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSubmittingWithdraw) setShowWithdrawModal(false);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#07182f] text-xl text-slate-400"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Amount (৳)
+                </span>
+                <input
+                  type="number"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="যেমন: 500"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Payment Method
+                </span>
+                <select
+                  value={withdrawMethod}
+                  onChange={(e) => setWithdrawMethod(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                >
+                  <option value="bKash">bKash</option>
+                  <option value="Nagad">Nagad</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Account Number (Personal)
+                </span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={withdrawAccountNumber}
+                  onChange={(e) =>
+                    setWithdrawAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 11))
+                  }
+                  placeholder="01XXXXXXXXX"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+            </div>
+
+            {withdrawMessage && (
+              <div
+                className={`mt-4 rounded-xl border px-4 py-3 text-xs font-bold ${
+                  withdrawMessage.includes("সফলভাবে")
+                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                    : "border-amber-400/20 bg-amber-400/10 text-amber-200"
+                }`}
+              >
+                {withdrawMessage}
+              </div>
+            )}
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isSubmittingWithdraw}
+                onClick={() => setShowWithdrawModal(false)}
+                className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isSubmittingWithdraw}
+                onClick={handleWithdrawSubmit}
+                className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
+              >
+                {isSubmittingWithdraw ? "Submitting..." : "Confirm Withdraw"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -776,7 +961,7 @@ function RankJourneyRow({ item }: { item: RankJourneyItem }) {
         <p className="mt-0.5 text-[9px] text-slate-500">{range}</p>
       </div>
 
-       <span
+      <span
         className={`rounded-full border px-2 py-1 text-[8px] font-black uppercase ${
           item.state === "current"
             ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-300"
