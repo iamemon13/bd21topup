@@ -1,28 +1,19 @@
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkUserRole } from "@/lib/admin-auth";
 
-async function getAdminUser(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const token = authHeader.replace("Bearer ", "").trim();
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) return null;
-  return user;
-}
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const admin = await getAdminUser(request);
-    if (!admin) {
+    // বাল্ক রিকোয়েস্ট শুধু super_admin এবং admin করতে পারবে
+    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
+
+    if ("error" in authCheck) {
       return NextResponse.json(
-        { error: "Unauthorized access." },
-        { status: 401 }
+        { error: authCheck.error },
+        { status: authCheck.status }
       );
     }
 
