@@ -102,7 +102,8 @@ export default function AdminWithdrawalsPage() {
       setTimeout(() => setCopiedId(null), 1500);
     } catch (err) { console.error("Copy failed", err); }
   }
-    return (
+
+  return (
     <main className="min-h-screen bg-[#061b35] p-4 pb-24 text-white sm:p-6">
       <div className="mx-auto max-w-4xl space-y-4">
         {/* Header */}
