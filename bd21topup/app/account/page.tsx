@@ -77,6 +77,14 @@ export default function AccountPage() {
   const [editMessage, setEditMessage] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Change Password States
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   async function loadAccount() {
     setIsLoading(true);
     setMessage("Loading account...");
@@ -207,7 +215,64 @@ export default function AccountPage() {
     }
   }
 
-  if (isLoading || !data) {
+  async function handleChangePassword() {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordMessage("সবগুলো ফিল্ড পূরণ করুন।");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordMessage("নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড এক হয়নি।");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordMessage("");
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: data?.account.email || "",
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        setPasswordMessage("বর্তমান পাসওয়ার্ড সঠিক নয়।");
+        setIsChangingPassword(false);
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setPasswordMessage(updateError.message || "পাসওয়ার্ড পরিবর্তন করা যায়নি।");
+        setIsChangingPassword(false);
+        return;
+      }
+
+      setPasswordMessage("পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+
+      setTimeout(() => {
+        setShowChangePassword(false);
+        setPasswordMessage("");
+      }, 1500);
+    } catch (error) {
+      console.error("PASSWORD CHANGE ERROR:", error);
+      setPasswordMessage("সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন।");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }
+    if (isLoading || !data) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07182f] px-4 text-white">
         <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] px-6 py-5 text-center text-sm font-bold text-slate-300">
@@ -230,29 +295,13 @@ export default function AccountPage() {
             ←
           </Link>
 
-          <div
-            className="
-            flex
-            items-center
-            gap-2
-            "
-          >
+          <div className="flex items-center gap-2">
             <NotificationBell />
 
             <button
               type="button"
               onClick={handleLogout}
-              className="
-              rounded-xl
-              border
-              border-cyan-400/15
-              bg-[#07182f]
-              px-3
-              py-2
-              text-[11px]
-              font-black
-              text-cyan-300
-              "
+              className="rounded-xl border border-cyan-400/15 bg-[#07182f] px-3 py-2 text-[11px] font-black text-cyan-300"
             >
               Logout
             </button>
@@ -434,13 +483,29 @@ export default function AccountPage() {
               <h3 className="mt-1 text-sm font-black">User Information</h3>
             </div>
 
-            <button
-              type="button"
-              onClick={openEditProfile}
-              className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-[10px] font-black text-cyan-300 transition hover:border-cyan-400"
-            >
-              ✎ Edit Profile
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPasswordMessage("");
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                  setShowChangePassword(true);
+                }}
+                className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-[10px] font-black text-cyan-300 transition hover:border-cyan-400"
+              >
+                🔒 Change Password
+              </button>
+
+              <button
+                type="button"
+                onClick={openEditProfile}
+                className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-[10px] font-black text-cyan-300 transition hover:border-cyan-400"
+              >
+                ✎ Edit Profile
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -455,6 +520,7 @@ export default function AccountPage() {
         </section>
       </div>
 
+      {/* Edit Profile Modal */}
       {showEditProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
@@ -556,6 +622,112 @@ export default function AccountPage() {
           </div>
         </div>
       )}
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                  Security
+                </p>
+                <h2 className="mt-1 text-xl font-black">Change Password</h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isChangingPassword) {
+                    setShowChangePassword(false);
+                    setPasswordMessage("");
+                  }
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#07182f] text-xl text-slate-400"
+                aria-label="Close change password"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Current Password
+                </span>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  New Password
+                </span>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Confirm New Password
+                </span>
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+            </div>
+
+            {passwordMessage && (
+              <div
+                className={`mt-4 rounded-xl border px-4 py-3 text-xs font-bold ${
+                  passwordMessage.includes("সফলভাবে")
+                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                    : "border-amber-400/20 bg-amber-400/10 text-amber-200"
+                }`}
+              >
+                {passwordMessage}
+              </div>
+            )}
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isChangingPassword}
+                onClick={() => {
+                  setShowChangePassword(false);
+                  setPasswordMessage("");
+                }}
+                className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isChangingPassword}
+                onClick={handleChangePassword}
+                className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
+              >
+                {isChangingPassword ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -604,7 +776,7 @@ function RankJourneyRow({ item }: { item: RankJourneyItem }) {
         <p className="mt-0.5 text-[9px] text-slate-500">{range}</p>
       </div>
 
-      <span
+       <span
         className={`rounded-full border px-2 py-1 text-[8px] font-black uppercase ${
           item.state === "current"
             ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-300"
