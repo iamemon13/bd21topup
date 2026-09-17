@@ -53,27 +53,27 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#07182f] text-white">
-      {/* Header - Sticky on scroll & shows BD21 name on mobile */}
+      {/* Header - Sticky on scroll & FFbazar style Single-line Brand Name */}
       <header className="sticky top-0 z-40 border-b border-cyan-400/15 bg-[#081c36]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-2.5 sm:px-5 sm:py-4">
-          {/* Logo & Brand Name */}
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3.5">
+          {/* Logo & Brand Name - Clean Single Line */}
           <Link href="/" className="flex items-center gap-2 sm:gap-3">
             <Image
               src="/logo/bd21-logo.png"
               alt="BD21 Top Up"
               width={64}
               height={64}
-              className="h-9 w-9 rounded-xl object-cover sm:h-14 sm:w-14"
+              className="h-8 w-8 rounded-lg object-cover sm:h-11 sm:w-11"
               priority
             />
 
-            <div className="leading-none">
-              <div className="text-base font-black sm:text-xl">
+            <div className="flex items-center gap-1.5 text-lg font-black tracking-tight text-white sm:text-2xl">
+              <span>
                 BD<span className="text-cyan-400">21</span>
-              </div>
-              <div className="mt-0.5 text-[7px] font-bold tracking-[2.5px] text-slate-300 sm:mt-1 sm:text-[8px] sm:tracking-[3px]">
-                TOP UP
-              </div>
+              </span>
+              <span className="text-sm font-extrabold uppercase tracking-wide text-slate-200 sm:text-lg">
+                Top Up
+              </span>
             </div>
           </Link>
 
@@ -97,13 +97,13 @@ export default function Home() {
 
             {/* Login / My Account Logic */}
             {loadingAuth ? (
-              <div className="h-8 sm:h-9 w-24 sm:w-28 animate-pulse rounded-full bg-cyan-400/20"></div>
+              <div className="h-8 w-24 animate-pulse rounded-full bg-cyan-400/20 sm:h-9 sm:w-28"></div>
             ) : isLoggedIn ? (
               <Link
                 href="/account"
                 className="flex items-center gap-1.5 sm:gap-2"
               >
-                <div className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-cyan-400/20 bg-[#0b2545] px-2.5 py-1 text-[11px] font-bold text-cyan-300 shadow-sm transition hover:border-cyan-400 sm:px-3 sm:py-1.5 sm:text-sm">
+                <div className="flex items-center gap-1 rounded-full border border-cyan-400/20 bg-[#0b2545] px-2.5 py-1 text-[11px] font-bold text-cyan-300 shadow-sm transition hover:border-cyan-400 sm:px-3 sm:py-1.5 sm:text-sm">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -175,7 +175,7 @@ export default function Home() {
           rel="noopener noreferrer"
           className="block rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400 hover:bg-[#0d3159]"
         >
-          <div className="text-xs text-cyan-300 font-medium">SUPPORT</div>
+          <div className="text-xs font-medium text-cyan-300">SUPPORT</div>
           <div className="font-bold text-white">Telegram HelpLine</div>
         </a>
 
@@ -185,7 +185,7 @@ export default function Home() {
           rel="noopener noreferrer"
           className="block rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400 hover:bg-[#0d3159]"
         >
-          <div className="text-xs text-cyan-300 font-medium">COMMUNITY</div>
+          <div className="text-xs font-medium text-cyan-300">COMMUNITY</div>
           <div className="font-bold text-white">Join Channel</div>
         </a>
       </section>
@@ -193,7 +193,7 @@ export default function Home() {
       {/* Topup Products Grid */}
       <section id="topup" className="mx-auto max-w-7xl px-5 py-6">
         <div className="mb-8 text-center">
-          <h2 className="mt-2 text-3xl font-black">FF TOPUP</h2>
+          <h2 className="text-3xl font-black">FF TOPUP</h2>
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
@@ -318,7 +318,7 @@ export default function Home() {
                   href="https://t.me/BD21Support"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 inline-block rounded-xl bg-cyan-400/20 border border-cyan-400/40 px-5 py-2.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400 hover:text-[#06172e]"
+                  className="mt-4 inline-block rounded-xl border border-cyan-400/40 bg-cyan-400/20 px-5 py-2.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400 hover:text-[#06172e]"
                 >
                   Contact Helpline
                 </a>
