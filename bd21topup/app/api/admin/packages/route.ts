@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export const dynamic = "force-dynamic"; // Vercel Caching Fix
+export const dynamic = "force-dynamic";
 
 // অ্যাডমিন চেক করার ফাংশন
 async function getAdminUser(request: Request) {
@@ -16,7 +16,6 @@ async function getAdminUser(request: Request) {
 
   if (error || !user) return null;
 
-  // অ্যাডমিন আইডি চেক
   if (process.env.ADMIN_USER_ID && user.id !== process.env.ADMIN_USER_ID) {
     return null;
   }
@@ -35,7 +34,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("packages")
       .select("*")
-      .order("price", { ascending: true }); // দাম অনুযায়ী সাজানো থাকবে
+      .order("price", { ascending: true });
 
     if (error) {
       console.error("DB Error:", error);
@@ -55,7 +54,7 @@ export async function GET(request: Request) {
   }
 }
 
-// দাম আপডেট করার জন্য PUT মেথড
+// প্যাকেজের নাম এবং দাম আপডেট করার জন্য PUT মেথড
 export async function PUT(request: Request) {
   try {
     const admin = await getAdminUser(request);
@@ -63,15 +62,16 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id, price } = await request.json();
+    const { id, name, price } = await request.json();
 
-    if (!id || typeof price !== "number") {
+    if (!id || !name || typeof price !== "number") {
       return NextResponse.json({ error: "সঠিক ডাটা দিন" }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
       .from("packages")
       .update({
+        name: name.trim(),
         price,
         updated_at: new Date().toISOString(),
       })
@@ -80,14 +80,14 @@ export async function PUT(request: Request) {
     if (error) {
       console.error("Update Error:", error);
       return NextResponse.json(
-        { error: "দাম আপডেট করা যায়নি", details: error.message },
+        { error: "আপডেট করা যায়নি", details: error.message },
         { status: 500 },
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "প্যাকেজের দাম সফলভাবে আপডেট হয়েছে!",
+      message: "প্যাকেজ সফলভাবে আপডেট হয়েছে!",
     });
   } catch (error: any) {
     console.error("Update API Error:", error);
