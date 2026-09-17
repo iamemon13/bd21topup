@@ -93,6 +93,7 @@ export default function CustomerLoginPage() {
     setPassword("");
     setConfirmPassword("");
   }
+
   async function handleGoogleLogin() {
     setMessage("");
     setMessageType("error");
@@ -127,6 +128,39 @@ export default function CustomerLoginPage() {
 
       setMessage("Google login শুরু করা যায়নি।");
 
+      setIsLoading(false);
+    }
+  }
+
+  // পাসওয়ার্ড রিসেট বা ফোরগট পাসওয়ার্ড ফাংশন
+  async function handleForgotPassword() {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setMessageType("error");
+      setMessage("আগে উপরের Email বক্সে আপনার ইমেলটি লিখুন।");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: `${window.location.origin}/account`,
+      });
+
+      if (error) {
+        setMessageType("error");
+        setMessage(error.message);
+      } else {
+        setMessageType("success");
+        setMessage("পাসওয়ার্ড রিসেট লিংক আপনার ইমেলে পাঠানো হয়েছে ✅ চেক করুন।");
+      }
+    } catch (err) {
+      console.error("FORGOT PASSWORD ERROR:", err);
+      setMessageType("error");
+      setMessage("কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+    } finally {
       setIsLoading(false);
     }
   }
@@ -411,6 +445,18 @@ export default function CustomerLoginPage() {
               mode === "login" ? "current-password" : "new-password"
             }
           />
+
+          {mode === "login" && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs text-cyan-400 transition hover:underline"
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
 
           {mode === "signup" && (
             <Field
