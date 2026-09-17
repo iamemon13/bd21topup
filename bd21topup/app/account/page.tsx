@@ -93,7 +93,8 @@ export default function AccountPage() {
   const [withdrawAccountNumber, setWithdrawAccountNumber] = useState("");
   const [withdrawMessage, setWithdrawMessage] = useState("");
   const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
-    async function loadAccount() {
+
+  async function loadAccount() {
     setIsLoading(true);
     setMessage("Loading account...");
 
@@ -341,7 +342,7 @@ export default function AccountPage() {
     } finally {
       setIsSubmittingWithdraw(false);
     }
-          }
+  }
     if (isLoading || !data) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07182f] px-4 text-white">
@@ -811,7 +812,7 @@ export default function AccountPage() {
           </div>
         </div>
       )}
-{/* Withdraw Modal */}
+      {/* Withdraw Modal */}
       {showWithdrawModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
