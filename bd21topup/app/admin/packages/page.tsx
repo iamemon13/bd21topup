@@ -24,7 +24,9 @@ const CATEGORIES = [
 export default function AdminPackages() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState<string>("");
   const [editPrice, setEditPrice] = useState<string>("");
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -61,7 +63,11 @@ export default function AdminPackages() {
     }
   }
 
-  async function handleUpdatePrice(id: string) {
+  async function handleUpdatePackage(id: string) {
+    if (!editName.trim()) {
+      alert("প্যাকেজের নাম লিখুন");
+      return;
+    }
     if (!editPrice || isNaN(Number(editPrice))) {
       alert("সঠিক দাম লিখুন");
       return;
@@ -81,13 +87,14 @@ export default function AdminPackages() {
         },
         body: JSON.stringify({
           id,
+          name: editName.trim(),
           price: Number(editPrice),
         }),
       });
 
       const result = await response.json();
       if (result.success) {
-        alert("দাম আপডেট হয়েছে!");
+        alert("প্যাকেজ সফলভাবে আপডেট হয়েছে!");
         setEditingId(null);
         fetchPackages();
       } else {
@@ -111,12 +118,10 @@ export default function AdminPackages() {
     );
   }
 
-  // ফিল্টার এবং স্পেশাল শর্টিং লজিক (Weekly ও Monthly কে উপরে রাখার জন্য)
   const filteredPackages = packages
     .filter((pkg) => {
       const cat = pkg.category || "uid";
       const nameLower = pkg.name.trim().toLowerCase();
-      
       const isBasicWeeklyMonthly = nameLower === "weekly" || nameLower === "monthly";
 
       if (selectedCategory === "uid") {
@@ -132,23 +137,14 @@ export default function AdminPackages() {
     .sort((a, b) => {
       const nameA = a.name.trim().toLowerCase();
       const nameB = b.name.trim().toLowerCase();
-
-      // Weekly কে সবার উপরে (Rank 1), Monthly কে ২য় (Rank 2) রাখার লজিক
       const getRank = (name: string) => {
         if (name === "weekly") return 1;
         if (name === "monthly") return 2;
         return 3;
       };
-
       const rankA = getRank(nameA);
       const rankB = getRank(nameB);
-
-      // যদি Rank আলাদা হয়, তাহলে ছোট Rank আগে বসবে
-      if (rankA !== rankB) {
-        return rankA - rankB;
-      }
-
-      // বাকি ডায়মন্ড প্যাকগুলোকে দামের ক্রমানুসারে সাজানো হবে
+      if (rankA !== rankB) return rankA - rankB;
       return a.price - b.price;
     });
 
@@ -158,7 +154,7 @@ export default function AdminPackages() {
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-400/20 pb-5">
           <div>
             <h1 className="text-2xl font-black text-cyan-400">BD21 ADMIN</h1>
-            <p className="text-sm text-slate-400">Manage Package Prices</p>
+            <p className="text-sm text-slate-400">Manage Package Names & Prices</p>
           </div>
           <div className="flex gap-3">
             <Link
@@ -219,42 +215,53 @@ export default function AdminPackages() {
                     key={pkg.id}
                     className="rounded-xl border border-cyan-400/20 bg-[#0b2545] p-5 transition hover:border-cyan-400"
                   >
-                    <div className="text-sm font-bold text-cyan-100">{pkg.name}</div>
-
                     {editingId === pkg.id ? (
-                      <div className="mt-4 flex gap-2">
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full rounded-lg border border-cyan-400/30 bg-[#06172e] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                          placeholder="Package Name"
+                        />
                         <input
                           type="number"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
                           className="w-full rounded-lg border border-cyan-400/30 bg-[#06172e] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
-                          placeholder="New Price"
+                          placeholder="Package Price"
                         />
-                        <button
-                          onClick={() => handleUpdatePrice(pkg.id)}
-                          className="rounded-lg bg-green-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-green-400"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="rounded-lg bg-slate-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-500"
-                        >
-                          X
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdatePackage(pkg.id)}
+                            className="w-full rounded-lg bg-green-500 py-2 text-xs font-bold text-white transition hover:bg-green-400"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="rounded-lg bg-slate-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-500"
+                          >
+                            X
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="text-xl font-black text-cyan-400">৳{pkg.price}</div>
-                        <button
-                          onClick={() => {
-                            setEditingId(pkg.id);
-                            setEditPrice(pkg.price.toString());
-                          }}
-                          className="rounded-lg bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-400 transition hover:bg-cyan-400 hover:text-[#06172e]"
-                        >
-                          Edit Price
-                        </button>
+                      <div>
+                        <div className="text-sm font-bold text-cyan-100">{pkg.name}</div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="text-xl font-black text-cyan-400">৳{pkg.price}</div>
+                          <button
+                            onClick={() => {
+                              setEditingId(pkg.id);
+                              setEditName(pkg.name);
+                              setEditPrice(pkg.price.toString());
+                            }}
+                            className="rounded-lg bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-400 transition hover:bg-cyan-400 hover:text-[#06172e]"
+                          >
+                            Edit
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
