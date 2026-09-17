@@ -83,7 +83,7 @@ export default function AdminOrdersPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -96,7 +96,7 @@ export default function AdminOrdersPage() {
 
       if (response.status === 401 || response.status === 403) {
         await supabase.auth.signOut();
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -198,7 +198,7 @@ export default function AdminOrdersPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -258,7 +258,7 @@ export default function AdminOrdersPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -323,7 +323,7 @@ export default function AdminOrdersPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -381,8 +381,7 @@ export default function AdminOrdersPage() {
       setIsBulkLoading(false);
     }
   }
-
-  return (
+    return (
     <>
       <main className="min-h-screen bg-[#07182f] px-3 py-4 text-white sm:px-5">
         <div className="mx-auto w-full max-w-6xl">
@@ -412,7 +411,7 @@ export default function AdminOrdersPage() {
                   type="button"
                   onClick={async () => {
                     await supabase.auth.signOut();
-                    router.replace("/admin/login");
+                    router.replace("/login");
                   }}
                   className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]"
                 >
@@ -618,7 +617,7 @@ export default function AdminOrdersPage() {
                       <Info
                         label="Payment"
                         value={order.payment_method.toUpperCase()}
-                                           />
+                      />
                       <Info
                         label="Receiver"
                         value={order.receiver_number || "Wallet Payment"}
