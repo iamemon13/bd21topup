@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 
-// সার্ভার সাইড সুপাবেস ক্লায়েন্ট (সিক্রেট রোল বা সাধারণ ক্লায়েন্ট)
+// সার্ভার সাইড সুপাবেস ক্লায়েন্ট (আপনার ভেরসেলের SUPABASE_SECRET_KEY অনুযায়ী সেট করা)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export async function POST(req: Request) {
@@ -32,8 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "সঠিক পেমেন্ট মেথড এবং অ্যাকাউন্ট নম্বর দিন।" }, { status: 400 });
     }
 
-    // ইউজারের কারেন্ট প্রোফাইল/ওয়ালেট ব্যালেন্স চেক করার জন্য আপনার একাউন্ট এপিআই লজিক বা টেবিল চেক করতে পারেন
-    // এখানে উদাহরণস্বরূপ সরাসরি উইথড্রয়াল রিকোয়েস্ট ইনসার্ট করা হচ্ছে:
+    // উইথড্রয়াল রিকোয়েস্ট ডেটাবেসে ইনসার্ট করা হচ্ছে
     const { error: insertError } = await supabaseAdmin
       .from("withdrawals")
       .insert([
@@ -56,4 +55,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "সার্ভারে সমস্যা হয়েছে।" }, { status: 500 });
   }
 }
-
