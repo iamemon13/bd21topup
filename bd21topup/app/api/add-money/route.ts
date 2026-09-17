@@ -14,7 +14,6 @@ async function verifyAdmin(request: Request) {
     return { error: "Invalid session", status: 401 };
   }
 
-  // চেক করতে পারেন ইউজার অ্যাডমিন কি না (আপনার রোল সিস্টেমে যেভাবে করা আছে)
   return { user };
 }
 
@@ -40,10 +39,10 @@ export async function GET(request: Request) {
         created_at,
         reviewed_at,
         profiles:user_id (
-          fullName:full_name,
+          full_name,
           email,
           phone,
-          walletBalance:wallet_balance
+          wallet_balance
         )
       `)
       .order("created_at", { ascending: false });
@@ -53,7 +52,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Requests load করা যায়নি।" }, { status: 500 });
     }
 
-    // ফ্রন্টএন্ডের সুবিধার জন্য অবজেক্ট স্ট্রাকচার ফরম্যাট করা
     const formattedRequests = (requests || []).map((item: any) => ({
       id: item.id,
       userId: item.user_id,
@@ -66,10 +64,10 @@ export async function GET(request: Request) {
       createdAt: item.created_at,
       reviewedAt: item.reviewed_at,
       customer: {
-        fullName: item.profiles?.fullName || "Unknown",
+        fullName: item.profiles?.full_name || "Unknown",
         email: item.profiles?.email || "",
         phone: item.profiles?.phone || "",
-        walletBalance: item.profiles?.walletBalance || 0,
+        walletBalance: item.profiles?.wallet_balance || 0,
       },
     }));
 
@@ -80,7 +78,7 @@ export async function GET(request: Request) {
   }
 }
 
-// PATCH / POST: সিঙ্গেল বা বাল্ক রিভিউ (Approve / Reject)
+// PATCH: সিঙ্গেল বা বাল্ক রিভিউ (Approve / Reject)
 export async function PATCH(request: Request) {
   try {
     const authCheck = await verifyAdmin(request);
@@ -95,7 +93,6 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
     }
 
-    // রিকোয়েস্ট ডাটা ফেচ করা
     const { data: reqItem, error: fetchErr } = await supabaseAdmin
       .from("add_money_requests")
       .select("*")
@@ -111,21 +108,19 @@ export async function PATCH(request: Request) {
     }
 
     if (action === "approved") {
-      // ইউজারের বর্তমান ওয়ালেট ব্যালেন্স আনা
-      const { data: profile, profileErr } = await supabaseAdmin
+      const { data: profile, error: profileErr } = await supabaseAdmin
         .from("profiles")
         .select("wallet_balance")
         .eq("id", reqItem.user_id)
         .single();
 
-      if (profileErr) {
+      if (profileErr || !profile) {
         return NextResponse.json({ error: "User profile পাওয়া যায়নি।" }, { status: 404 });
       }
 
       const currentBalance = Number(profile?.wallet_balance || 0);
       const newBalance = currentBalance + Number(reqItem.amount);
 
-      // ওয়ালেট ব্যালেন্স আপডেট
       const { error: walletErr } = await supabaseAdmin
         .from("profiles")
         .update({ wallet_balance: newBalance })
@@ -136,7 +131,6 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // রিকোয়েস্ট স্ট্যাটাস আপডেট
     const { error: updateErr } = await supabaseAdmin
       .from("add_money_requests")
       .update({
