@@ -148,7 +148,7 @@ export default function Home() {
           <div className="notice-window flex min-w-0 flex-1 items-center overflow-hidden">
             <div className="notice-track">
               <span>
-                ১৮ বছরের নিচে কেউ অর্ডার করবেন না। বাবা-মা/পরিবারের অনুমতি ছাড়া
+                ১৮ বছরের নিচে কেউ অর্ডার করবেন শাহ। বাবা-মা/পরিবারের অনুমতি ছাড়া
                 বা অন্যের টাকা ব্যবহার করে অর্ডার করা সম্পূর্ণ নিষিদ্ধ। এ ধরনের
                 ঘটনায় প্রযোজ্য আইন অনুযায়ী ব্যবস্থা নেওয়া হতে পারে।
               </span>
@@ -206,11 +206,12 @@ export default function Home() {
             {
               name: "Weekly / Monthly",
               image: "/products/weekly-monthly.png",
-              href: "/topup/weekly-monthly", // <-- লিংক যুক্ত করা হয়েছে
+              href: "/topup/weekly-monthly",
             },
             {
               name: "Weekly Lite",
               image: "/products/weekly-lite.png",
+              href: "/topup/weekly-lite", // <-- এখানে লিংকটি যুক্ত করা হয়েছে
             },
             {
               name: "Level Up Pass",
