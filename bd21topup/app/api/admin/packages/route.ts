@@ -1,34 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
-
-// অ্যাডমিন চেক করার ফাংশন
-async function getAdminUser(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const token = authHeader.replace("Bearer ", "").trim();
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) return null;
-
-  if (process.env.ADMIN_USER_ID && user.id !== process.env.ADMIN_USER_ID) {
-    return null;
-  }
-
-  return user;
-}
 
 // প্যাকেজের লিস্ট দেখার জন্য GET মেথড
 export async function GET(request: Request) {
   try {
-    const admin = await getAdminUser(request);
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
     const { data, error } = await supabaseAdmin
@@ -57,9 +38,9 @@ export async function GET(request: Request) {
 // প্যাকেজের নাম এবং দাম আপডেট করার জন্য PUT মেথড
 export async function PUT(request: Request) {
   try {
-    const admin = await getAdminUser(request);
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
     const { id, name, price } = await request.json();
