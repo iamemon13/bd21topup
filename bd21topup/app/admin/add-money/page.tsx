@@ -219,8 +219,7 @@ export default function AdminAddMoneyPage() {
       setWorkingId("");
     }
   }
-
-  // বাল্ক অ্যাকশন হ্যান্ডলার
+  // বাল্ক অ্যাকশন হ্যান্ডলার (সরাসরি সুপাবেস দিয়ে আপডেট করবে)
   async function handleBulkAction(action: "approved" | "rejected") {
     if (selectedIds.length === 0) return;
 
@@ -236,27 +235,43 @@ export default function AdminAddMoneyPage() {
       const session = await getAdminSession();
       if (!session) return;
 
-      const response = await fetch("/api/admin/add-money/bulk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          requestIds: selectedIds,
-          action,
-          adminNote: action === "rejected" ? bulkRejectNote.trim() : undefined,
-        }),
-      });
+      // প্রতিটি সিলেক্টেড রিকোয়েস্টের জন্য সুপাবেস আপডেট লুপ অথবা সরাসরি ইন অ্যাকশন
+      for (const reqId of selectedIds) {
+        const reqItem = requests.find((r) => r.id === reqId);
+        if (!reqItem) continue;
 
-      const data = await response.json();
+        // যদি অলেইডি প্রসেসড হয় স্কিপ করুন
+        if (reqItem.status !== "pending") continue;
 
-      if (!response.ok) {
-        setMessage(data.error || "বাল্ক অপারেশন সম্পন্ন করা যায়নি।");
-        return;
+        if (action === "approved") {
+          // ১. ইউজারের ওয়ালেট ব্যালেন্স আপডেট করা
+          const newBalance = Number(reqItem.customer.walletBalance || 0) + Number(reqItem.amount);
+          
+          await supabaseAdminUpdateWallet(reqItem.userId, newBalance); // নিচে হেল্পার ফাংশন দেওয়া আছে
+          
+          // ২. রিকোয়েস্ট স্ট্যাটাস আপডেট করা
+          await supabase
+            .from("add_money_requests")
+            .update({
+              status: "approved",
+              admin_note: bulkRejectNote.trim() || null,
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq("id", reqId);
+        } else {
+          // রিজেক্ট হলে শুধু স্ট্যাটাস আপডেট
+          await supabase
+            .from("add_money_requests")
+            .update({
+              status: "rejected",
+              admin_note: bulkRejectNote.trim(),
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq("id", reqId);
+        }
       }
 
-      setMessage(data.message || "বাল্ক অপারেশন সফল হয়েছে ✅");
+      setMessage(`সফলভাবে ${selectedIds.length}টি রিকোয়েস্ট ${action} করা হয়েছে ✅`);
       setSelectedIds([]);
       setIsBulkRejectOpen(false);
       setBulkRejectNote("");
@@ -268,6 +283,7 @@ export default function AdminAddMoneyPage() {
       setIsBulkLoading(false);
     }
   }
+ 
 
   async function logout() {
     await supabase.auth.signOut();
