@@ -9,7 +9,7 @@ type Package = {
   id: string;
   name: string;
   price: number;
-  category?: string; // ক্যাটাগরি যুক্ত করা হলো
+  category?: string;
 };
 
 const CATEGORIES = [
@@ -27,9 +27,7 @@ export default function AdminPackages() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<string>("");
   
-  // ক্যাটাগরি ম্যানেজ করার স্টেট
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
   const router = useRouter();
 
   useEffect(() => {
@@ -91,7 +89,7 @@ export default function AdminPackages() {
       if (result.success) {
         alert("দাম আপডেট হয়েছে!");
         setEditingId(null);
-        fetchPackages(); // আপডেট করার পর লিস্ট রিলোড হবে
+        fetchPackages();
       } else {
         alert(result.error || "আপডেট ফেইল হয়েছে");
       }
@@ -113,15 +111,32 @@ export default function AdminPackages() {
     );
   }
 
-  // নির্বাচিত ক্যাটাগরির ওপর ভিত্তি করে প্যাকেজ ফিল্টার করা (যেগুলোর ক্যাটাগরি নেই, সেগুলোকে বাই ডিফল্ট 'uid' ধরা হবে)
+  // একদম পারফেক্ট ক্যাটাগরি ফিল্টার লজিক
   const filteredPackages = packages
-    .filter((pkg) => (pkg.category || "uid") === selectedCategory)
-    .sort((a, b) => a.price - b.price); // দাম অনুযায়ী ছোট থেকে বড় সাজানো
+    .filter((pkg) => {
+      const cat = pkg.category || "uid";
+      const nameLower = pkg.name.trim().toLowerCase();
+      
+      // শুধুমাত্র সাধারণ Weekly ও Monthly চেনার জন্য
+      const isBasicWeeklyMonthly = nameLower === "weekly" || nameLower === "monthly";
+
+      if (selectedCategory === "uid") {
+        // UID কার্ডে ক্যাটাগরি 'uid' এর সাথে সাধারণ 'Weekly' ও 'Monthly' দেখাবে
+        return cat === "uid" || isBasicWeeklyMonthly;
+      }
+
+      if (selectedCategory === "weekly-monthly") {
+        // Weekly-Monthly কার্ডে সাধারণ 'Weekly' ও 'Monthly' বাদ দিয়ে বাকি মাল্টিপলগুলো দেখাবে
+        return cat === "weekly-monthly" && !isBasicWeeklyMonthly;
+      }
+
+      return cat === selectedCategory;
+    })
+    .sort((a, b) => a.price - b.price);
 
   return (
     <main className="min-h-screen bg-[#07182f] p-5 text-white sm:p-10">
       <div className="mx-auto max-w-5xl">
-        {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-400/20 pb-5">
           <div>
             <h1 className="text-2xl font-black text-cyan-400">BD21 ADMIN</h1>
@@ -143,7 +158,6 @@ export default function AdminPackages() {
           </div>
         </div>
 
-        {/* Conditional Rendering: Categories or Package List */}
         {!selectedCategory ? (
           <div>
             <h2 className="mb-5 text-xl font-bold">Select a Category</h2>
