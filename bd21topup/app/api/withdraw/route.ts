@@ -1,57 +1,68 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+async function verifyAdmin(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { error: "Unauthorized", status: 401 };
+  }
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+  const token = authHeader.replace("Bearer ", "").trim();
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
-export async function POST(req: Request) {
+  if (error || !user) {
+    return { error: "Invalid session", status: 401 };
+  }
+
+  return { user };
+}
+
+export async function PATCH(request: Request) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authCheck = await verifyAdmin(request);
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    const body = await request.json();
+    const { withdrawalId, status } = body;
 
-    if (userError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    if (!withdrawalId || !["approved", "rejected"].includes(status?.toLowerCase())) {
+      return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
     }
 
-    const { amount, method, accountNumber } = await req.json();
+    const normalizedStatus = status.toLowerCase();
 
-    if (!amount || Number(amount) < 100) {
-      return NextResponse.json({ error: "সর্বনিম্ন ১০০ টাকা উইথড্র করতে হবে।" }, { status: 400 });
-    }
-
-    if (!method || !accountNumber) {
-      return NextResponse.json({ error: "সঠিক পেমেন্ট মেথড এবং অ্যাকাউন্ট নম্বর দিন।" }, { status: 400 });
-    }
-
-    // ডেটাবেসে ইনসার্ট করার চেষ্টা এবং বিস্তারিত এরর ক্যাপচার
-    const { data, error: insertError } = await supabaseAdmin
+    const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
       .from("withdrawals")
-      .insert([
-        {
-          user_id: user.id,
-          amount: Number(amount),
-          method,
-          account_number: accountNumber,
-          status: "Pending",
-        },
-      ])
-      .select();
+      .select("*")
+      .eq("id", withdrawalId)
+      .single();
 
-    if (insertError) {
-      console.error("DETAILED INSERT ERROR:", JSON.stringify(insertError, null, 2));
-      return NextResponse.json({ error: `DB Error: ${insertError.message}` }, { status: 500 });
+    if (fetchErr || !withdrawalItem) {
+      return NextResponse.json({ error: "Withdrawal request পাওয়া যায়নি।" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, message: "উইথড্রয়াল রিকোয়েস্ট সফলভাবে জমা হয়েছে!" });
-  } catch (err: any) {
-    console.error("WITHDRAW API CATCH ERROR:", err);
-    return NextResponse.json({ error: `Server Error: ${err?.message || "unknown"}` }, { status: 500 });
+    if (withdrawalItem.status.toLowerCase() !== "pending") {
+      return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
+    }
+
+    const { error: updateErr } = await supabaseAdmin
+      .from("withdrawals")
+      .update({ status: normalizedStatus })
+      .eq("id", withdrawalId);
+
+    if (updateErr) {
+      console.error("WITHDRAWAL UPDATE ERROR:", updateErr);
+      return NextResponse.json({ error: "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Withdrawal request ${normalizedStatus} successfully.`,
+    });
+  } catch (err) {
+    console.error("ADMIN WITHDRAWAL PATCH ERROR:", err);
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
