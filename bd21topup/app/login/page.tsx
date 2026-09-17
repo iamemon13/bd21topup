@@ -75,7 +75,8 @@ export default function CustomerLoginPage() {
 
         redirectStartedRef.current = true;
 
-        if (accountData?.account?.role === "admin") {
+        const userRole = accountData?.account?.role;
+        if (userRole === "super_admin" || userRole === "admin" || userRole === "editor") {
           router.replace("/admin");
         } else {
           router.replace(consumeNextPath());
@@ -193,7 +194,8 @@ export default function CustomerLoginPage() {
         if (!redirectStartedRef.current) {
           redirectStartedRef.current = true;
 
-          if (accountData?.account?.role === "admin") {
+          const userRole = accountData?.account?.role;
+          if (userRole === "super_admin" || userRole === "admin" || userRole === "editor") {
             router.replace("/admin");
           } else {
             router.replace(consumeNextPath());
@@ -237,7 +239,8 @@ export default function CustomerLoginPage() {
         if (!redirectStartedRef.current) {
           redirectStartedRef.current = true;
 
-          if (accountData?.account?.role === "admin") {
+          const userRole = accountData?.account?.role;
+          if (userRole === "super_admin" || userRole === "admin" || userRole === "editor") {
             router.replace("/admin");
           } else {
             router.replace(consumeNextPath());
