@@ -193,9 +193,6 @@ export default function Home() {
       {/* Topup Products Grid */}
       <section id="topup" className="mx-auto max-w-7xl px-5 py-6">
         <div className="mb-8 text-center">
-          <p className="text-xs font-bold uppercase tracking-[4px] text-cyan-400">
-            Games
-          </p>
           <h2 className="mt-2 text-3xl font-black">FF TOPUP</h2>
         </div>
 
