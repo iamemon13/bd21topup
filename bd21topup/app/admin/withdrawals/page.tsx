@@ -82,16 +82,41 @@ export default function AdminWithdrawalsPage() {
   async function updateStatus(ids: string[], newStatus: string) {
     if (ids.length === 0) return;
     try {
-      const { error } = await supabase.from("withdrawals").update({ status: newStatus }).in("id", ids);
-      if (error) { alert("স্ট্যাটাস আপডেট করা যায়নি: " + error.message); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
+        return;
+      }
 
-      setWithdrawals((prev) => prev.map((item) => (ids.includes(item.id) ? { ...item, status: newStatus } : item)));
+      for (const id of ids) {
+        const response = await fetch("/api/admin/withdrawals", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            withdrawalId: id,
+            status: newStatus.toLowerCase(),
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Status update failed");
+        }
+      }
+
+      setWithdrawals((prev) =>
+        prev.map((item) => (ids.includes(item.id) ? { ...item, status: newStatus.toLowerCase() } : item))
+      );
       setSelectedIds([]);
       setMessage(`সফলভাবে ${ids.length}টি রিকোয়েস্ট ${newStatus} করা হয়েছে ✅`);
       setTimeout(() => setMessage(""), 3000);
-    } catch (err) {
+      loadWithdrawals();
+    } catch (err: any) {
       console.error(err);
-      alert("সার্ভারে সমস্যা হয়েছে।");
+      alert("সার্ভারে সমস্যা হয়েছে: " + (err.message || ""));
     }
   }
 
@@ -102,7 +127,6 @@ export default function AdminWithdrawalsPage() {
       setTimeout(() => setCopiedId(null), 1500);
     } catch (err) { console.error("Copy failed", err); }
   }
-
   return (
     <main className="min-h-screen bg-[#061b35] p-4 pb-24 text-white sm:p-6">
       <div className="mx-auto max-w-4xl space-y-4">
@@ -226,3 +250,4 @@ export default function AdminWithdrawalsPage() {
     </main>
   );
 }
+
