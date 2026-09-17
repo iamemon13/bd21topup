@@ -135,7 +135,7 @@ export async function GET(request: Request) {
         `,
       )
       .eq("user_id", user.id)
-      .in("status", ["pending", "rejected"]) // শুধুমাত্র pending এবং rejected গুলো আনবো
+      .in("status", ["pending", "rejected"])
       .order("created_at", {
         ascending: false,
       });
@@ -146,6 +146,38 @@ export async function GET(request: Request) {
         {
           success: false,
           error: "Add money requests load করা যায়নি।",
+        },
+        { status: 500 },
+      );
+    }
+
+    // =====================================================
+    // WITHDRAWAL REQUESTS (All Statuses: Pending, Approved, etc.)
+    // =====================================================
+
+    const { data: withdrawalRows, error: withdrawalError } = await supabaseAdmin
+      .from("withdrawals")
+      .select(
+        `
+          id,
+          amount,
+          method,
+          account_number,
+          status,
+          created_at
+        `,
+      )
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (withdrawalError) {
+      console.error("WITHDRAWALS ERROR:", withdrawalError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Withdrawal requests load করা যায়নি।",
         },
         { status: 500 },
       );
@@ -185,7 +217,7 @@ export async function GET(request: Request) {
         referenceId: transaction.reference_id || null,
         description: transaction.description || null,
         createdAt: transaction.created_at,
-        status: "completed", // wallet_transactions-এ থাকা মানেই তা কমপ্লিট বা এপ্রুভড
+        status: "completed",
       }),
     );
 
@@ -197,19 +229,37 @@ export async function GET(request: Request) {
       id: req.id,
       type: "wallet_transaction" as const,
       transactionType: `add_money_${req.status}`,
-      direction: "credit", // পেন্ডিং থাকলেও এটি একটি ক্রেডিট রিকোয়েস্ট
+      direction: "credit",
       amount: Number(req.amount || 0),
-      balanceAfter: 0, // পেন্ডিং থাকায় ব্যালেন্স আপডেট হয়নি
+      balanceAfter: 0,
       referenceId: req.transaction_id || null,
       description: `Add money via ${req.payment_method}`,
       createdAt: req.created_at,
-      status: req.status, // "pending" অথবা "rejected"
+      status: req.status,
     }));
 
-    // দুইটা ডাটা একসাথে করে তারিখ অনুযায়ী সাজানো
+    // =====================================================
+    // FORMAT WITHDRAWAL REQUESTS
+    // =====================================================
+
+    const formattedWithdrawals = (withdrawalRows ?? []).map((w) => ({
+      id: w.id,
+      type: "wallet_transaction" as const,
+      transactionType: "withdrawal",
+      direction: "debit", // উইথড্র করা মানে ব্যালেন্স কাটা বা ডেবিট হওয়া
+      amount: Number(w.amount || 0),
+      balanceAfter: 0,
+      referenceId: w.account_number || null,
+      description: `Withdraw via ${w.method} (${w.account_number})`,
+      createdAt: w.created_at,
+      status: w.status.toLowerCase(), // "Pending", "Approved", "Rejected" ইত্যাদি
+    }));
+
+    // সমস্ত ওয়ালেট ট্রানজেকশন একসাথে করে তারিখ অনুযায়ী সাজানো
     const walletTransactions = [
       ...formattedWalletTransactions,
       ...formattedAddMoneyRequests,
+      ...formattedWithdrawals,
     ].sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
