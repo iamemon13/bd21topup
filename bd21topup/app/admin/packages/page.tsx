@@ -9,13 +9,27 @@ type Package = {
   id: string;
   name: string;
   price: number;
+  category?: string; // ক্যাটাগরি যুক্ত করা হলো
 };
+
+const CATEGORIES = [
+  { id: "uid", name: "UID TopUp (BD)", icon: "💎" },
+  { id: "weekly-monthly", name: "Weekly / Monthly", icon: "📅" },
+  { id: "weekly-lite", name: "Weekly Lite", icon: "🎫" },
+  { id: "level-up-pass", name: "Level Up Pass", icon: "⭐" },
+  { id: "ff-likes", name: "FF Likes", icon: "👍" },
+  { id: "indonesia-server", name: "Indonesia Server", icon: "🇮🇩" },
+];
 
 export default function AdminPackages() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<string>("");
+  
+  // ক্যাটাগরি ম্যানেজ করার স্টেট
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -99,11 +113,16 @@ export default function AdminPackages() {
     );
   }
 
+  // নির্বাচিত ক্যাটাগরির ওপর ভিত্তি করে প্যাকেজ ফিল্টার করা (যেগুলোর ক্যাটাগরি নেই, সেগুলোকে বাই ডিফল্ট 'uid' ধরা হবে)
+  const filteredPackages = packages
+    .filter((pkg) => (pkg.category || "uid") === selectedCategory)
+    .sort((a, b) => a.price - b.price); // দাম অনুযায়ী ছোট থেকে বড় সাজানো
+
   return (
     <main className="min-h-screen bg-[#07182f] p-5 text-white sm:p-10">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
-        <div className="mb-10 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-400/20 pb-5">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-400/20 pb-5">
           <div>
             <h1 className="text-2xl font-black text-cyan-400">BD21 ADMIN</h1>
             <p className="text-sm text-slate-400">Manage Package Prices</p>
@@ -113,7 +132,7 @@ export default function AdminPackages() {
               href="/admin"
               className="rounded-lg border border-cyan-400/20 bg-[#0b2545] px-4 py-2 text-sm font-bold transition hover:border-cyan-400"
             >
-              Home
+              Dashboard
             </Link>
             <button
               onClick={handleLogout}
@@ -124,54 +143,94 @@ export default function AdminPackages() {
           </div>
         </div>
 
-        {/* Packages Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              className="rounded-xl border border-cyan-400/20 bg-[#0b2545] p-5 transition hover:border-cyan-400"
-            >
-              <div className="text-lg font-bold text-cyan-300">{pkg.name}</div>
-
-              {editingId === pkg.id ? (
-                <div className="mt-4 flex gap-2">
-                  <input
-                    type="number"
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    className="w-full rounded-lg border border-cyan-400/30 bg-[#06172e] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
-                    placeholder="New Price"
-                  />
-                  <button
-                    onClick={() => handleUpdatePrice(pkg.id)}
-                    className="rounded-lg bg-green-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-green-400"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="rounded-lg bg-slate-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-500"
-                  >
-                    X
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-2xl font-black">৳{pkg.price}</div>
-                  <button
-                    onClick={() => {
-                      setEditingId(pkg.id);
-                      setEditPrice(pkg.price.toString());
-                    }}
-                    className="rounded-lg bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-400 transition hover:bg-cyan-400 hover:text-[#06172e]"
-                  >
-                    Edit Price
-                  </button>
-                </div>
-              )}
+        {/* Conditional Rendering: Categories or Package List */}
+        {!selectedCategory ? (
+          <div>
+            <h2 className="mb-5 text-xl font-bold">Select a Category</h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-6 transition hover:-translate-y-1 hover:border-cyan-400 hover:bg-[#0d3159]"
+                >
+                  <span className="text-3xl">{cat.icon}</span>
+                  <span className="text-center font-bold text-cyan-100 group-hover:text-cyan-400">
+                    {cat.name}
+                  </span>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div>
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-cyan-300">
+                {CATEGORIES.find((c) => c.id === selectedCategory)?.name} Packages
+              </h2>
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold transition hover:bg-slate-600"
+              >
+                ← Back to Categories
+              </button>
+            </div>
+
+            {filteredPackages.length === 0 ? (
+              <div className="rounded-xl border border-cyan-400/20 bg-[#0b2545] p-10 text-center font-semibold text-slate-400">
+                এই ক্যাটাগরিতে কোনো প্যাকেজ পাওয়া যায়নি।
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {filteredPackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className="rounded-xl border border-cyan-400/20 bg-[#0b2545] p-5 transition hover:border-cyan-400"
+                  >
+                    <div className="text-sm font-bold text-cyan-100">{pkg.name}</div>
+
+                    {editingId === pkg.id ? (
+                      <div className="mt-4 flex gap-2">
+                        <input
+                          type="number"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                          className="w-full rounded-lg border border-cyan-400/30 bg-[#06172e] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                          placeholder="New Price"
+                        />
+                        <button
+                          onClick={() => handleUpdatePrice(pkg.id)}
+                          className="rounded-lg bg-green-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-green-400"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="rounded-lg bg-slate-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-500"
+                        >
+                          X
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="text-xl font-black text-cyan-400">৳{pkg.price}</div>
+                        <button
+                          onClick={() => {
+                            setEditingId(pkg.id);
+                            setEditPrice(pkg.price.toString());
+                          }}
+                          className="rounded-lg bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-400 transition hover:bg-cyan-400 hover:text-[#06172e]"
+                        >
+                          Edit Price
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );
