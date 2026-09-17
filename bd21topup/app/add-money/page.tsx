@@ -68,7 +68,7 @@ export default function AddMoneyPage() {
     [selectedMethod],
   );
 
-  const receiverNumber = paymentConfig[selectedMethod].number;
+  const receiverNumber = paymentConfig[selectedMethod]?.number || "";
 
   useEffect(() => {
     loadHistory();
@@ -98,6 +98,7 @@ export default function AddMoneyPage() {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        cache: "no-store",
       });
 
       const data = await response.json();
@@ -109,14 +110,14 @@ export default function AddMoneyPage() {
       }
 
       if (!response.ok) {
-        setMessage(data.error || "History load করা যায়নি।");
+        setMessage(data.error || "History load করা যায়নি।");
         return;
       }
 
       setRequests(data.requests || []);
     } catch (error) {
       console.error("ADD MONEY HISTORY ERROR:", error);
-      setMessage("Server-এর সাথে connection করা যায়নি।");
+      setMessage("Server-এর সাথে connection করা যায়নি।");
     } finally {
       setLoadingHistory(false);
     }
@@ -152,6 +153,7 @@ export default function AddMoneyPage() {
         body: JSON.stringify({
           amount: numericAmount,
           paymentMethod: selectedMethod,
+          receiverNumber: receiverNumber,
           transactionId: cleanTrxId,
         }),
       });
@@ -159,7 +161,7 @@ export default function AddMoneyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.error || "Request submit করা যায়নি।");
+        setMessage(data.error || "Request submit করা যায়নি।");
         return;
       }
 
@@ -171,7 +173,7 @@ export default function AddMoneyPage() {
       router.push("/transactions?tab=wallet");
     } catch (error) {
       console.error("ADD MONEY SUBMIT ERROR:", error);
-      setMessage("Server-এর সাথে connection করা যায়নি।");
+      setMessage("Server-এর সাথে connection করা যায়নি।");
     } finally {
       setSubmitting(false);
     }
@@ -226,7 +228,7 @@ export default function AddMoneyPage() {
           <h1 className="mt-1 text-3xl font-black">Add Money</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">
             Payment send করে Transaction ID submit করুন। Admin approve করার পর
-            wallet balance বাড়বে।
+            wallet balance বাড়বে।
           </p>
         </div>
 
@@ -259,7 +261,6 @@ export default function AddMoneyPage() {
                         width={180}
                         height={60}
                         className="max-h-[52px] w-auto object-contain"
-                        style={{ width: "auto", height: "auto" }}
                       />
                     </button>
                   );
