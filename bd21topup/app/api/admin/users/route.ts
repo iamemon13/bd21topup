@@ -1,44 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-
-async function getAdminUser(request: Request) {
-  const authHeader = request.headers.get("authorization");
-
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const token = authHeader.replace("Bearer ", "").trim();
-
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) {
-    return null;
-  }
-
-  if (user.id !== process.env.ADMIN_USER_ID) {
-    return null;
-  }
-
-  return user;
-}
+import { checkUserRole } from "@/lib/admin-auth";
 
 export async function GET(request: Request) {
   try {
-    const admin = await getAdminUser(request);
+    // শুধু super_admin এবং admin এই পেজ দেখতে পারবে
+    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
 
-    if (!admin) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
-      );
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
     const { data: users, error } = await supabaseAdmin
@@ -60,14 +30,9 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("ADMIN USERS ERROR:", error);
-
       return NextResponse.json(
-        {
-          error: "Users load failed",
-        },
-        {
-          status: 500,
-        },
+        { error: "Users load failed" },
+        { status: 500 },
       );
     }
 
@@ -77,14 +42,9 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("ADMIN USERS API ERROR:", error);
-
     return NextResponse.json(
-      {
-        error: "Server error",
-      },
-      {
-        status: 500,
-      },
+      { error: "Server error" },
+      { status: 500 },
     );
   }
 }
