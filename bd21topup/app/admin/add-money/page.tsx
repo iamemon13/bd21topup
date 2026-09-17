@@ -118,8 +118,7 @@ export default function AdminAddMoneyPage() {
       setLoading(false);
     }
   }
-
-  async function reviewRequest(
+   async function reviewRequest(
     requestId: string,
     action: "approved" | "rejected",
   ) {
@@ -364,8 +363,7 @@ export default function AdminAddMoneyPage() {
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   }
-
-  return (
+   return (
     <>
       <main className="min-h-screen w-full overflow-x-hidden bg-[#07182f] text-white">
         <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-5">
@@ -611,7 +609,7 @@ export default function AdminAddMoneyPage() {
                         </div>
                       </div>
 
-                                          <div className="text-right">
+                      <div className="text-right">
                         <span
                           className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase ${statusClass(
                             request.status,
