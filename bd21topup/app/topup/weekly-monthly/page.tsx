@@ -37,7 +37,7 @@ export default function WeeklyMonthlyTopUpPage() {
     loadPackages();
   }, []);
 
-  async function loadPackages() {
+    async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
@@ -46,7 +46,13 @@ export default function WeeklyMonthlyTopUpPage() {
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
-        setPackages(data);
+        // শুধু "Weekly" এবং "Monthly" (যাতে 1x বা 2x নেই) সেগুলোকে ফিল্টার করে বাদ দেওয়া হচ্ছে
+        const filteredPackages = data.filter(
+          (item) =>
+            item.name.trim().toLowerCase() !== "weekly" &&
+            item.name.trim().toLowerCase() !== "monthly"
+        );
+        setPackages(filteredPackages);
       } else {
         setPackages([
           { id: "1w", name: "1x Weekly", price: 158 },
@@ -66,8 +72,8 @@ export default function WeeklyMonthlyTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-  }
-
+    }
+  
   async function loadWalletBalance() {
     try {
       const {
