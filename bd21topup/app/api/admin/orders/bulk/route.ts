@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkUserRole } from "@/lib/admin-auth";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    // Super Admin, Admin এবং Editor সবাই এই বাল্ক অ্যাকশন চালাতে পারবে
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+
+    if ("error" in authCheck) {
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status }
+      );
+    }
+
     const body = await request.json();
     const { orderIds, action, cancelReason } = body;
 
