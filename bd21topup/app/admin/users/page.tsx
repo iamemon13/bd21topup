@@ -50,7 +50,7 @@ export default function AdminUsersPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -86,12 +86,12 @@ export default function AdminUsersPage() {
     try {
       await supabase.auth.signOut();
 
-      router.replace("/admin/login");
+      router.replace("/login");
       router.refresh();
     } catch (error) {
       console.error("Admin logout error:", error);
 
-      router.replace("/admin/login");
+      router.replace("/login");
     }
   }
 
@@ -149,7 +149,7 @@ export default function AdminUsersPage() {
 
       if (!session) {
         alert("Admin session expired. Please login again.");
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -199,8 +199,7 @@ export default function AdminUsersPage() {
     setNote("");
     setAction("add");
   }
-
-  return (
+    return (
     <main
       className="
         min-h-screen
