@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 type Order = {
@@ -19,11 +18,11 @@ type Order = {
   price?: number;
   status: string;
   created_at: string;
-  product_image?: string;
-  image?: string;
+  avatar_url?: string;
+  avatarUrl?: string;
+  user_avatar?: string;
 };
 
-// সময় বের করার ফাংশন
 function timeAgo(dateString: string) {
   const now = new Date();
   const past = new Date(dateString);
@@ -41,33 +40,6 @@ export default function RecentOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const dummyOrders: Order[] = [
-    {
-      id: "1",
-      user_name: "Emon0313",
-      packageName: "25 Diamond",
-      amount: 22,
-      status: "completed",
-      created_at: new Date(Date.now() - 120000).toISOString(),
-    },
-    {
-      id: "2",
-      user_name: "Rahim",
-      packageName: "50 Diamond",
-      amount: 36,
-      status: "completed",
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: "3",
-      user_name: "Karim",
-      packageName: "Weekly Pass",
-      amount: 190,
-      status: "cancelled",
-      created_at: new Date(Date.now() - 86400000).toISOString(),
-    },
-  ];
-
   const fetchOrders = async () => {
     setRefreshing(true);
     try {
@@ -77,20 +49,11 @@ export default function RecentOrders() {
         .order("created_at", { ascending: false })
         .limit(8);
 
-      if (error) {
-        console.error("Supabase Error:", error.message);
-        setOrders(dummyOrders);
-        return;
-      }
-
-      if (data && data.length > 0) {
+      if (!error && data && data.length > 0) {
         setOrders(data);
-      } else {
-        setOrders(dummyOrders);
       }
     } catch (error) {
       console.error("Fetch error:", error);
-      setOrders(dummyOrders);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,20 +84,20 @@ export default function RecentOrders() {
 
     if (s === "approved" || s === "completed" || s === "success") {
       return (
-        <span className="inline-flex items-center rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+        <span className="inline-flex items-center rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
           ✓ Done
         </span>
       );
     }
     if (s === "pending") {
       return (
-        <span className="inline-flex items-center rounded-full bg-amber-400/10 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-amber-400 border border-amber-500/20 whitespace-nowrap">
+        <span className="inline-flex items-center rounded-full bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold text-amber-400 border border-amber-500/20 whitespace-nowrap">
           ⏳ Pending
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center rounded-full bg-rose-400/10 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-rose-400 border border-rose-500/20 whitespace-nowrap">
+      <span className="inline-flex items-center rounded-full bg-rose-400/10 px-2.5 py-1 text-[11px] font-bold text-rose-400 border border-rose-500/20 whitespace-nowrap">
         ✕ Cancelled
       </span>
     );
@@ -144,13 +107,13 @@ export default function RecentOrders() {
     <div className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#0b2545] shadow-xl">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-cyan-400/10 text-lg sm:text-xl text-cyan-400">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-400/10 text-lg text-cyan-400">
             🛍️
           </div>
           <div>
             <h2 className="text-base sm:text-xl font-black">Recent Orders</h2>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[11px] sm:text-xs text-emerald-400 font-medium">
+            <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
               <span>Live</span>
               <span>〰〰</span>
@@ -158,21 +121,16 @@ export default function RecentOrders() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <span className="hidden text-xs text-slate-400 sm:block">
-            {refreshing ? "Updating..." : "Real-time"}
-          </span>
-          <button
-            type="button"
-            onClick={fetchOrders}
-            className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-base text-slate-300 transition hover:border-cyan-400 hover:text-cyan-400 ${
-              refreshing ? "animate-spin text-cyan-400 border-cyan-400" : ""
-            }`}
-            title="Refresh"
-          >
-            ↻
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={fetchOrders}
+          className={`flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-cyan-400 hover:text-cyan-400 ${
+            refreshing ? "animate-spin text-cyan-400 border-cyan-400" : ""
+          }`}
+          title="Refresh"
+        >
+          ↻
+        </button>
       </div>
 
       {/* Orders List */}
@@ -186,44 +144,37 @@ export default function RecentOrders() {
             const name =
               order.user_name ||
               order.account_name ||
-              order.user_email ||
               order.player_name ||
               order.playerName ||
               order.player ||
-              "User";
+              "Emon0313";
+
             const pkg =
               order.package_name ||
               order.packageName ||
               order.package ||
-              "Diamond Package";
+              "Diamond";
+
             const price = order.amount || order.price || 0;
-            const itemImg = order.product_image || order.image;
+            const avatar = order.avatar_url || order.avatarUrl || order.user_avatar;
+            const initial = name.charAt(0).toUpperCase();
 
             return (
               <div
                 key={`${order.id}-${index}`}
                 className="flex items-center justify-between gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 hover:bg-white/[0.02] transition"
               >
-                {/* Left Side: Product/Diamond Icon & Info */}
-                <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 flex-1">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#081c36] border border-cyan-400/30 overflow-hidden shadow-inner p-1">
-                    {itemImg ? (
-                      <Image
-                        src={itemImg}
-                        alt="Product"
-                        width={40}
-                        height={40}
-                        className="h-full w-full object-contain"
+                {/* Left Side: Real-time Account Profile Avatar & Info */}
+                <div className="flex min-w-0 items-center gap-3 flex-1">
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-cyan-400/10 text-sm font-black text-cyan-400 shadow-sm">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt={name}
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      /* FF Diamond Theme Icon */
-                      <svg
-                        className="h-6 w-6 text-cyan-400 drop-shadow-[0_0_6px_rgba(34,211,238,0.5)]"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M12 2L3 9l9 13 9-13-9-7zm0 3.2L17.5 9 12 18.2 6.5 9 12 5.2zM8.2 8.5h7.6L12 3.8 8.2 8.5z" />
-                      </svg>
+                      <span>{initial}</span>
                     )}
                   </div>
 
@@ -237,18 +188,12 @@ export default function RecentOrders() {
                   </div>
                 </div>
 
-                {/* Right Side: Mobile + PC Time and Status */}
-                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                  {/* Time Badge (Mobile & PC Both) */}
+                {/* Right Side: Time & Status */}
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <span className="inline-flex items-center gap-1 rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] sm:text-xs text-slate-300 whitespace-nowrap">
-                    <span className="text-[9px] text-cyan-400">🕒</span>
-                    {timeAgo(order.created_at)}
+                    🕒 {timeAgo(order.created_at)}
                   </span>
-
-                  {/* Status */}
-                  <div className="text-right">
-                    {getStatusUI(order.status)}
-                  </div>
+                  <div>{getStatusUI(order.status)}</div>
                 </div>
               </div>
             );
