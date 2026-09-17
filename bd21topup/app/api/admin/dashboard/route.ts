@@ -114,7 +114,16 @@ export async function GET(request: Request) {
       .eq("status", "pending");
 
     // =====================================================
-    // 10. Return Dashboard Stats
+    // 10. Withdrawal Requests (Pending)
+    // =====================================================
+
+    const { count: withdrawalRequests } = await supabaseAdmin
+      .from("withdrawals")
+      .select("*", { count: "exact", head: true })
+      .ilike("status", "pending");
+
+    // =====================================================
+    // 11. Return Dashboard Stats
     // =====================================================
 
     return NextResponse.json({
@@ -127,6 +136,7 @@ export async function GET(request: Request) {
         completedOrders: completedOrders || 0,
         cancelledOrders: cancelledOrders || 0,
         addMoneyRequests: addMoneyRequests || 0,
+        withdrawalRequests: withdrawalRequests || 0,
       },
     });
   } catch (error) {
