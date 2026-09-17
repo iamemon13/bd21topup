@@ -14,6 +14,16 @@ export default function Footer() {
           <Link href="/terms" className="hover:text-white transition">
             Terms of Service
           </Link>
+          
+          {/* সিক্রেট অ্যাডমিন শর্টকাট সিম্বল */}
+          <Link 
+            href="/login" 
+            className="text-slate-700 hover:text-cyan-400 transition text-xs opacity-70" 
+            title="Admin Portal"
+            aria-label="Admin Portal"
+          >
+            ⚙
+          </Link>
         </div>
       </div>
     </footer>
