@@ -28,7 +28,8 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [showNotif, setShowNotif] = useState(false); // নোটিফিকেশন ড্রপডাউন স্টেট
+  const [showNotif, setShowNotif] = useState(false);
+  const [userRole, setUserRole] = useState<string>("user"); // ইউজারের রোল ট্র্যাক করার স্টেট
 
   async function loadStats() {
     try {
@@ -43,6 +44,18 @@ export default function AdminDashboard() {
         return;
       }
 
+      // ১. ইউজারের রোল ফেচ করা
+      const roleRes = await fetch("/api/admin/role", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const roleData = await roleRes.json();
+      if (roleData.success) {
+        setUserRole(roleData.role);
+      }
+
+      // ২. ড্যাশবোর্ড স্ট্যাটস ফেচ করা
       const res = await fetch("/api/admin/dashboard", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -106,7 +119,7 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-3xl font-bold text-cyan-400">BD21 ADMIN</h1>
               <p className="mt-2 text-sm text-gray-300">
-                Customer, Order & Wallet Management
+                Customer, Order & Wallet Management ({userRole.toUpperCase().replace("_", " ")})
               </p>
             </div>
 
@@ -125,7 +138,6 @@ export default function AdminDashboard() {
                   )}
                 </button>
 
-                {/* Dropdown Overlay (বাইরে ক্লিক করলে বন্ধ হবে) */}
                 {showNotif && (
                   <div
                     className="fixed inset-0 z-40"
@@ -133,7 +145,6 @@ export default function AdminDashboard() {
                   ></div>
                 )}
 
-                {/* Notification Dropdown Box */}
                 {showNotif && (
                   <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-cyan-400/30 bg-[#0b294d] p-3 shadow-2xl">
                     <h3 className="mb-2 px-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">
@@ -165,7 +176,8 @@ export default function AdminDashboard() {
                             </Link>
                           )}
 
-                          {stats.addMoneyRequests > 0 && (
+                          {/* এডিটর এই নোটিফিকেশনটি দেখতে পাবে না যদি সে সুপার/অ্যাডমিন না হয় */}
+                          {(userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0 && (
                             <Link
                               href="/admin/add-money"
                               className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
@@ -197,7 +209,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* =================================================
-              NAVIGATION
+              NAVIGATION (রোল অনুযায়ী কন্ট্রোল করা হয়েছে)
           ================================================= */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Link
@@ -212,18 +224,25 @@ export default function AdminDashboard() {
             >
               Orders
             </Link>
-            <Link
-              href="/admin/add-money"
-              className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
-            >
-              Add Money
-            </Link>
-            <Link
-              href="/admin/users"
-              className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
-            >
-              Users
-            </Link>
+
+            {/* শুধু Super Admin এবং Admin দেখতে পাবে */}
+            {(userRole === "super_admin" || userRole === "admin") && (
+              <>
+                <Link
+                  href="/admin/add-money"
+                  className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+                >
+                  Add Money
+                </Link>
+                <Link
+                  href="/admin/users"
+                  className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+                >
+                  Users
+                </Link>
+              </>
+            )}
+
             <Link
               href="/admin/packages"
               className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
@@ -257,16 +276,22 @@ export default function AdminDashboard() {
             value={loading ? "..." : stats.cancelledOrders}
             color="red"
           />
-          <StatCard
-            title="TOTAL USERS"
-            value={loading ? "..." : stats.totalUsers}
-            color="cyan"
-          />
-          <StatCard
-            title="ADD MONEY REQ"
-            value={loading ? "..." : stats.addMoneyRequests}
-            color="yellow"
-          />
+
+          {/* ফিনান্সিয়াল বা সেন্সিটিভ স্ট্যাটস শুধু সুপার/অ্যাডমিন দেখবে */}
+          {(userRole === "super_admin" || userRole === "admin") && (
+            <>
+              <StatCard
+                title="TOTAL USERS"
+                value={loading ? "..." : stats.totalUsers}
+                color="cyan"
+              />
+              <StatCard
+                title="ADD MONEY REQ"
+                value={loading ? "..." : stats.addMoneyRequests}
+                color="yellow"
+              />
+            </>
+          )}
         </div>
 
         {/* =====================================================
@@ -276,8 +301,14 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-bold">Quick Actions</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ActionLink href="/admin/orders" text="Manage Orders" />
-            <ActionLink href="/admin/add-money" text="Review Wallet" />
-            <ActionLink href="/admin/users" text="View Users" />
+            
+            {(userRole === "super_admin" || userRole === "admin") && (
+              <>
+                <ActionLink href="/admin/add-money" text="Review Wallet" />
+                <ActionLink href="/admin/users" text="View Users" />
+              </>
+            )}
+
             <ActionLink href="/admin/packages" text="Update Prices" />
           </div>
         </div>
@@ -286,7 +317,7 @@ export default function AdminDashboard() {
             IMPORTANT ACTIONS (ATTENTION REQUIRED)
         ===================================================== */}
         {!loading &&
-          (stats.pendingOrders > 0 || stats.addMoneyRequests > 0) && (
+          (stats.pendingOrders > 0 || ((userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0)) && (
             <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
               <h2 className="text-lg font-black text-yellow-300">
                 Attention Required
@@ -304,7 +335,7 @@ export default function AdminDashboard() {
                   </Link>
                 )}
 
-                {stats.addMoneyRequests > 0 && (
+                {(userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0 && (
                   <Link
                     href="/admin/add-money"
                     className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
