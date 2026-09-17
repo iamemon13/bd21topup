@@ -88,7 +88,9 @@ export default function Home() {
             </a>
 
             <a
-              href="#contact"
+              href="https://t.me/BD21Support"
+              target="_blank"
+              rel="noopener noreferrer"
               className="hidden transition hover:text-cyan-400 sm:block"
             >
               Contact Us
@@ -166,7 +168,7 @@ export default function Home() {
         <BannerSlider />
       </section>
 
-      {/* Support Buttons */}
+      {/* Top 2 Action Buttons Only */}
       <section className="mx-auto grid max-w-7xl grid-cols-2 gap-3 px-5 py-5 sm:gap-4">
         <a
           href="https://t.me/BD21Support"
@@ -174,8 +176,8 @@ export default function Home() {
           rel="noopener noreferrer"
           className="block rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400 hover:bg-[#0d3159]"
         >
-          <div className="text-xs text-cyan-300">SUPPORT</div>
-          <div className="font-bold">Telegram</div>
+          <div className="text-xs text-cyan-300 font-medium">SUPPORT</div>
+          <div className="font-bold text-white">Telegram HelpLine</div>
         </a>
 
         <a
@@ -184,13 +186,13 @@ export default function Home() {
           rel="noopener noreferrer"
           className="block rounded-xl border border-cyan-400/20 bg-[#0b2545] px-5 py-4 text-left transition hover:border-cyan-400 hover:bg-[#0d3159]"
         >
-          <div className="text-xs text-cyan-300">OFFERS</div>
-          <div className="font-bold">Join Channel</div>
+          <div className="text-xs text-cyan-300 font-medium">COMMUNITY</div>
+          <div className="font-bold text-white">Join Channel</div>
         </a>
       </section>
 
-      {/* Topup Section */}
-      <section id="topup" className="mx-auto max-w-7xl px-5 py-10">
+      {/* Topup Products Grid */}
+      <section id="topup" className="mx-auto max-w-7xl px-5 py-6">
         <div className="mb-8 text-center">
           <p className="text-xs font-bold uppercase tracking-[4px] text-cyan-400">
             Games
@@ -268,12 +270,12 @@ export default function Home() {
       </section>
 
       {/* Recent Orders (Real-time) */}
-      <section className="mx-auto max-w-7xl px-5 py-10">
+      <section className="mx-auto max-w-7xl px-5 py-6">
         <RecentOrders />
       </section>
 
-      {/* Promo Banner */}
-      <section className="mx-auto max-w-7xl px-5 pb-10">
+      {/* Single Promo Banner */}
+      <section className="mx-auto max-w-7xl px-5 py-8">
         <div className="overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-r from-[#2a003f] via-[#5b0030] to-[#1d022f] p-6 shadow-xl md:p-10">
           <div className="grid items-center gap-6 md:grid-cols-2">
             <div>
@@ -287,8 +289,7 @@ export default function Home() {
                 আমাদের Telegram Channel-এ Join করুন
               </p>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-200">
-                নতুন অফার, আপডেট, সাপোর্ট এবং গুরুত্বপূর্ণ নোটিস সবার আগে পেতে
-                এখনই আমাদের Telegram channel-এ যুক্ত হন।
+                নতুন অফার, গিভঅ্যাওয়ে এবং নোটিশ সবার আগে পেতে চ্যানেলে যুক্ত থাকুন।
               </p>
               <div className="mt-6 flex flex-wrap gap-4">
                 <a
@@ -307,74 +308,31 @@ export default function Home() {
                 </a>
               </div>
             </div>
+
             <div className="flex justify-center">
               <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/20 p-6 text-center backdrop-blur-sm">
-                <div className="mb-3 text-5xl">📢</div>
-                <h3 className="text-2xl font-black text-white">
-                  Telegram Support Available
+                <div className="mb-3 text-4xl">⚡</div>
+                <h3 className="text-xl font-bold text-white">
+                  Fast Customer Support
                 </h3>
-                <p className="mt-3 text-sm leading-6 text-slate-200">
-                  কোনো সমস্যা, প্রশ্ন বা অর্ডার আপডেটের জন্য Telegram-এ যোগাযোগ
-                  করুন।
+                <p className="mt-2 text-sm text-slate-300">
+                  টপ-আপ সংক্রান্ত যেকোনো সমস্যায় সরাসরি টেলিগ্রামে কথা বলুন।
                 </p>
                 <a
                   href="https://t.me/BD21Support"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-5 block rounded-xl bg-white/10 px-4 py-3 text-sm text-cyan-300 transition hover:bg-cyan-400/20"
+                  className="mt-4 inline-block rounded-xl bg-cyan-400/20 border border-cyan-400/40 px-5 py-2.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400 hover:text-[#06172e]"
                 >
-                  Fast Response • Offer Update • Support Help
+                  Contact Helpline
                 </a>
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer
-        id="contact"
-        className="mt-10 border-t border-cyan-400/15 bg-[#061426]"
-      >
-        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 md:grid-cols-2">
-          <div>
-            <div className="text-3xl font-black">
-              BD<span className="text-cyan-400">21</span>
-            </div>
-            <p className="mt-4 max-w-md text-sm leading-6 text-slate-400">
-              দ্রুত, নিরাপদ ও বিশ্বস্ত গেম টপ-আপ সার্ভিস।
-            </p>
-          </div>
-          <div>
-            <h3 className="text-xl font-black">Contact Us</h3>
-            <a
-              href="https://t.me/BD21Support"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 block rounded-xl bg-[#0b2545] p-5 transition hover:border hover:border-cyan-400"
-            >
-              <div className="font-semibold text-white">Telegram HelpLine</div>
-              <div className="mt-1 text-sm text-slate-400">
-                Support available every day (Click to message)
-              </div>
-            </a>
-          </div>
-        </div>
-        <div className="border-t border-white/5 py-5 text-center text-xs text-slate-500">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <span>© 2026 BD21 Top Up. All Rights Reserved.</span>
-            <span className="hidden sm:inline">|</span>
-            <div className="flex gap-4">
-              <Link href="/privacy" className="hover:text-cyan-400 transition">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="hover:text-cyan-400 transition">
-                Terms of Service
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      
+      {/* (page.tsx এর ভেতরের অতিরিক্ত ডুপ্লিকেট footer সেকশন মুছে ফেলা হয়েছে) */}
     </main>
   );
 }
