@@ -211,19 +211,22 @@ export default function Home() {
             {
               name: "Weekly Lite",
               image: "/products/weekly-lite.png",
-              href: "/topup/weekly-lite", // <-- এখানে লিংকটি যুক্ত করা হয়েছে
+              href: "/topup/weekly-lite",
             },
             {
               name: "Level Up Pass",
               image: "/products/level-up-pass.png",
+              href: "/topup/level-up-pass", // <-- এখানে যোগ করুন
             },
             {
               name: "FF Likes",
               image: "/products/ff-likes.png",
+              href: "/topup/ff-likes", // <-- এখানে যোগ করুন
             },
             {
               name: "Indonesia Server",
               image: "/products/indonesia-server.png",
+              href: "/topup/indonesia-server", // <-- এখানে যোগ করুন
             },
           ].map((product) => {
             const cardContent = (
