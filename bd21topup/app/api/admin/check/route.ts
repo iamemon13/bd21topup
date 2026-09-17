@@ -1,45 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkUserRole } from "@/lib/admin-auth";
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
 
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const accessToken = authHeader.replace("Bearer ", "").trim();
-
-    const {
-      data: { user },
-      error,
-    } = await supabaseAdmin.auth.getUser(accessToken);
-
-    if (error || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
-
-    const adminUserId = process.env.ADMIN_USER_ID;
-
-    if (!adminUserId || user.id !== adminUserId) {
-      return NextResponse.json(
-        { error: "Admin access denied" },
-        { status: 403 },
-      );
+    if ("error" in authCheck) {
+      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
     }
 
     return NextResponse.json({
       success: true,
       admin: true,
       user: {
-        id: user.id,
-        email: user.email,
+        id: authCheck.user.id,
+        email: authCheck.user.email,
+        role: authCheck.role,
       },
     });
   } catch (error) {
     console.error("ADMIN CHECK ERROR:", error);
-
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
