@@ -39,7 +39,6 @@ export default function WeeklyMonthlyTopUpPage() {
 
   async function loadPackages() {
     try {
-      // শুধুমাত্র weekly-monthly ক্যাটাগরির প্যাকেজ ফেচ করা
       const { data, error } = await supabase
         .from("packages")
         .select("*")
@@ -49,7 +48,6 @@ export default function WeeklyMonthlyTopUpPage() {
       if (data && !error && data.length > 0) {
         setPackages(data);
       } else {
-        // ফলব্যাক ডামি প্যাকেজ যদি ডেটাবেজে ক্যাটাগরি লোড হতে সমস্যা হয়
         setPackages([
           { id: "1w", name: "1x Weekly", price: 158 },
           { id: "1m", name: "1x Monthly", price: 790 },
@@ -209,17 +207,13 @@ export default function WeeklyMonthlyTopUpPage() {
             <Image
               alt="BD21 Top Up"
               className="h-9 w-9 rounded-lg object-cover sm:h-11 sm:w-11"
-              height={55}
+              height={44}
               src="/logo/bd21-logo.png"
-              width={55}
+              width={44}
             />
             <div className="flex items-center gap-1.5 text-base font-black text-white sm:text-xl">
-              <span>
-                BD<span className="text-cyan-400">21</span>
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 sm:text-sm">
-                Top Up
-              </span>
+              <span>BD<span className="text-cyan-400">21</span></span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 sm:text-sm">Top Up</span>
             </div>
           </Link>
 
@@ -398,9 +392,7 @@ export default function WeeklyMonthlyTopUpPage() {
                 >
                   {selectedPayment === "wallet" && (
                     <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
-                      <span className="text-[10px] font-black leading-none text-white">
-                        ✓
-                      </span>
+                      <span className="text-[10px] font-black leading-none text-white">✓</span>
                     </div>
                   )}
 
@@ -446,9 +438,7 @@ export default function WeeklyMonthlyTopUpPage() {
                 >
                   {selectedPayment === "instant" && (
                     <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
-                      <span className="text-[10px] font-black leading-none text-white">
-                        ✓
-                      </span>
+                      <span className="text-[10px] font-black leading-none text-white">✓</span>
                     </div>
                   )}
 
@@ -480,9 +470,7 @@ export default function WeeklyMonthlyTopUpPage() {
               {selectedPayment === "wallet" && (
                 <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-cyan-200">
-                      BD21 Wallet Balance
-                    </span>
+                    <span className="text-xs font-semibold text-cyan-200">BD21 Wallet Balance</span>
                     <span className="text-sm font-black text-cyan-400 sm:text-base">
                       {loadingWallet ? "Loading..." : `৳${walletBalance}`}
                     </span>
@@ -508,16 +496,12 @@ export default function WeeklyMonthlyTopUpPage() {
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-400">Player</span>
-                  <span className="text-right">
-                    {isUidVerified ? playerName : "Not verified"}
-                  </span>
+                  <span className="text-right">{isUidVerified ? playerName : "Not verified"}</span>
                 </div>
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-400">Package</span>
-                  <span className="text-right">
-                    {selectedPackage ? selectedPackage.name : "Not selected"}
-                  </span>
+                  <span className="text-right">{selectedPackage ? selectedPackage.name : "Not selected"}</span>
                 </div>
 
                 <div className="flex justify-between gap-4">
@@ -529,7 +513,7 @@ export default function WeeklyMonthlyTopUpPage() {
                       ? "Instant Pay"
                       : "Not selected"}
                   </span>
-                </div>
+                       </div>
 
                 <div className="flex justify-between border-t border-white/10 pt-2.5">
                   <span className="font-bold">Total</span>
