@@ -111,28 +111,46 @@ export default function AdminPackages() {
     );
   }
 
-  // একদম পারফেক্ট ক্যাটাগরি ফিল্টার লজিক
+  // ফিল্টার এবং স্পেশাল শর্টিং লজিক (Weekly ও Monthly কে উপরে রাখার জন্য)
   const filteredPackages = packages
     .filter((pkg) => {
       const cat = pkg.category || "uid";
       const nameLower = pkg.name.trim().toLowerCase();
       
-      // শুধুমাত্র সাধারণ Weekly ও Monthly চেনার জন্য
       const isBasicWeeklyMonthly = nameLower === "weekly" || nameLower === "monthly";
 
       if (selectedCategory === "uid") {
-        // UID কার্ডে ক্যাটাগরি 'uid' এর সাথে সাধারণ 'Weekly' ও 'Monthly' দেখাবে
         return cat === "uid" || isBasicWeeklyMonthly;
       }
 
       if (selectedCategory === "weekly-monthly") {
-        // Weekly-Monthly কার্ডে সাধারণ 'Weekly' ও 'Monthly' বাদ দিয়ে বাকি মাল্টিপলগুলো দেখাবে
         return cat === "weekly-monthly" && !isBasicWeeklyMonthly;
       }
 
       return cat === selectedCategory;
     })
-    .sort((a, b) => a.price - b.price);
+    .sort((a, b) => {
+      const nameA = a.name.trim().toLowerCase();
+      const nameB = b.name.trim().toLowerCase();
+
+      // Weekly কে সবার উপরে (Rank 1), Monthly কে ২য় (Rank 2) রাখার লজিক
+      const getRank = (name: string) => {
+        if (name === "weekly") return 1;
+        if (name === "monthly") return 2;
+        return 3;
+      };
+
+      const rankA = getRank(nameA);
+      const rankB = getRank(nameB);
+
+      // যদি Rank আলাদা হয়, তাহলে ছোট Rank আগে বসবে
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+
+      // বাকি ডায়মন্ড প্যাকগুলোকে দামের ক্রমানুসারে সাজানো হবে
+      return a.price - b.price;
+    });
 
   return (
     <main className="min-h-screen bg-[#07182f] p-5 text-white sm:p-10">
