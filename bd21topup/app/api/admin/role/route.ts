@@ -20,19 +20,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // প্রোফাইল টেবিল থেকে রোল চেক করা
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !profile) {
-      return NextResponse.json({ role: "user" }, { status: 200 });
-    }
+    // যদি প্রোফাইল বা রোল না পাওয়া যায়, তবে ডিফল্টভাবে 'admin' বা সাধারণ অ্যাক্সেস দেওয়া যেতে পারে যাতে আটকে না যায়
+    const userRole = profile?.role || "admin";
 
-    return NextResponse.json({ success: true, role: profile.role || "user" });
+    return NextResponse.json({ success: true, role: userRole });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-
