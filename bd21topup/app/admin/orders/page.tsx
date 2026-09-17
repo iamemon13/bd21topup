@@ -120,8 +120,7 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     loadOrders();
   }, []);
-
-  const stats = useMemo(() => {
+    const stats = useMemo(() => {
     return {
       total: orders.length,
       pending: orders.filter((order) => order.status === "pending").length,
@@ -379,7 +378,8 @@ export default function AdminOrdersPage() {
               </button>
             </div>
 
-            <div className="relative">
+
+                        <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
                 🔍
               </span>
@@ -556,36 +556,6 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <Info label="Transaction ID" value={order.transaction_id} />
-                    <Info label="Order ID" value={order.id} />
-
-                    {order.status === "cancelled" && order.admin_note && (
-                      <div className="mt-2 rounded-lg border border-red-400/20 bg-red-500/10 p-3">
-                        <p className="text-[10px] font-bold uppercase text-red-300">
-                          Cancellation Reason
-                        </p>
-                        <p className="mt-1 break-all text-sm font-bold text-white">
-                          {order.admin_note}
-                        </p>
-                      </div>
-                    )}
-
-                    {canComplete && (
-                      <button
-                        type="button"
-                        disabled={isActioning}
-                        onClick={() => updateOrderStatus(order.id, "completed")}
-                        className="mt-2 h-9 w-full rounded-lg bg-cyan-400 text-[11px] font-black text-[#06172e] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isActioning ? "Updating..." : "Mark Completed"}
-                      </button>
-                    )}
-
-                    {order.status !== "completed" &&
-                      order.status !== "cancelled" && (
-                        <button
-                          type="button"
-                          disabled={isActioning}
-                              <Info label="Transaction ID" value={order.transaction_id} />
                     <Info label="Order ID" value={order.id} />
 
                     {order.status === "cancelled" && order.admin_note && (
@@ -827,4 +797,4 @@ function Info({
       )}
     </div>
   );
-      }
+}
