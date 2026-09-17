@@ -53,30 +53,29 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#07182f] text-white">
-      {/* Header */}
-      <header className="border-b border-cyan-400/15 bg-[#081c36]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-5 sm:py-4">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
+      {/* Header - Sticky on scroll & shows BD21 name on mobile */}
+      <header className="sticky top-0 z-40 border-b border-cyan-400/15 bg-[#081c36]/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-2.5 sm:px-5 sm:py-4">
+          {/* Logo & Brand Name */}
+          <Link href="/" className="flex items-center gap-2 sm:gap-3">
             <Image
               src="/logo/bd21-logo.png"
               alt="BD21 Top Up"
               width={64}
               height={64}
-              className="h-10 w-10 rounded-xl object-cover sm:h-16 sm:w-16"
+              className="h-9 w-9 rounded-xl object-cover sm:h-14 sm:w-14"
               priority
             />
 
-            <div className="hidden leading-none sm:block">
-              <div className="text-xl font-black">
+            <div className="leading-none">
+              <div className="text-base font-black sm:text-xl">
                 BD<span className="text-cyan-400">21</span>
               </div>
-
-              <div className="mt-1 text-[8px] tracking-[3px] text-slate-300">
+              <div className="mt-0.5 text-[7px] font-bold tracking-[2.5px] text-slate-300 sm:mt-1 sm:text-[8px] sm:tracking-[3px]">
                 TOP UP
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Navigation */}
           <nav className="flex items-center gap-2 text-xs font-medium sm:gap-5 sm:text-sm">
@@ -331,8 +330,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-      
-      {/* (page.tsx এর ভেতরের অতিরিক্ত ডুপ্লিকেট footer সেকশন মুছে ফেলা হয়েছে) */}
     </main>
   );
 }
