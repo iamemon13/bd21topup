@@ -193,31 +193,13 @@ export default function AdminOrdersPage() {
     setActionMessage("");
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { error } = await supabase
+        .from("orders")
+        .update({ status })
+        .eq("id", orderId);
 
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-
-      const response = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          orderId,
-          status,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setActionMessage(result.error || "Update failed");
+      if (error) {
+        setActionMessage("Update failed: " + error.message);
         return;
       }
 
@@ -226,7 +208,7 @@ export default function AdminOrdersPage() {
           order.id === orderId
             ? {
                 ...order,
-                status: result.order.status,
+                status,
               }
             : order,
         ),
@@ -253,32 +235,17 @@ export default function AdminOrdersPage() {
     setActionMessage("");
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-
-      const response = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          orderId: cancelOrderId,
+      const { error } = await supabase
+        .from("orders")
+        .update({
           status: "cancelled",
-          note: cancelNote.trim(),
-        }),
-      });
+          admin_note: cancelNote.trim(),
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq("id", cancelOrderId);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        setActionMessage(result.error || "Cancel failed");
+      if (error) {
+        setActionMessage("Cancel failed: " + error.message);
         return;
       }
 
@@ -306,7 +273,7 @@ export default function AdminOrdersPage() {
     }
   }
 
-    async function handleBulkAction(action: "completed" | "cancelled") {
+  async function handleBulkAction(action: "completed" | "cancelled") {
     if (selectedIds.length === 0) return;
 
     if (action === "cancelled" && !bulkCancelReason.trim()) {
@@ -318,16 +285,6 @@ export default function AdminOrdersPage() {
     setActionMessage("");
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-
-      // সুপাবেসের মাধ্যমে একসাথে মাল্টিপল অর্ডারের স্ট্যাটাস আপডেট
       const { error } = await supabase
         .from("orders")
         .update({
@@ -353,9 +310,9 @@ export default function AdminOrdersPage() {
     } finally {
       setIsBulkLoading(false);
     }
-    }
-  
-    return (
+  }
+
+  return (
     <>
       <main className="min-h-screen bg-[#07182f] px-3 py-4 text-white sm:px-5">
         <div className="mx-auto w-full max-w-6xl">
@@ -628,6 +585,36 @@ export default function AdminOrdersPage() {
                         <button
                           type="button"
                           disabled={isActioning}
+                              <Info label="Transaction ID" value={order.transaction_id} />
+                    <Info label="Order ID" value={order.id} />
+
+                    {order.status === "cancelled" && order.admin_note && (
+                      <div className="mt-2 rounded-lg border border-red-400/20 bg-red-500/10 p-3">
+                        <p className="text-[10px] font-bold uppercase text-red-300">
+                          Cancellation Reason
+                        </p>
+                        <p className="mt-1 break-all text-sm font-bold text-white">
+                          {order.admin_note}
+                        </p>
+                      </div>
+                    )}
+
+                    {canComplete && (
+                      <button
+                        type="button"
+                        disabled={isActioning}
+                        onClick={() => updateOrderStatus(order.id, "completed")}
+                        className="mt-2 h-9 w-full rounded-lg bg-cyan-400 text-[11px] font-black text-[#06172e] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isActioning ? "Updating..." : "Mark Completed"}
+                      </button>
+                    )}
+
+                    {order.status !== "completed" &&
+                      order.status !== "cancelled" && (
+                        <button
+                          type="button"
+                          disabled={isActioning}
                           onClick={() => {
                             setCancelOrderId(order.id);
                             setCancelNote("");
@@ -840,4 +827,4 @@ function Info({
       )}
     </div>
   );
-}
+      }
