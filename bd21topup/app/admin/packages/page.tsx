@@ -42,7 +42,7 @@ export default function AdminPackages() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        router.push("/admin/login");
+        router.push("/login");
         return;
       }
 
@@ -107,10 +107,9 @@ export default function AdminPackages() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.push("/admin/login");
+    router.push("/login");
   }
-
-  if (loading) {
+    if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#07182f] text-cyan-400">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-400 border-t-transparent"></div>
