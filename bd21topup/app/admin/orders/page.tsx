@@ -306,7 +306,7 @@ export default function AdminOrdersPage() {
     }
   }
 
-  async function handleBulkAction(action: "completed" | "cancelled") {
+    async function handleBulkAction(action: "completed" | "cancelled") {
     if (selectedIds.length === 0) return;
 
     if (action === "cancelled" && !bulkCancelReason.trim()) {
@@ -327,60 +327,34 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      const response = await fetch("/api/admin/orders/bulk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          orderIds: selectedIds,
-          action,
-          cancelReason:
-            action === "cancelled" ? bulkCancelReason.trim() : undefined,
-        }),
-      });
+      // সুপাবেসের মাধ্যমে একসাথে মাল্টিপল অর্ডারের স্ট্যাটাস আপডেট
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: action,
+          admin_note: action === "cancelled" ? bulkCancelReason.trim() : null,
+          cancelled_at: action === "cancelled" ? new Date().toISOString() : null,
+        })
+        .in("id", selectedIds);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        setActionMessage(result.error || "Bulk action failed");
+      if (error) {
+        setActionMessage("Bulk action failed: " + error.message);
         return;
       }
 
-      setOrders((current) =>
-        current.map((order) => {
-          if (selectedIds.includes(order.id)) {
-            return {
-              ...order,
-              status: action,
-              admin_note:
-                action === "cancelled"
-                  ? bulkCancelReason.trim()
-                  : order.admin_note,
-              cancelled_at:
-                action === "cancelled"
-                  ? new Date().toISOString()
-                  : order.cancelled_at,
-            };
-          }
-          return order;
-        }),
-      );
-
-      setActionMessage(
-        result.message || "Bulk operation completed successfully ✅",
-      );
+      setActionMessage(`সফলভাবে ${selectedIds.length}টি অর্ডার ${action} করা হয়েছে ✅`);
       setSelectedIds([]);
       setIsBulkCancelOpen(false);
       setBulkCancelReason("");
+      await loadOrders();
     } catch (error) {
       console.error("BULK ACTION ERROR", error);
       setActionMessage("সার্ভারে সমস্যা হয়েছে।");
     } finally {
       setIsBulkLoading(false);
     }
-  }
+    }
+  
     return (
     <>
       <main className="min-h-screen bg-[#07182f] px-3 py-4 text-white sm:px-5">
