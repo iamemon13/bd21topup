@@ -15,7 +15,7 @@ type Package = {
 export default function UIDTopUpPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
-  const [selectedPackage, setSelectedPackage] = useState<Package null |>(null);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
 
   const router = useRouter();
 
@@ -45,11 +45,9 @@ export default function UIDTopUpPage() {
         .order("price", { ascending: true });
 
       if (data && !error) {
-        // Weekly এবং Monthly কে আলাদা করে উপরে তোলা
         const weekly = data.find((p) => p.name.trim().toLowerCase() === "weekly");
         const monthly = data.find((p) => p.name.trim().toLowerCase() === "monthly");
 
-        // বাকি ডায়মন্ড প্যাকগুলো (উইকলি/মান্থলি কম্বো ছাড়া)
         const diamonds = data.filter(
           (p) =>
             p.name.trim().toLowerCase() !== "weekly" &&
@@ -58,7 +56,6 @@ export default function UIDTopUpPage() {
             !p.name.toLowerCase().includes("monthly")
         );
 
-        // FFbazar স্টাইল সাজানো: ১. Weekly, ২. Monthly, এরপর বাকি ডায়মন্ড
         const sortedList: Package[] = [];
         if (weekly) sortedList.push(weekly);
         if (monthly) sortedList.push(monthly);
@@ -209,14 +206,23 @@ export default function UIDTopUpPage() {
       <header className="sticky top-0 z-40 border-b border-cyan-400/15 bg-[#081c36]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-5 sm:py-4">
           <Link className="flex items-center gap-2 sm:gap-3" href="/">
-            <Image alt="BD21 Top Up" className="h-9 w-9 rounded-lg object-cover sm:h-11 sm:w-11" height="{55}" src="/logo/bd21-logo.png" width="{55}"/>
-            <div className="flex items-center gap-1.5 text-base sm:text-xl font-black text-white">
+            <Image
+              alt="BD21 Top Up"
+              className="h-9 w-9 rounded-lg object-cover sm:h-11 sm:w-11"
+              height={44}
+              src="/logo/bd21-logo.png"
+              width={44}
+            />
+            <div className="flex items-center gap-1.5 text-base font-black text-white sm:text-xl">
               <span>BD<span className="text-cyan-400">21</span></span>
-              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">Top Up</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 sm:text-sm">Top Up</span>
             </div>
           </Link>
 
-          <Link className="rounded-lg border border-cyan-400/20 px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition hover:border-cyan-400" href="/">
+          <Link
+            className="rounded-lg border border-cyan-400/20 px-3.5 py-1.5 text-xs font-semibold transition hover:border-cyan-400 sm:text-sm"
+            href="/"
+          >
             ← Home
           </Link>
         </div>
@@ -227,7 +233,14 @@ export default function UIDTopUpPage() {
           {/* Left Product Info */}
           <div>
             <div className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#0b2545]">
-              <Image alt="UID TopUp" className="h-auto w-full" height="{700}" priority src="/products/uid-topup.png" width="{700}"/>
+              <Image
+                alt="UID TopUp"
+                className="h-auto w-full"
+                height={700}
+                priority
+                src="/products/uid-topup.png"
+                width={700}
+              />
             </div>
 
             <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
@@ -253,7 +266,7 @@ export default function UIDTopUpPage() {
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {loadingPackages ? (
-                  <div className="col-span-full py-6 text-center text-sm font-semibold text-cyan-400 animate-pulse">
+                  <div className="col-span-full animate-pulse py-6 text-center text-sm font-semibold text-cyan-400">
                     Loading Packages...
                   </div>
                 ) : (
@@ -392,7 +405,13 @@ export default function UIDTopUpPage() {
 
                   <div className="flex min-h-[85px] flex-col items-center justify-center p-2 sm:min-h-[110px] sm:p-4">
                     <div className="flex flex-col items-center gap-1 sm:flex-row sm:gap-2">
-                      <Image alt="BD21" className="rounded-lg shadow-sm sm:w-8" height="{32}" src="/logo/bd21-logo.png" width="{32}"/>
+                      <Image
+                        alt="BD21"
+                        className="rounded-lg shadow-sm sm:w-8"
+                        height={32}
+                        src="/logo/bd21-logo.png"
+                        width={32}
+                      />
                       <div className="text-base font-black tracking-tight text-slate-800 sm:text-xl">
                         WALLET<span className="text-rose-600">PAY</span>
                       </div>
@@ -437,7 +456,13 @@ export default function UIDTopUpPage() {
                           key={method}
                           className="flex h-7 w-12 items-center justify-center rounded border border-slate-200 bg-white p-1 shadow-sm sm:h-9 sm:w-16 sm:p-1.5"
                         >
-                          <Image alt="{method}" className="max-h-4 sm:max-h-5 w-auto object-contain" height="{24}" src="{`/payment/${method}.png`}" width="{50}"/>
+                          <Image
+                            alt={method}
+                            className="max-h-4 w-auto object-contain sm:max-h-5"
+                            height={24}
+                            src={`/payment/${method}.png`}
+                            width={50}
+                          />
                         </div>
                       ))}
                     </div>
@@ -534,7 +559,7 @@ export default function UIDTopUpPage() {
           <div className="flex flex-col gap-6 md:flex-row md:justify-between">
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-2.5">
-                <Image alt="BD21 Logo" className="rounded-lg" height="{36}" src="/logo/bd21-logo.png" width="{36}"/>
+                <Image alt="BD21 Logo" className="rounded-lg" height={36} src="/logo/bd21-logo.png" width={36} />
                 <h3 className="text-xl font-black text-white">
                   BD<span className="text-cyan-400">21</span>
                 </h3>
@@ -580,4 +605,94 @@ export default function UIDTopUpPage() {
           <div className="w-full max-w-md overflow-hidden rounded-3xl border border-cyan-400/20 bg-[#081c36] text-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400 text-lg">
+                  💳
+                </div>
+                <div>
+                  <div className="text-base font-black">
+                    BD21 <span className="text-cyan-400">Wallet</span>
+                  </div>
+                  <div className="text-xs text-slate-400">Pay securely from your wallet</div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWalletPay(false);
+                  setWalletMessage("");
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-xl text-slate-400 transition hover:bg-white/5 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-5">
+              <div className="rounded-2xl border border-cyan-400/15 bg-[#07182f] p-4">
+                <div className="text-[10px] font-semibold uppercase tracking-[2px] text-slate-400">
+                  Available Balance
+                </div>
+                <div className="mt-1 text-2xl font-black text-cyan-400">
+                  {loadingWallet ? "Loading..." : `৳${walletBalance}`}
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5 text-xs">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Package</span>
+                  <span className="font-bold">{selectedPackage.name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Required Amount</span>
+                  <span className="font-black text-white">৳{selectedPackage.price}</span>
+                </div>
+              </div>
+
+              {walletBalance < selectedPackage.price ? (
+                <>
+                  <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3">
+                    <div className="font-bold text-amber-300 text-xs">⚠ Insufficient Balance</div>
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      এই order complete করতে wallet-এ আরও ৳
+                      {selectedPackage.price - walletBalance} প্রয়োজন।
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowWalletPay(false);
+                        setWalletMessage("");
+                      }}
+                      className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:bg-white/5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/add-money")}
+                      className="rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-black text-[#06172e] transition hover:bg-cyan-300"
+                    >
+                      Add Money
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleContinue}
+                  disabled={loadingWallet || walletBalance < selectedPackage.price}
+                  className="mt-4 w-full rounded-xl bg-cyan-400 px-5 py-3.5 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
+                >
+                  Pay ৳{selectedPackage.price} from Wallet
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
