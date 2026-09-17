@@ -219,38 +219,60 @@ export default function AdminOrdersPage() {
       setActionOrderId(null);
     }
   }
-
+  // বাল্ক অ্যাকশন হ্যান্ডলার (এপিআই রাউটের মাধ্যমে কাজ করবে)
   async function handleBulkAction(action: "completed" | "cancelled") {
     if (selectedIds.length === 0) return;
+
     if (action === "cancelled" && !bulkCancelReason.trim()) {
       setActionMessage("অর্ডার বাতিল করার কারণ লিখতে হবে!");
       return;
     }
+
     setIsBulkLoading(true);
     setActionMessage("");
-    try {
-      const { error } = await supabase.from("orders").update({
-        status: action,
-        admin_note: action === "cancelled" ? bulkCancelReason.trim() : null,
-        cancelled_at: action === "cancelled" ? new Date().toISOString() : null,
-      }).in("id", selectedIds);
 
-      if (error) {
-        setActionMessage("Bulk action failed: " + error.message);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
         return;
       }
+
+      // সিলেক্ট করা প্রতিটি অর্ডারের জন্য এপিআই কল করা
+      for (const orderId of selectedIds) {
+        const response = await fetch("/api/admin/orders", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            orderId,
+            status: action,
+            note: action === "cancelled" ? bulkCancelReason.trim() : undefined,
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Update failed");
+        }
+      }
+
       setActionMessage(`সফলভাবে ${selectedIds.length}টি অর্ডার ${action} করা হয়েছে ✅`);
       setSelectedIds([]);
       setIsBulkCancelOpen(false);
       setBulkCancelReason("");
       await loadOrders();
-    } catch (error) {
+    } catch (error: any) {
       console.error("BULK ACTION ERROR", error);
-      setActionMessage("সার্ভারে সমস্যা হয়েছে।");
+      setActionMessage("Bulk action failed: " + (error.message || "সার্ভারে সমস্যা হয়েছে।"));
     } finally {
       setIsBulkLoading(false);
     }
   }
+  
+  
   return (
     <>
       <main className="min-h-screen bg-[#07182f] px-3 py-4 pb-24 text-white sm:px-5">
