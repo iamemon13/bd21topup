@@ -74,7 +74,7 @@ export default function AdminAddMoneyPage() {
     } = await supabase.auth.getSession();
 
     if (!session) {
-      router.replace("/admin/login");
+      router.replace("/login");
       return null;
     }
 
@@ -100,7 +100,7 @@ export default function AdminAddMoneyPage() {
 
       if (response.status === 401 || response.status === 403) {
         await supabase.auth.signOut();
-        router.replace("/admin/login");
+        router.replace("/login");
         return;
       }
 
@@ -271,7 +271,7 @@ export default function AdminAddMoneyPage() {
 
   async function logout() {
     await supabase.auth.signOut();
-    router.replace("/admin/login");
+    router.replace("/login");
   }
 
   const counts = useMemo(() => {
@@ -611,11 +611,10 @@ export default function AdminAddMoneyPage() {
                         </div>
                       </div>
                     </div>
-
-                    {/* CARD DETAILS */}
+                   {/* CARD DETAILS */}
                     <div className="grid gap-3 p-5 sm:grid-cols-2">
                       <div className="rounded-xl bg-[#07182f] p-4">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                           Payment
                         </div>
                         <div className="mt-1 font-black uppercase">
@@ -741,7 +740,6 @@ export default function AdminAddMoneyPage() {
           )}
         </section>
       </main>
-
       {/* ফেসবুক স্টাইল ফ্লোটিং বার */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-cyan-400/40 bg-[#07182f]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
