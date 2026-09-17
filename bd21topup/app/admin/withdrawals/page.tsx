@@ -14,7 +14,7 @@ type Withdrawal = {
   status: string;
   created_at: string;
 };
-
+ 
 export default function AdminWithdrawalsPage() {
   const router = useRouter();
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
