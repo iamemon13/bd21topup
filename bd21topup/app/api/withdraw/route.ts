@@ -28,7 +28,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "সঠিক ১১ ডিজিটের অ্যাকাউন্ট নম্বর দিন।" }, { status: 400 });
     }
 
-    // ১. User er balance check kora jeno tar theke beshi request korte na pare
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from("profiles")
       .select("wallet_balance")
@@ -39,11 +38,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "অ্যাকাউন্ট লোড করা যায়নি।" }, { status: 404 });
     }
 
-    if (Number(profile.wallet_balance) < amountNum) {
+    const currentBalance = Number(profile.wallet_balance);
+
+    if (currentBalance < amountNum) {
       return NextResponse.json({ error: "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
     }
 
-    // ২. Shudhu request create kora hobe, balance katbe na
+    // রিকোয়েস্ট তৈরি করা হচ্ছে এবং balance_after এ বর্তমান ব্যালেন্স দেওয়া হচ্ছে
     const { error: insertErr } = await supabaseAdmin
       .from("withdrawals")
       .insert({
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
         method: method,
         account_number: accountNumber,
         status: "pending",
+        balance_after: currentBalance // UI তে ৳0 এর বদলে সঠিক ব্যালেন্স দেখাবে
       });
 
     if (insertErr) {
