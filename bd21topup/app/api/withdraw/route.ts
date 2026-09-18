@@ -1,71 +1,87 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-async function verifyAdmin(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { error: "Unauthorized", status: 401 };
-  }
-
-  const token = authHeader.replace("Bearer ", "").trim();
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) {
-    return { error: "Invalid session", status: 401 };
-  }
-
-  return { user };
-}
-
-export async function PATCH(request: Request) {
+export async function POST(request: Request) {
   try {
-    const authCheck = await verifyAdmin(request);
-    if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+    const authHeader = request.headers.get("authorization");
+    
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Login required" }, { status: 401 });
+    }
+
+    const token = authHeader.replace("Bearer ", "").trim();
+    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
+
+    if (authErr || !user) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { withdrawalId, status } = body;
+    const { amount, method, accountNumber } = body;
+    const amountNum = Number(amount);
 
-    if (!withdrawalId || !["approved", "rejected"].includes(status?.toLowerCase())) {
-      return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
+    if (!amountNum || amountNum < 100) {
+      return NextResponse.json({ error: "কমপক্ষে ১০০ টাকা উইথড্র করতে হবে।" }, { status: 400 });
     }
 
-    const normalizedStatus = status.toLowerCase();
+    if (!/^01\d{9}$/.test(accountNumber)) {
+      return NextResponse.json({ error: "সঠিক ১১ ডিজিটের অ্যাকাউন্ট নম্বর দিন।" }, { status: 400 });
+    }
 
-    const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
-      .from("withdrawals")
-      .select("*")
-      .eq("id", withdrawalId)
+    // ১. ইউজারের প্রোফাইল এবং ব্যালেন্স চেক করা
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("id", user.id)
       .single();
 
-    if (fetchErr || !withdrawalItem) {
-      return NextResponse.json({ error: "Withdrawal request পাওয়া যায়নি।" }, { status: 404 });
+    if (profileErr || !profile) {
+      return NextResponse.json({ error: "অ্যাকাউন্ট লোড করা যায়নি।" }, { status: 404 });
     }
 
-    if (withdrawalItem.status.toLowerCase() !== "pending") {
-      return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
+    if (Number(profile.wallet_balance) < amountNum) {
+      return NextResponse.json({ error: "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
     }
 
-    // 💡 (ঐচ্ছিক) যদি রিজেক্ট করলে ইউজারের ব্যালেন্স রিফান্ড করার সিস্টেম থাকে, 
-    // তবে এখানে profiles টেবিল আপডেট করার লজিক বসাতে পারেন।
-
-    const { error: updateErr } = await supabaseAdmin
+    // ২. উইথড্র রিকোয়েস্ট তৈরি করা (RLS বাইপাস করার জন্য supabaseAdmin ব্যবহৃত হয়েছে)
+    const { error: insertErr } = await supabaseAdmin
       .from("withdrawals")
-      .update({ status: normalizedStatus })
-      .eq("id", withdrawalId);
+      .insert({
+        user_id: user.id,
+        amount: amountNum,
+        method: method,
+        account_number: accountNumber,
+        status: "pending",
+      });
 
-    if (updateErr) {
-      console.error("WITHDRAWAL UPDATE ERROR:", updateErr);
-      return NextResponse.json({ error: "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" }, { status: 500 });
+    if (insertErr) {
+      console.error("WITHDRAW INSERT ERROR:", insertErr);
+      return NextResponse.json({ error: "রিকোয়েস্ট জমা নেওয়া যায়নি।" }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Withdrawal request ${normalizedStatus} successfully.`,
-    });
+    // ৩. ব্যালেন্স ডিডাক্ট করা (যাতে উইথড্র পেন্ডিং থাকা অবস্থায় সে ডাবল স্পেন্ড করতে না পারে)
+    const newBalance = Number(profile.wallet_balance) - amountNum;
+    await supabaseAdmin
+      .from("profiles")
+      .update({ wallet_balance: newBalance })
+      .eq("id", user.id);
+
+    // ৪. ট্রানজেকশন হিস্ট্রিতে সেভ করা
+    await supabaseAdmin
+      .from("wallet_transactions")
+      .insert({
+        user_id: user.id,
+        amount: amountNum,
+        direction: "debit",
+        type: "adjustment",
+        balance_after: newBalance,
+        description: `Withdrawal requested (${method})`
+      });
+
+    return NextResponse.json({ success: true, message: "Withdrawal successful." });
+    
   } catch (err) {
-    console.error("ADMIN WITHDRAWAL PATCH ERROR:", err);
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
+    console.error("WITHDRAW API ERROR:", err);
+    return NextResponse.json({ error: "সার্ভারে সমস্যা হয়েছে।" }, { status: 500 });
   }
 }
