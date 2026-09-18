@@ -25,13 +25,18 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { withdrawalId, status } = body;
+    const { withdrawalId, status, reason } = body; // reason যুক্ত করা হয়েছে
 
     if (!withdrawalId || !["approved", "rejected"].includes(status?.toLowerCase())) {
       return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
     }
 
     const normalizedStatus = status.toLowerCase();
+
+    // রিজেক্ট হলে অবশ্যই কারণ (reason) দিতে হবে
+    if (normalizedStatus === "rejected" && !reason) {
+      return NextResponse.json({ error: "রিজেক্ট করার কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।" }, { status: 400 });
+    }
 
     const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
       .from("withdrawals")
@@ -47,29 +52,41 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
     }
 
+    // ইউজারের বর্তমান ব্যালেন্স চেক করা
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("id", withdrawalItem.user_id)
+      .single();
+
+    const currentBalance = profile ? Number(profile.wallet_balance) : 0;
+
     // ==========================================
-    // APPROVED LOGIC: Approve korle balance katbe
+    // APPROVED LOGIC
     // ==========================================
     if (normalizedStatus === "approved") {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("wallet_balance")
-        .eq("id", withdrawalItem.user_id)
-        .single();
-
-      if (!profile || Number(profile.wallet_balance) < withdrawalItem.amount) {
+      if (currentBalance < withdrawalItem.amount) {
         return NextResponse.json({ error: "ইউজারের ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
       }
 
-      const newBalance = Number(profile.wallet_balance) - withdrawalItem.amount;
+      const newBalance = currentBalance - withdrawalItem.amount;
 
-      // Balance deduct kora
+      // ১. ব্যালেন্স কাটা হচ্ছে
       await supabaseAdmin
         .from("profiles")
         .update({ wallet_balance: newBalance })
         .eq("id", withdrawalItem.user_id);
 
-      // Transaction history save kora
+      // ২. উইথড্র স্ট্যাটাস এবং balance_after আপডেট
+      await supabaseAdmin
+        .from("withdrawals")
+        .update({ 
+          status: "approved",
+          balance_after: newBalance // UI-তে সঠিক ব্যালেন্স দেখানোর জন্য
+        })
+        .eq("id", withdrawalId);
+
+      // ৩. ট্রানজেকশন হিস্ট্রি সেভ করা
       await supabaseAdmin
         .from("wallet_transactions")
         .insert({
@@ -81,13 +98,7 @@ export async function PATCH(request: Request) {
           description: `Withdrawal approved (${withdrawalItem.method || 'Wallet'})`
         });
 
-      // Status update
-      await supabaseAdmin
-        .from("withdrawals")
-        .update({ status: "approved" })
-        .eq("id", withdrawalId);
-
-      // Notification
+      // ৪. নোটিফিকেশন পাঠানো
       await supabaseAdmin
         .from("notifications")
         .insert({
@@ -98,20 +109,26 @@ export async function PATCH(request: Request) {
 
     } 
     // ==========================================
-    // REJECTED LOGIC: Reject korle balance katbe na
+    // REJECTED LOGIC
     // ==========================================
     else if (normalizedStatus === "rejected") {
+      // ১. উইথড্র স্ট্যাটাস আপডেট (admin_note এ reason সেভ করা হচ্ছে)
       await supabaseAdmin
         .from("withdrawals")
-        .update({ status: "rejected" })
+        .update({ 
+          status: "rejected",
+          admin_note: reason, // ডাটাবেজে কারণ সেভ থাকবে
+          balance_after: currentBalance // ব্যালেন্স কাটেনি, তাই আগের ব্যালেন্সই থাকবে
+        })
         .eq("id", withdrawalId);
 
+      // ২. নোটিফিকেশন পাঠানো (কারণ সহ)
       await supabaseAdmin
         .from("notifications")
         .insert({
           user_id: withdrawalItem.user_id,
           title: "Withdrawal Rejected ❌",
-          message: `Your withdrawal request of ৳${withdrawalItem.amount} was rejected by the admin.`
+          message: `Your withdrawal request of ৳${withdrawalItem.amount} was rejected. Reason: ${reason}`
         });
     }
 
