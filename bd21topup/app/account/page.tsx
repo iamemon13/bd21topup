@@ -243,28 +243,25 @@ async function handleChangePassword() {
     setPasswordMessage("");
 
     try {
-      // Jodi current password deya thake, tahobe age check kore nibe ager pass shothik kina
-      if (currentPassword) {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: user?.email || "",
-          password: currentPassword,
-        });
-
-        if (signInError) {
-          setPasswordMessage("Bortoman password sothik noy.");
-          setIsChangingPassword(false);
-          return;
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
+        return;
       }
 
-      // Direct client side updateUser use korbo, tahole unauthorized error r asbe na
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
+      const response = await fetch("/api/update-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
-      if (updateError) {
-        setPasswordMessage(updateError.message || "Password poriborton kora jayni.");
+      const result = await response.json();
+
+      if (!response.ok) {
+        setPasswordMessage(result.error || "Password poriborton kora jayni.");
         setIsChangingPassword(false);
         return;
       }
@@ -285,7 +282,6 @@ async function handleChangePassword() {
       setIsChangingPassword(false);
     }
   }
- 
     async function handleWithdrawSubmit() {
     const amountNum = Number(withdrawAmount);
 
