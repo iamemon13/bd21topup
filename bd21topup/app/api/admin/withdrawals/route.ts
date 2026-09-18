@@ -17,7 +17,6 @@ async function verifyAdmin(request: Request) {
   return { user };
 }
 
-// PATCH: উইথড্রাল রিকোয়েস্ট স্ট্যাটাস আপডেট (Approve / Reject)
 export async function PATCH(request: Request) {
   try {
     const authCheck = await verifyAdmin(request);
@@ -34,7 +33,6 @@ export async function PATCH(request: Request) {
 
     const normalizedStatus = status.toLowerCase();
 
-    // উইথড্র রিকোয়েস্ট ফেচ করা
     const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
       .from("withdrawals")
       .select("*")
@@ -50,46 +48,46 @@ export async function PATCH(request: Request) {
     }
 
     // ==========================================
-    // ১. APPROVED লজিক: অ্যাপ্রুভ করলে ব্যালেন্স কাটবে
+    // APPROVED LOGIC: Approve korle balance katbe
     // ==========================================
     if (normalizedStatus === "approved") {
-      // ইউজারের বর্তমান ব্যালেন্স চেক করা (যাতে অ্যাপ্রুভ করার সময় পর্যাপ্ত টাকা থাকে)
       const { data: profile } = await supabaseAdmin
-        .from("profiles") // আপনার ডাটাবেজ অনুযায়ী profiles বা users হবে
-        .select("balance")
+        .from("profiles")
+        .select("wallet_balance")
         .eq("id", withdrawalItem.user_id)
         .single();
 
-      if (!profile || profile.balance < withdrawalItem.amount) {
+      if (!profile || Number(profile.wallet_balance) < withdrawalItem.amount) {
         return NextResponse.json({ error: "ইউজারের ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
       }
 
-      const newBalance = profile.balance - withdrawalItem.amount;
+      const newBalance = Number(profile.wallet_balance) - withdrawalItem.amount;
 
-      // ব্যালেন্স কাটা হচ্ছে
+      // Balance deduct kora
       await supabaseAdmin
         .from("profiles")
-        .update({ balance: newBalance })
+        .update({ wallet_balance: newBalance })
         .eq("id", withdrawalItem.user_id);
 
-      // ট্রানজেকশন হিস্ট্রি সেভ করা (Debit)
+      // Transaction history save kora
       await supabaseAdmin
         .from("wallet_transactions")
         .insert({
           user_id: withdrawalItem.user_id,
           amount: withdrawalItem.amount,
+          direction: "debit",
           type: "Withdrawal",
-          description: `Withdrawal approved (${withdrawalItem.method || 'Wallet'})`,
-          balance_after: newBalance
+          balance_after: newBalance,
+          description: `Withdrawal approved (${withdrawalItem.method || 'Wallet'})`
         });
 
-      // উইথড্র স্ট্যাটাস আপডেট
+      // Status update
       await supabaseAdmin
         .from("withdrawals")
         .update({ status: "approved" })
         .eq("id", withdrawalId);
 
-      // নোটিফিকেশন পাঠানো
+      // Notification
       await supabaseAdmin
         .from("notifications")
         .insert({
@@ -100,16 +98,14 @@ export async function PATCH(request: Request) {
 
     } 
     // ==========================================
-    // ২. REJECTED লজিক: রিজেক্ট করলে শুধু স্ট্যাটাস বদলাবে, ব্যালেন্স কাটবে না
+    // REJECTED LOGIC: Reject korle balance katbe na
     // ==========================================
     else if (normalizedStatus === "rejected") {
-      // উইথড্র স্ট্যাটাস আপডেট (রিফান্ড করার দরকার নেই, কারণ টাকা কাটাই হয়নি)
       await supabaseAdmin
         .from("withdrawals")
         .update({ status: "rejected" })
         .eq("id", withdrawalId);
 
-      // নোটিফিকেশন পাঠানো
       await supabaseAdmin
         .from("notifications")
         .insert({
