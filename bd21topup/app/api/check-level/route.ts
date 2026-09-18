@@ -9,7 +9,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    // ফ্রি এপিআই কল করা হচ্ছে
     const response = await fetch(`https://glob-info2.vercel.app/info?uid=${uid}`, {
       cache: "no-store",
     });
@@ -17,21 +16,17 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     if (!data || !data.basicInfo) {
-      return NextResponse.json({ success: false, error: "Player not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "UID পাওয়া যায়নি" }, { status: 404 });
     }
 
-    // প্রয়োজনীয় ডাটাগুলো রিটার্ন করা
     return NextResponse.json({
       success: true,
-      data: {
-        nickname: data.basicInfo.nickname,    // প্লেয়ারের নাম
-        level: data.basicInfo.level,          // প্লেয়ারের লেভেল
-        region: data.basicInfo.region,        // রিজিয়ন
-        likes: data.basicInfo.liked,          // লাইক সংখ্যা
-      },
+      nickname: data.basicInfo.nickname,
+      level: data.basicInfo.level,
+      region: data.basicInfo.region,
     });
   } catch (error) {
-    console.error("API Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch player info" }, { status: 500 });
+    console.error("Level Check Error:", error);
+    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
   }
 }
