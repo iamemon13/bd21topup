@@ -11,6 +11,9 @@ type Order = {
   amount: number;
   status: string;
   created_at: string;
+  profiles?: {
+    avatar_url?: string;
+  };
 };
 
 function timeAgo(dateString: string) {
@@ -30,18 +33,29 @@ export default function RecentOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // সরাসরি Supabase থেকে ১০টি অর্ডার ফেচ করার ফাংশন
+  // Supabase থেকে profiles টেবিলের avatar_url সহ অর্ডার ফেচ করা
   const fetchOrders = async () => {
     setRefreshing(true);
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, account_name, player_name, package_name, amount, status, created_at")
+        .select(`
+          id,
+          account_name,
+          player_name,
+          package_name,
+          amount,
+          status,
+          created_at,
+          profiles (
+            avatar_url
+          )
+        `)
         .order("created_at", { ascending: false })
-        .limit(10); // এখানে ১০টি অর্ডার লিমিট করা হয়েছে
+        .limit(10);
 
       if (!error && data && data.length > 0) {
-        setOrders(data);
+        setOrders(data as Order[]);
       }
     } catch (error) {
       console.error("Fetch error:", error);
@@ -136,28 +150,37 @@ export default function RecentOrders() {
           </div>
         ) : (
           orders.map((order, index) => {
-            // account_name কে সবচেয়ে বেশি প্রায়োরিটি দেওয়া হয়েছে
             const name = order.account_name || order.player_name || "Unknown";
             const pkg = order.package_name || "Diamond";
             const price = order.amount || 0;
             const initial = name.charAt(0).toUpperCase();
+            
+            // User er real avatar image link
+            const avatarUrl = order.profiles?.avatar_url;
 
             return (
               <div
                 key={`${order.id}-${index}`}
                 className="flex items-center justify-between gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 hover:bg-white/[0.02] transition"
               >
-                {/* Left Side: Real-time Account Profile Avatar & Info */}
+                {/* Left Side: Real Avatar & Info */}
                 <div className="flex min-w-0 items-center gap-3 flex-1">
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-cyan-400/10 text-sm font-black text-cyan-400 shadow-sm">
-                    <span>{initial}</span>
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span>{initial}</span>
+                    )}
                   </div>
 
                   <div className="flex flex-col min-w-0">
                     <div className="truncate text-xs sm:text-sm font-bold text-white">
                       {name}
                     </div>
-                    {/* দামটা নিচে নামানো হয়েছে */}
                     <div className="truncate text-[11px] sm:text-xs text-slate-400 mt-0.5">
                       {pkg}
                     </div>
