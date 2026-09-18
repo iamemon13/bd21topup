@@ -78,7 +78,9 @@ export default function AdminOrdersPage() {
     setSelectedIds([]);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         router.replace("/login");
         return;
@@ -114,7 +116,8 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     loadOrders();
   }, []);
-    const stats = useMemo(() => {
+
+  const stats = useMemo(() => {
     return {
       total: orders.length,
       pending: orders.filter((order) => order.status === "pending").length,
@@ -126,22 +129,34 @@ export default function AdminOrdersPage() {
   const filteredOrders = useMemo(() => {
     const searchText = search.trim().toLowerCase();
     return orders.filter((order) => {
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || order.status === statusFilter;
       if (!matchesStatus) return false;
       if (!searchText) return true;
 
       const searchableText = [
-        order.id, order.uid, order.player_name, order.transaction_id,
-        order.receiver_number || "", order.package_name, order.product_name,
-        order.payment_method, order.user_id || "", order.admin_note || "",
-      ].join(" ").toLowerCase();
+        order.id,
+        order.uid,
+        order.player_name,
+        order.transaction_id,
+        order.receiver_number || "",
+        order.package_name,
+        order.product_name,
+        order.payment_method,
+        order.user_id || "",
+        order.admin_note || "",
+      ]
+        .join(" ")
+        .toLowerCase();
 
       return searchableText.includes(searchText);
     });
   }, [orders, search, statusFilter]);
 
   const visiblePendingIds = useMemo(() => {
-    return filteredOrders.filter((o) => o.status === "pending").map((o) => o.id);
+    return filteredOrders
+      .filter((o) => o.status === "pending")
+      .map((o) => o.id);
   }, [filteredOrders]);
 
   const isAllPendingSelected =
@@ -150,39 +165,64 @@ export default function AdminOrdersPage() {
 
   function toggleSelectAllPending() {
     if (isAllPendingSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !visiblePendingIds.includes(id)));
+      setSelectedIds((prev) =>
+        prev.filter((id) => !visiblePendingIds.includes(id)),
+      );
     } else {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...visiblePendingIds])));
+      setSelectedIds((prev) =>
+        Array.from(new Set([...prev, ...visiblePendingIds])),
+      );
     }
   }
 
   function toggleSelectOrder(id: string) {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   }
 
+  // EDITED: API কল করা হয়েছে ক্লায়েন্ট সাইড কুয়েরির বদলে
   async function updateOrderStatus(orderId: string, status: "completed") {
     setActionOrderId(orderId);
     setActionMessage("");
     try {
-      const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
-      if (error) {
-        setActionMessage("Update failed: " + error.message);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
         return;
       }
+
+      const response = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ orderId, status }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Update failed");
+      }
+
       setOrders((current) =>
-        current.map((order) => (order.id === orderId ? { ...order, status } : order))
+        current.map((order) =>
+          order.id === orderId ? { ...order, status } : order,
+        ),
       );
       setActionMessage("Order completed successfully ✅");
-    } catch (error) {
+    } catch (error: any) {
       console.error("ORDER STATUS ERROR", error);
-      setActionMessage("Server error");
+      setActionMessage("Update failed: " + (error.message || "Server error"));
     } finally {
       setActionOrderId(null);
     }
   }
 
+  // EDITED: API কল করা হয়েছে ক্লায়েন্ট সাইড কুয়েরির বদলে
   async function cancelOrder() {
     if (!cancelOrderId) return;
     if (!cancelNote.trim()) {
@@ -191,35 +231,58 @@ export default function AdminOrdersPage() {
     }
     setActionOrderId(cancelOrderId);
     setActionMessage("");
-    try {
-      const { error } = await supabase.from("orders").update({
-        status: "cancelled",
-        admin_note: cancelNote.trim(),
-        cancelled_at: new Date().toISOString(),
-      }).eq("id", cancelOrderId);
 
-      if (error) {
-        setActionMessage("Cancel failed: " + error.message);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
         return;
       }
+
+      const response = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          orderId: cancelOrderId,
+          status: "cancelled",
+          note: cancelNote.trim(),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Cancel failed");
+      }
+
       setOrders((current) =>
         current.map((order) =>
           order.id === cancelOrderId
-            ? { ...order, status: "cancelled", admin_note: cancelNote.trim(), cancelled_at: new Date().toISOString() }
-            : order
-        )
+            ? {
+                ...order,
+                status: "cancelled",
+                admin_note: cancelNote.trim(),
+                cancelled_at: new Date().toISOString(),
+              }
+            : order,
+        ),
       );
       setCancelOrderId(null);
       setCancelNote("");
       setActionMessage("Order cancelled successfully ❌");
-    } catch (error) {
+    } catch (error: any) {
       console.error("CANCEL ERROR", error);
-      setActionMessage("Server error");
+      setActionMessage("Cancel failed: " + (error.message || "Server error"));
     } finally {
       setActionOrderId(null);
     }
   }
-  // বাল্ক অ্যাকশন হ্যান্ডলার (এপিআই রাউটের মাধ্যমে কাজ করবে)
+
+  // বাল্ক অ্যাকশন হ্যান্ডলার (আপনার করা এপিআই রাউটের মাধ্যমেই কাজ করবে)
   async function handleBulkAction(action: "completed" | "cancelled") {
     if (selectedIds.length === 0) return;
 
@@ -232,13 +295,14 @@ export default function AdminOrdersPage() {
     setActionMessage("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         router.replace("/login");
         return;
       }
 
-      // সিলেক্ট করা প্রতিটি অর্ডারের জন্য এপিআই কল করা
       for (const orderId of selectedIds) {
         const response = await fetch("/api/admin/orders", {
           method: "PATCH",
@@ -259,20 +323,23 @@ export default function AdminOrdersPage() {
         }
       }
 
-      setActionMessage(`সফলভাবে ${selectedIds.length}টি অর্ডার ${action} করা হয়েছে ✅`);
+      setActionMessage(
+        `সফলভাবে ${selectedIds.length}টি অর্ডার ${action} করা হয়েছে ✅`,
+      );
       setSelectedIds([]);
       setIsBulkCancelOpen(false);
       setBulkCancelReason("");
       await loadOrders();
     } catch (error: any) {
       console.error("BULK ACTION ERROR", error);
-      setActionMessage("Bulk action failed: " + (error.message || "সার্ভারে সমস্যা হয়েছে।"));
+      setActionMessage(
+        "Bulk action failed: " + (error.message || "সার্ভারে সমস্যা হয়েছে।"),
+      );
     } finally {
       setIsBulkLoading(false);
     }
   }
-  
-  
+
   return (
     <>
       <main className="min-h-screen bg-[#07182f] px-3 py-4 pb-24 text-white sm:px-5">
@@ -280,13 +347,33 @@ export default function AdminOrdersPage() {
           <header className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">BD21 Admin</p>
-                <h1 className="text-xl font-black sm:text-2xl">Orders Dashboard</h1>
-                <p className="text-xs text-slate-400">Manage customer orders and payment status</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
+                  BD21 Admin
+                </p>
+                <h1 className="text-xl font-black sm:text-2xl">
+                  Orders Dashboard
+                </h1>
+                <p className="text-xs text-slate-400">
+                  Manage customer orders and payment status
+                </p>
               </div>
               <div className="flex gap-2">
-                <Link href="/admin" className="rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300">Home</Link>
-                <button type="button" onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }} className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]">Logout</button>
+                <Link
+                  href="/admin"
+                  className="rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300"
+                >
+                  Home
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    router.replace("/login");
+                  }}
+                  className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]"
+                >
+                  Logout
+                </button>
               </div>
             </div>
           </header>
@@ -302,15 +389,41 @@ export default function AdminOrdersPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-black">All Orders</h2>
-                <p className="text-[10px] text-slate-500">{filteredOrders.length} order{filteredOrders.length !== 1 ? "s" : ""} found</p>
+                <p className="text-[10px] text-slate-500">
+                  {filteredOrders.length} order
+                  {filteredOrders.length !== 1 ? "s" : ""} found
+                </p>
               </div>
-              <button type="button" onClick={loadOrders} disabled={isLoading} className="rounded-lg border border-cyan-400/30 px-3 py-2 text-xs font-bold text-cyan-300 disabled:opacity-50">{isLoading ? "Loading..." : "Refresh"}</button>
+              <button
+                type="button"
+                onClick={loadOrders}
+                disabled={isLoading}
+                className="rounded-lg border border-cyan-400/30 px-3 py-2 text-xs font-bold text-cyan-300 disabled:opacity-50"
+              >
+                {isLoading ? "Loading..." : "Refresh"}
+              </button>
             </div>
 
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">🔍</span>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Order ID, UID, Player, Transaction ID..." className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50" />
-              {search && (<button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">✕</button>)}
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                🔍
+              </span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search Order ID, UID, Player, Transaction ID..."
+                className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -322,7 +435,14 @@ export default function AdminOrdersPage() {
               ].map((filter) => {
                 const active = statusFilter === filter.id;
                 return (
-                  <button key={filter.id} type="button" onClick={() => setStatusFilter(filter.id)} className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-black transition ${active ? "border-cyan-400 bg-cyan-400 text-black" : "border-white/10 bg-[#07182f] text-slate-400 hover:border-cyan-400/40"}`}>{filter.label} ({filter.count})</button>
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.id)}
+                    className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-black transition ${active ? "border-cyan-400 bg-cyan-400 text-black" : "border-white/10 bg-[#07182f] text-slate-400 hover:border-cyan-400/40"}`}
+                  >
+                    {filter.label} ({filter.count})
+                  </button>
                 );
               })}
             </div>
@@ -330,66 +450,129 @@ export default function AdminOrdersPage() {
             {visiblePendingIds.length > 0 && (
               <div className="mt-3 flex items-center justify-between rounded-xl border border-cyan-400/15 bg-[#07182f] px-3 py-2">
                 <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-300">
-                  <input type="checkbox" checked={isAllPendingSelected} onChange={toggleSelectAllPending} className="h-4 w-4 cursor-pointer rounded accent-cyan-400" />
+                  <input
+                    type="checkbox"
+                    checked={isAllPendingSelected}
+                    onChange={toggleSelectAllPending}
+                    className="h-4 w-4 cursor-pointer rounded accent-cyan-400"
+                  />
                   Select All Pending ({visiblePendingIds.length})
                 </label>
-                {selectedIds.length > 0 && (<span className="text-[11px] font-black text-cyan-300">{selectedIds.length} Selected</span>)}
+                {selectedIds.length > 0 && (
+                  <span className="text-[11px] font-black text-cyan-300">
+                    {selectedIds.length} Selected
+                  </span>
+                )}
               </div>
             )}
 
-            {actionMessage && (<div className="mt-3 rounded-lg bg-cyan-400/10 p-2 text-center text-xs text-cyan-300">{actionMessage}</div>)}
-            {message && (<div className="mt-3 rounded-xl bg-[#07182f] p-5 text-center text-sm text-slate-400">{message}</div>)}
+            {actionMessage && (
+              <div className="mt-3 rounded-lg bg-cyan-400/10 p-2 text-center text-xs text-cyan-300">
+                {actionMessage}
+              </div>
+            )}
+            {message && (
+              <div className="mt-3 rounded-xl bg-[#07182f] p-5 text-center text-sm text-slate-400">
+                {message}
+              </div>
+            )}
 
             <div className="mt-3 space-y-3">
               {filteredOrders.map((order) => {
-                const canComplete = order.status === "pending" || order.status === "approved";
+                const canComplete =
+                  order.status === "pending" || order.status === "approved";
                 const isActioning = actionOrderId === order.id;
                 const isPending = order.status === "pending";
 
                 return (
-                  <article key={order.id} className={`rounded-xl border p-3 transition ${selectedIds.includes(order.id) ? "border-cyan-400/60 bg-[#0a2342]" : "border-cyan-400/15 bg-[#07182f]"}`}>
+                  <article
+                    key={order.id}
+                    className={`rounded-xl border p-3 transition ${selectedIds.includes(order.id) ? "border-cyan-400/60 bg-[#0a2342]" : "border-cyan-400/15 bg-[#07182f]"}`}
+                  >
                     <div className="flex justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          {isPending && (<input type="checkbox" checked={selectedIds.includes(order.id)} onChange={() => toggleSelectOrder(order.id)} className="h-4 w-4 cursor-pointer rounded accent-cyan-400" />)}
-                          <h3 className="max-w-[170px] truncate text-sm font-black">{order.player_name}</h3>
-                          <span className={`rounded-full border px-2 py-[2px] text-[8px] font-black uppercase ${statusClasses(order.status)}`}>{order.status}</span>
+                          {isPending && (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(order.id)}
+                              onChange={() => toggleSelectOrder(order.id)}
+                              className="h-4 w-4 cursor-pointer rounded accent-cyan-400"
+                            />
+                          )}
+                          <h3 className="max-w-[170px] truncate text-sm font-black">
+                            {order.player_name}
+                          </h3>
+                          <span
+                            className={`rounded-full border px-2 py-[2px] text-[8px] font-black uppercase ${statusClasses(order.status)}`}
+                          >
+                            {order.status}
+                          </span>
                         </div>
-                        <p className="mt-1 text-[10px] text-slate-500">{formatBangladeshTime(order.created_at)}</p>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {formatBangladeshTime(order.created_at)}
+                        </p>
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-[10px] text-slate-500">Amount</p>
-                        <p className="text-base font-black text-cyan-300">৳{Number(order.amount)}</p>
+                        <p className="text-base font-black text-cyan-300">
+                          ৳{Number(order.amount)}
+                        </p>
                       </div>
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <Info label="UID" value={order.uid} copyable />
                       <Info label="Package" value={order.package_name} />
-                      <Info label="Payment" value={order.payment_method.toUpperCase()} />
-                      <Info label="Receiver" value={order.receiver_number || "Wallet Payment"} />
+                      <Info
+                        label="Payment"
+                        value={order.payment_method.toUpperCase()}
+                      />
+                      <Info
+                        label="Receiver"
+                        value={order.receiver_number || "Wallet Payment"}
+                      />
                     </div>
                     <Info label="Transaction ID" value={order.transaction_id} />
                     <Info label="Order ID" value={order.id} />
 
                     {order.status === "cancelled" && order.admin_note && (
                       <div className="mt-2 rounded-lg border border-red-400/20 bg-red-500/10 p-3">
-                        <p className="text-[10px] font-bold uppercase text-red-300">Cancellation Reason</p>
-                        <p className="mt-1 break-all text-sm font-bold text-white">{order.admin_note}</p>
+                        <p className="text-[10px] font-bold uppercase text-red-300">
+                          Cancellation Reason
+                        </p>
+                        <p className="mt-1 break-all text-sm font-bold text-white">
+                          {order.admin_note}
+                        </p>
                       </div>
                     )}
 
                     {canComplete && (
-                      <button type="button" disabled={isActioning} onClick={() => updateOrderStatus(order.id, "completed")} className="mt-2 h-9 w-full rounded-lg bg-cyan-400 text-[11px] font-black text-[#06172e] disabled:opacity-60">
+                      <button
+                        type="button"
+                        disabled={isActioning}
+                        onClick={() => updateOrderStatus(order.id, "completed")}
+                        className="mt-2 h-9 w-full rounded-lg bg-cyan-400 text-[11px] font-black text-[#06172e] disabled:opacity-60"
+                      >
                         {isActioning ? "Updating..." : "Mark Completed"}
                       </button>
                     )}
 
-                    {order.status !== "completed" && order.status !== "cancelled" && (
-                      <button type="button" disabled={isActioning} onClick={() => { setCancelOrderId(order.id); setCancelNote(""); setActionMessage(""); }} className="mt-2 h-9 w-full rounded-lg bg-red-500 text-[11px] font-black text-white disabled:opacity-60">
-                        Cancel Order
-                      </button>
-                    )}
+                    {order.status !== "completed" &&
+                      order.status !== "cancelled" && (
+                        <button
+                          type="button"
+                          disabled={isActioning}
+                          onClick={() => {
+                            setCancelOrderId(order.id);
+                            setCancelNote("");
+                            setActionMessage("");
+                          }}
+                          className="mt-2 h-9 w-full rounded-lg bg-red-500 text-[11px] font-black text-white disabled:opacity-60"
+                        >
+                          Cancel Order
+                        </button>
+                      )}
                   </article>
                 );
               })}
@@ -401,25 +584,73 @@ export default function AdminOrdersPage() {
       {/* Floating Bar with high z-index */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-16 left-1/2 z-[99999] flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-cyan-400/40 bg-[#07182f]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
-          <span className="whitespace-nowrap text-xs font-black text-cyan-300">{selectedIds.length} Selected</span>
-          <button type="button" disabled={isBulkLoading} onClick={() => handleBulkAction("completed")} className="whitespace-nowrap rounded-xl bg-cyan-400 px-3 py-1.5 text-xs font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50">
+          <span className="whitespace-nowrap text-xs font-black text-cyan-300">
+            {selectedIds.length} Selected
+          </span>
+          <button
+            type="button"
+            disabled={isBulkLoading}
+            onClick={() => handleBulkAction("completed")}
+            className="whitespace-nowrap rounded-xl bg-cyan-400 px-3 py-1.5 text-xs font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
+          >
             {isBulkLoading ? "Processing..." : "Mark Completed"}
           </button>
-          <button type="button" disabled={isBulkLoading} onClick={() => { setBulkCancelReason(""); setIsBulkCancelOpen(true); }} className="whitespace-nowrap rounded-xl bg-red-500 px-3 py-1.5 text-xs font-black text-white transition hover:bg-red-600 disabled:opacity-50">
+          <button
+            type="button"
+            disabled={isBulkLoading}
+            onClick={() => {
+              setBulkCancelReason("");
+              setIsBulkCancelOpen(true);
+            }}
+            className="whitespace-nowrap rounded-xl bg-red-500 px-3 py-1.5 text-xs font-black text-white transition hover:bg-red-600 disabled:opacity-50"
+          >
             Cancel Order
           </button>
-          <button type="button" onClick={() => setSelectedIds([])} className="rounded-xl bg-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-600">✕</button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds([])}
+            className="rounded-xl bg-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-600"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {isBulkCancelOpen && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-5">
           <div className="w-full max-w-md rounded-2xl border border-red-400/30 bg-[#0b2545] p-5 shadow-2xl">
-            <h2 className="text-xl font-black text-red-400">Cancel {selectedIds.length} Selected Orders</h2>
-            <p className="mt-2 text-sm text-slate-400">বাতিল করার কারণ লিখুন (বাধ্যতামূলক):</p>
-            <textarea autoFocus value={bulkCancelReason} onChange={(e) => setBulkCancelReason(e.target.value)} placeholder="উদাহরণ: ভুল UID / পেমেন্ট ভেরিফাই হয়নি" className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none focus:border-red-400/50" />
-            <button type="button" onClick={() => handleBulkAction("cancelled")} disabled={isBulkLoading || !bulkCancelReason.trim()} className="mt-3 w-full rounded-xl bg-red-500 py-3 font-black text-white disabled:opacity-60">{isBulkLoading ? "Cancelling..." : "Confirm Cancel"}</button>
-            <button type="button" disabled={isBulkLoading} onClick={() => { setIsBulkCancelOpen(false); setBulkCancelReason(""); }} className="mt-2 w-full rounded-xl bg-slate-700 py-2 font-bold text-white">Close</button>
+            <h2 className="text-xl font-black text-red-400">
+              Cancel {selectedIds.length} Selected Orders
+            </h2>
+            <p className="mt-2 text-sm text-slate-400">
+              বাতিল করার কারণ লিখুন (বাধ্যতামূলক):
+            </p>
+            <textarea
+              autoFocus
+              value={bulkCancelReason}
+              onChange={(e) => setBulkCancelReason(e.target.value)}
+              placeholder="উদাহরণ: ভুল UID / পেমেন্ট ভেরিফাই হয়নি"
+              className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none focus:border-red-400/50"
+            />
+            <button
+              type="button"
+              onClick={() => handleBulkAction("cancelled")}
+              disabled={isBulkLoading || !bulkCancelReason.trim()}
+              className="mt-3 w-full rounded-xl bg-red-500 py-3 font-black text-white disabled:opacity-60"
+            >
+              {isBulkLoading ? "Cancelling..." : "Confirm Cancel"}
+            </button>
+            <button
+              type="button"
+              disabled={isBulkLoading}
+              onClick={() => {
+                setIsBulkCancelOpen(false);
+                setBulkCancelReason("");
+              }}
+              className="mt-2 w-full rounded-xl bg-slate-700 py-2 font-bold text-white"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -428,11 +659,43 @@ export default function AdminOrdersPage() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-5">
           <div className="w-full max-w-md rounded-2xl border border-red-400/30 bg-[#0b2545] p-5 shadow-2xl">
             <h2 className="text-xl font-black text-red-400">Cancel Order</h2>
-            <p className="mt-2 text-sm text-slate-400">Write cancellation reason</p>
-            <textarea autoFocus value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} placeholder="Example: Payment verification failed" className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none focus:border-red-400/50" />
-            {actionMessage && (<p className="mt-2 text-center text-xs font-bold text-red-300">{actionMessage}</p>)}
-            <button type="button" onClick={cancelOrder} disabled={actionOrderId === cancelOrderId} className="mt-3 w-full rounded-xl bg-red-500 py-3 font-black text-white disabled:opacity-60">{actionOrderId === cancelOrderId ? "Cancelling..." : "Confirm Cancel"}</button>
-            <button type="button" disabled={actionOrderId === cancelOrderId} onClick={() => { setCancelOrderId(null); setCancelNote(""); setActionMessage(""); }} className="mt-2 w-full rounded-xl bg-slate-700 py-2 font-bold text-white">Close</button>
+            <p className="mt-2 text-sm text-slate-400">
+              Write cancellation reason
+            </p>
+            <textarea
+              autoFocus
+              value={cancelNote}
+              onChange={(e) => setCancelNote(e.target.value)}
+              placeholder="Example: Payment verification failed"
+              className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none focus:border-red-400/50"
+            />
+            {actionMessage && (
+              <p className="mt-2 text-center text-xs font-bold text-red-300">
+                {actionMessage}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={cancelOrder}
+              disabled={actionOrderId === cancelOrderId}
+              className="mt-3 w-full rounded-xl bg-red-500 py-3 font-black text-white disabled:opacity-60"
+            >
+              {actionOrderId === cancelOrderId
+                ? "Cancelling..."
+                : "Confirm Cancel"}
+            </button>
+            <button
+              type="button"
+              disabled={actionOrderId === cancelOrderId}
+              onClick={() => {
+                setCancelOrderId(null);
+                setCancelNote("");
+                setActionMessage("");
+              }}
+              className="mt-2 w-full rounded-xl bg-slate-700 py-2 font-bold text-white"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -449,27 +712,42 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Info({ label, value, copyable }: { label: string; value: string; copyable?: boolean }) {
+function Info({
+  label,
+  value,
+  copyable,
+}: {
+  label: string;
+  value: string;
+  copyable?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) { console.error("Copy failed", err); }
+    } catch (err) {
+      console.error("Copy failed", err);
+    }
   };
   return (
     <div className="mt-2 flex items-center justify-between rounded-lg border border-cyan-400/10 bg-[#0b2545] px-3 py-2">
       <div className="min-w-0">
         <p className="text-[9px] font-bold uppercase text-slate-500">{label}</p>
-        <p className="mt-1 break-all text-[11px] font-bold text-slate-200">{value}</p>
+        <p className="mt-1 break-all text-[11px] font-bold text-slate-200">
+          {value}
+        </p>
       </div>
       {copyable && (
-        <button type="button" onClick={handleCopy} className={`ml-2 shrink-0 rounded-md px-2 py-1 text-[10px] font-black transition ${copied ? "bg-green-400/20 text-green-300" : "bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-[#06172e]"}`}>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={`ml-2 shrink-0 rounded-md px-2 py-1 text-[10px] font-black transition ${copied ? "bg-green-400/20 text-green-300" : "bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-[#06172e]"}`}
+        >
           {copied ? "Copied" : "Copy"}
         </button>
       )}
     </div>
   );
 }
-
