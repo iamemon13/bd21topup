@@ -37,24 +37,20 @@ export default function WeeklyLiteTopUpPage() {
     loadPackages();
   }, []);
 
-  async function loadPackages() {
+    async function loadPackages() {
     try {
-      // weekly-lite ক্যাটাগরির ডেটা ফেচ
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "weekly-lite")
+        .eq("category", "weekly_lite") // 👈 নতুন ক্যাটাগরি
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
         setPackages(data);
       } else {
-        // ডেটাবেজে না থাকলে ফলব্যাক ডেটা (FFbazar স্টাইল)
         setPackages([
           { id: "1wl", name: "1x Weekly Lite", price: 42 },
           { id: "2wl", name: "2x Weekly Lite", price: 84 },
-          { id: "3wl", name: "3x Weekly Lite", price: 126 },
-          { id: "5wl", name: "5x Weekly Lite", price: 210 },
         ]);
       }
     } catch (error) {
@@ -62,8 +58,8 @@ export default function WeeklyLiteTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-  }
-
+    }
+  
   async function loadWalletBalance() {
     try {
       const {
