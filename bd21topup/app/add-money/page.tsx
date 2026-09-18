@@ -45,11 +45,15 @@ function statusClass(status: AddMoneyRequest["status"]) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-BD", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
+  try {
+    return new Intl.DateTimeFormat("en-BD", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Dhaka",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 export default function AddMoneyPage() {
@@ -64,29 +68,37 @@ export default function AddMoneyPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const selected = useMemo(
-    () => methods.find((item) => item.id === selectedMethod)!,
+    () => methods.find((item) => item.id === selectedMethod) || methods[0],
     [selectedMethod],
   );
 
-  const receiverNumber = paymentConfig[selectedMethod]?.number || "";
+  // সেফটি চেক: পেমেন্ট কনফিগ থেকে নম্বর নিয়ে আসা, না থাকলে ফলব্যাক দেওয়া
+  const receiverNumber =
+    paymentConfig?.[selectedMethod]?.number || "01700000000";
 
   useEffect(() => {
     loadHistory();
   }, []);
 
   async function getSessionOrRedirect() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!session) {
-      const next = "/add-money";
-      window.localStorage.setItem("bd21_auth_next", next);
-      router.replace(`/login?next=${encodeURIComponent(next)}`);
+      if (!session) {
+        const next = "/add-money";
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("bd21_auth_next", next);
+        }
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+        return null;
+      }
+
+      return session;
+    } catch {
       return null;
     }
-
-    return session;
   }
 
   async function loadHistory() {
@@ -169,7 +181,6 @@ export default function AddMoneyPage() {
       setTransactionId("");
       setMessage("Request submitted ✅ Redirecting...");
 
-      // সফল হলে Transactions পেজের Wallet ট্যাবে রিডাইরেক্ট করে দেবে
       router.push("/transactions?tab=wallet");
     } catch (error) {
       console.error("ADD MONEY SUBMIT ERROR:", error);
@@ -333,11 +344,6 @@ export default function AddMoneyPage() {
               >
                 {submitting ? "Submitting..." : "Submit Add Money Request"}
               </button>
-
-              <p className="mt-3 text-[11px] leading-5 text-slate-500">
-                এই stage-এ payment automatically verify হচ্ছে না। Admin payment
-                claim review করে approve/reject করবে।
-              </p>
             </div>
           </div>
 
