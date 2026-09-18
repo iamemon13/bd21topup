@@ -37,28 +37,26 @@ export default function LevelUpPassPage() {
     loadPackages();
   }, []);
 
-  async function loadPackages() {
+    async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "level-up-pass")
+        .eq("category", "level_up") // 👈 নতুন ক্যাটাগরি
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
         setPackages(data);
       } else {
-        setPackages([
-          { id: "lup1", name: "Level Up Pass", price: 160 },
-        ]);
+        setPackages([{ id: "lup1", name: "Level Up Pass", price: 160 }]);
       }
     } catch (error) {
       console.log("Packages load error:", error);
     } finally {
       setLoadingPackages(false);
     }
-  }
-
+    }
+  
   async function loadWalletBalance() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
