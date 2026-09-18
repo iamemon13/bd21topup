@@ -37,12 +37,12 @@ export default function LevelUpPassPage() {
     loadPackages();
   }, []);
 
-    async function loadPackages() {
+  async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "level_up") // 👈 নতুন ক্যাটাগরি
+        .eq("category", "level_up")
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -55,7 +55,7 @@ export default function LevelUpPassPage() {
     } finally {
       setLoadingPackages(false);
     }
-    }
+  }
   
   async function loadWalletBalance() {
     try {
@@ -333,6 +333,73 @@ export default function LevelUpPassPage() {
               >
                 Continue to Payment
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Rules & Helpdesk Section (Moved to Bottom matching Weekly Lite / Weekly Monthly style) */}
+        <div className="mt-8 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5 sm:p-6">
+          <div className="flex flex-col gap-6 md:flex-row md:justify-between">
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <Image
+                  alt="BD21 Logo"
+                  className="rounded-lg"
+                  height={36}
+                  src="/logo/bd21-logo.png"
+                  width={36}
+                />
+                <h3 className="text-xl font-black text-white">
+                  BD<span className="text-cyan-400">21</span>
+                </h3>
+              </div>
+
+              <ul className="space-y-2 text-xs leading-relaxed text-slate-300 sm:text-sm">
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  শুধুমাত্র Bangladesh সার্ভারে ID Code দিয়ে টপ আপ হবে।
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  Player ID Code ভুল দিয়ে Diamond না পেলে BD21 কর্তৃপক্ষ দায়ী নয়।
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  Order কমপ্লিট হওয়ার পরেও আইডিতে ডাইমন্ড না গেলে সাপোর্টে মেসেজ দিন।
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  অর্ডার Cancel হলে কি কারণে তা Cancel হয়েছে তা অর্ডার হিস্টোরিতে দেওয়া থাকে অনুগ্রহ পূর্বক দেখে পুনরায় সঠিক তথ্য দিয়ে অর্ডার করবেন।
+                </li>
+                <li className="flex gap-2 font-bold text-cyan-300 pt-1">
+                  <span>ℹ️</span>
+                  আইডিতে লেভেল আপ পাস থাকতে হবে:
+                </li>
+                <li className="pl-4 text-xs text-slate-300 space-y-1">
+                  <p>1. Level Up pass [Lv.6] -- ওইটা অর্ডার করলে ১২০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ৬ থাকতে হবে ✅</p>
+                  <p>2. Level Up pass [Lv.10] -- ওইটা অর্ডার করলে ২০০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ১০ থাকতে হবে ✅</p>
+                  <p>3. Level Up pass [Lv.15] -- ওইটা অর্ডার করলে ২০০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ১৫ থাকতে হবে ✅</p>
+                  <p>4. Level Up pass [Lv.20] -- ওইটা অর্ডার করলে ২০০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ২০ থাকতে হবে ✅</p>
+                  <p>5. Level Up pass [Lv.25] -- ওইটা অর্ডার করলে ২০০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ২৫ থাকতে হবে ✅</p>
+                  <p>6. Level Up pass [Lv.30] -- ওইটা অর্ডার করলে ৩৫০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ৩০ থাকতে হবে ✅</p>
+                  <p>7. Level Up pass [1270 Diamond] -- ওইটা অর্ডার করলে ১২৭০ ডায়মন্ড পাবেন। অর্ডার করতে হলে আইডি লেভেল ৩০ থাকতে হবে উপরের সব গুলা আইডিতে থাকতে হবে ✅</p>
+                </li>
+              </ul>
+            </div>
+
+            <div className="w-full md:max-w-xs">
+              <h3 className="text-base font-black text-white">Contact Us</h3>
+              <p className="mt-1.5 text-xs text-slate-400">
+                যেকোনো সমস্যায় টেলিগ্রামে যোগাযোগ করলে দ্রুত সমাধান পাবেন।
+              </p>
+              <a
+                href="https://t.me/BD21Support"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-bold text-[#06172e] transition hover:bg-cyan-300 sm:text-sm"
+              >
+                Telegram Helpdesk
+              </a>
             </div>
           </div>
         </div>
