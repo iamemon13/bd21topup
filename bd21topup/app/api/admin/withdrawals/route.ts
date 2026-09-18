@@ -13,7 +13,6 @@ async function verifyAdmin(request: Request) {
   if (error || !user) {
     return { error: "Invalid session", status: 401 };
   }
-
   return { user };
 }
 
@@ -25,7 +24,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { withdrawalId, status, reason } = body; // reason যুক্ত করা হয়েছে
+    const { withdrawalId, status, reason } = body;
 
     if (!withdrawalId || !["approved", "rejected"].includes(status?.toLowerCase())) {
       return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
@@ -33,7 +32,6 @@ export async function PATCH(request: Request) {
 
     const normalizedStatus = status.toLowerCase();
 
-    // রিজেক্ট হলে অবশ্যই কারণ (reason) দিতে হবে
     if (normalizedStatus === "rejected" && !reason) {
       return NextResponse.json({ error: "রিজেক্ট করার কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।" }, { status: 400 });
     }
@@ -52,7 +50,6 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
     }
 
-    // ইউজারের বর্তমান ব্যালেন্স চেক করা
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("wallet_balance")
@@ -71,22 +68,26 @@ export async function PATCH(request: Request) {
 
       const newBalance = currentBalance - withdrawalItem.amount;
 
-      // ১. ব্যালেন্স কাটা হচ্ছে
+      // ১. ব্যালেন্স কাটা
       await supabaseAdmin
         .from("profiles")
         .update({ wallet_balance: newBalance })
         .eq("id", withdrawalItem.user_id);
 
       // ২. উইথড্র স্ট্যাটাস এবং balance_after আপডেট
-      await supabaseAdmin
+      const { error: withdrawUpdateErr } = await supabaseAdmin
         .from("withdrawals")
         .update({ 
           status: "approved",
-          balance_after: newBalance // UI-তে সঠিক ব্যালেন্স দেখানোর জন্য
+          balance_after: newBalance 
         })
         .eq("id", withdrawalId);
 
-      // ৩. ট্রানজেকশন হিস্ট্রি সেভ করা
+      if (withdrawUpdateErr) {
+        return NextResponse.json({ error: "ডাটাবেজ আপডেট ফেইল করেছে।" }, { status: 500 });
+      }
+
+      // ৩. ট্রানজেকশন হিস্ট্রি
       await supabaseAdmin
         .from("wallet_transactions")
         .insert({
@@ -98,7 +99,7 @@ export async function PATCH(request: Request) {
           description: `Withdrawal approved (${withdrawalItem.method || 'Wallet'})`
         });
 
-      // ৪. নোটিফিকেশন পাঠানো
+      // ৪. নোটিফিকেশন
       await supabaseAdmin
         .from("notifications")
         .insert({
@@ -106,23 +107,24 @@ export async function PATCH(request: Request) {
           title: "Withdrawal Approved ✅",
           message: `Your withdrawal request of ৳${withdrawalItem.amount} has been approved and deducted from your wallet.`
         });
-
     } 
     // ==========================================
     // REJECTED LOGIC
     // ==========================================
     else if (normalizedStatus === "rejected") {
-      // ১. উইথড্র স্ট্যাটাস আপডেট (admin_note এ reason সেভ করা হচ্ছে)
-      await supabaseAdmin
+      const { error: rejectErr } = await supabaseAdmin
         .from("withdrawals")
         .update({ 
           status: "rejected",
-          admin_note: reason, // ডাটাবেজে কারণ সেভ থাকবে
-          balance_after: currentBalance // ব্যালেন্স কাটেনি, তাই আগের ব্যালেন্সই থাকবে
+          admin_note: reason,
+          balance_after: currentBalance 
         })
         .eq("id", withdrawalId);
 
-      // ২. নোটিফিকেশন পাঠানো (কারণ সহ)
+      if (rejectErr) {
+        return NextResponse.json({ error: "রিজেক্ট স্ট্যাটাস সেভ হয়নি।" }, { status: 500 });
+      }
+
       await supabaseAdmin
         .from("notifications")
         .insert({
