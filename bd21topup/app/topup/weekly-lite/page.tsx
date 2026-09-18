@@ -37,12 +37,12 @@ export default function WeeklyLiteTopUpPage() {
     loadPackages();
   }, []);
 
-    async function loadPackages() {
+  async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "weekly_lite") // 👈 নতুন ক্যাটাগরি
+        .eq("category", "weekly_lite")
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -58,7 +58,7 @@ export default function WeeklyLiteTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-    }
+  }
   
   async function loadWalletBalance() {
     try {
@@ -217,7 +217,7 @@ export default function WeeklyLiteTopUpPage() {
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-5 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <div>
+          <div className="space-y-4">
             <div className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#0b2545]">
               <Image
                 alt="Weekly Lite"
@@ -229,13 +229,34 @@ export default function WeeklyLiteTopUpPage() {
               />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
+            <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
               <h1 className="text-2xl font-black">
                 Weekly <span className="text-cyan-400">Lite</span>
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Weekly Lite (BD Server) Instant Delivery
               </p>
+            </div>
+
+            {/* নটিশ এবং টেলিগ্রাম হেল্পডেস্ক কার্ড */}
+            <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5 space-y-4 text-xs sm:text-sm text-slate-300">
+              <ul className="list-disc list-inside space-y-2 text-slate-300">
+                <li>শুধুমাত্র বাংলাদেশ সার্ভারএর ID Code দিয়ে টপ আপ হবে[cite: 13]।</li>
+                <li>Player ID ভুল দিয়ে মেম্বারশিপ না পেলে BD21 কর্তৃপক্ষ দায়ী নয়[cite: 13]।</li>
+                <li>অর্ডার Cancel হলে কি কারণে Cancel হয়েছে তা অর্ডারে দেওয়া থাকবে[cite: 13]।</li>
+              </ul>
+              <div className="border-t border-white/10 pt-4">
+                <div className="font-bold text-white text-base">Contact Us</div>
+                <p className="text-slate-400 text-xs mt-1">যেকোনো সমস্যায় টেলিগ্রামে যোগাযোগ করলে দ্রুত সমাধান পাবেন[cite: 13]।</p>
+                <a 
+                  href="https://t.me/your_telegram_username" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="mt-3 block w-full rounded-xl bg-cyan-400 py-3 text-center font-black text-[#06172e] transition hover:bg-cyan-300"
+                >
+                  Telegram Helpdesk
+                </a>
+              </div>
             </div>
           </div>
 
