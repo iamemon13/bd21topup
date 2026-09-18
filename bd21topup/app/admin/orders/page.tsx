@@ -114,7 +114,8 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     loadOrders();
   }, []);
-    const stats = useMemo(() => {
+
+  const stats = useMemo(() => {
     return {
       total: orders.length,
       pending: orders.filter((order) => order.status === "pending").length,
@@ -162,7 +163,7 @@ export default function AdminOrdersPage() {
     );
   }
 
-  // EDITED: Ekhon directly supabase.from er bodole API call korbe
+  // EDITED: API কল করা হয়েছে ক্লায়েন্ট সাইড কুয়েরির বদলে
   async function updateOrderStatus(orderId: string, status: "completed") {
     setActionOrderId(orderId);
     setActionMessage("");
@@ -199,7 +200,7 @@ export default function AdminOrdersPage() {
     }
   }
 
-  // EDITED: Ekhon directly supabase.from er bodole API call korbe
+  // EDITED: API কল করা হয়েছে ক্লায়েন্ট সাইড কুয়েরির বদলে
   async function cancelOrder() {
     if (!cancelOrderId) return;
     if (!cancelNote.trim()) {
@@ -252,7 +253,7 @@ export default function AdminOrdersPage() {
     }
   }
 
-  // বাল্ক অ্যাকশন হ্যান্ডলার (এপিআই রাউটের মাধ্যমে কাজ করবে)
+  // বাল্ক অ্যাকশন হ্যান্ডলার (আপনার করা এপিআই রাউটের মাধ্যমেই কাজ করবে)
   async function handleBulkAction(action: "completed" | "cancelled") {
     if (selectedIds.length === 0) return;
 
@@ -271,7 +272,6 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      // সিলেক্ট করা প্রতিটি অর্ডারের জন্য এপিআই কল করা
       for (const orderId of selectedIds) {
         const response = await fetch("/api/admin/orders", {
           method: "PATCH",
@@ -304,7 +304,6 @@ export default function AdminOrdersPage() {
       setIsBulkLoading(false);
     }
   }
-  
   
   return (
     <>
