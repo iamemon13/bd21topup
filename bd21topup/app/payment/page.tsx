@@ -58,7 +58,7 @@ const paymentMethods: PaymentMethod[] = [
 
 function PaymentContent() {
   const searchParams = useSearchParams();
-  const router = useRouter(); // Router যুক্ত করা হয়েছে
+  const router = useRouter();
 
   const uid = searchParams.get("uid") || "";
   const player = searchParams.get("player") || "";
@@ -145,6 +145,8 @@ function PaymentContent() {
           uid,
           playerName: player,
           packageName,
+          amount: amount, 
+          receiverNumber: receiverNumber, 
           paymentMethod: selectedMethod.id,
           transactionId: trxId,
         }),
@@ -158,7 +160,6 @@ function PaymentContent() {
         return;
       }
 
-      // অর্ডার সফল হলে সরাসরি /orders পেজে রিডাইরেক্ট করে দেবে
       setMessage("Order submitted successfully! Redirecting...");
       router.push("/orders");
     } catch (error) {
@@ -185,7 +186,6 @@ function PaymentContent() {
         style={{ colorScheme: "dark" }}
       >
         <div className="mx-auto w-full max-w-[410px]">
-          {/* Top Bar */}
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
