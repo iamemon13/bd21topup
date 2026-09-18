@@ -162,27 +162,44 @@ export default function AdminOrdersPage() {
     );
   }
 
+  // EDITED: Ekhon directly supabase.from er bodole API call korbe
   async function updateOrderStatus(orderId: string, status: "completed") {
     setActionOrderId(orderId);
     setActionMessage("");
     try {
-      const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
-      if (error) {
-        setActionMessage("Update failed: " + error.message);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
         return;
       }
+
+      const response = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ orderId, status }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Update failed");
+      }
+
       setOrders((current) =>
         current.map((order) => (order.id === orderId ? { ...order, status } : order))
       );
       setActionMessage("Order completed successfully ✅");
-    } catch (error) {
+    } catch (error: any) {
       console.error("ORDER STATUS ERROR", error);
-      setActionMessage("Server error");
+      setActionMessage("Update failed: " + (error.message || "Server error"));
     } finally {
       setActionOrderId(null);
     }
   }
 
+  // EDITED: Ekhon directly supabase.from er bodole API call korbe
   async function cancelOrder() {
     if (!cancelOrderId) return;
     if (!cancelNote.trim()) {
@@ -191,17 +208,32 @@ export default function AdminOrdersPage() {
     }
     setActionOrderId(cancelOrderId);
     setActionMessage("");
+    
     try {
-      const { error } = await supabase.from("orders").update({
-        status: "cancelled",
-        admin_note: cancelNote.trim(),
-        cancelled_at: new Date().toISOString(),
-      }).eq("id", cancelOrderId);
-
-      if (error) {
-        setActionMessage("Cancel failed: " + error.message);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
         return;
       }
+
+      const response = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ 
+          orderId: cancelOrderId, 
+          status: "cancelled", 
+          note: cancelNote.trim() 
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Cancel failed");
+      }
+
       setOrders((current) =>
         current.map((order) =>
           order.id === cancelOrderId
@@ -212,13 +244,14 @@ export default function AdminOrdersPage() {
       setCancelOrderId(null);
       setCancelNote("");
       setActionMessage("Order cancelled successfully ❌");
-    } catch (error) {
+    } catch (error: any) {
       console.error("CANCEL ERROR", error);
-      setActionMessage("Server error");
+      setActionMessage("Cancel failed: " + (error.message || "Server error"));
     } finally {
       setActionOrderId(null);
     }
   }
+
   // বাল্ক অ্যাকশন হ্যান্ডলার (এপিআই রাউটের মাধ্যমে কাজ করবে)
   async function handleBulkAction(action: "completed" | "cancelled") {
     if (selectedIds.length === 0) return;
@@ -259,14 +292,14 @@ export default function AdminOrdersPage() {
         }
       }
 
-      setActionMessage(`সফলভাবে ${selectedIds.length}টি অর্ডার ${action} করা হয়েছে ✅`);
+      setActionMessage(`সফলভাবে ${selectedIds.length}টি অর্ডার ${action} করা হয়েছে ✅`);
       setSelectedIds([]);
       setIsBulkCancelOpen(false);
       setBulkCancelReason("");
       await loadOrders();
     } catch (error: any) {
       console.error("BULK ACTION ERROR", error);
-      setActionMessage("Bulk action failed: " + (error.message || "সার্ভারে সমস্যা হয়েছে।"));
+      setActionMessage("Bulk action failed: " + (error.message || "সার্ভারে সমস্যা হয়েছে।"));
     } finally {
       setIsBulkLoading(false);
     }
@@ -417,7 +450,7 @@ export default function AdminOrdersPage() {
           <div className="w-full max-w-md rounded-2xl border border-red-400/30 bg-[#0b2545] p-5 shadow-2xl">
             <h2 className="text-xl font-black text-red-400">Cancel {selectedIds.length} Selected Orders</h2>
             <p className="mt-2 text-sm text-slate-400">বাতিল করার কারণ লিখুন (বাধ্যতামূলক):</p>
-            <textarea autoFocus value={bulkCancelReason} onChange={(e) => setBulkCancelReason(e.target.value)} placeholder="উদাহরণ: ভুল UID / পেমেন্ট ভেরিফাই হয়নি" className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none focus:border-red-400/50" />
+            <textarea autoFocus value={bulkCancelReason} onChange={(e) => setBulkCancelReason(e.target.value)} placeholder="উদাহরণ: ভুল UID / পেমেন্ট ভেরিফাই হয়নি" className="mt-3 h-28 w-full resize-none rounded-xl border border-white/10 bg-[#07182f] p-3 text-sm text-white outline-none focus:border-red-400/50" />
             <button type="button" onClick={() => handleBulkAction("cancelled")} disabled={isBulkLoading || !bulkCancelReason.trim()} className="mt-3 w-full rounded-xl bg-red-500 py-3 font-black text-white disabled:opacity-60">{isBulkLoading ? "Cancelling..." : "Confirm Cancel"}</button>
             <button type="button" disabled={isBulkLoading} onClick={() => { setIsBulkCancelOpen(false); setBulkCancelReason(""); }} className="mt-2 w-full rounded-xl bg-slate-700 py-2 font-bold text-white">Close</button>
           </div>
@@ -472,4 +505,3 @@ function Info({ label, value, copyable }: { label: string; value: string; copyab
     </div>
   );
 }
-
