@@ -36,12 +36,13 @@ export default function FFLikesTopUpPage() {
     loadWalletBalance();
     loadPackages();
   }, []);
+
   async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "ff_likes") // 👈 নতুন ক্যাটাগরি
+        .eq("category", "ff_likes")
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -57,7 +58,6 @@ export default function FFLikesTopUpPage() {
       setLoadingPackages(false);
     }
   }
-  
 
   async function loadWalletBalance() {
     try {
@@ -335,6 +335,65 @@ export default function FFLikesTopUpPage() {
               >
                 Continue to Payment
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Rules & Helpdesk Section (Bottom Section) */}
+        <div className="mt-8 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5 sm:p-6">
+          <div className="flex flex-col gap-6 md:flex-row md:justify-between">
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <Image
+                  alt="BD21 Logo"
+                  className="rounded-lg"
+                  height={36}
+                  src="/logo/bd21-logo.png"
+                  width={36}
+                />
+                <h3 className="text-xl font-black text-white">
+                  BD<span className="text-cyan-400">21</span>
+                </h3>
+              </div>
+
+              <div className="space-y-2 text-xs leading-relaxed text-slate-300 sm:text-sm">
+                <p className="font-bold text-cyan-300">📢 অর্ডার করার আগে ভালোভাবে পড়ে নিন!</p>
+                <p>✅ এক আইডিতে প্রতিদিন একবার অর্ডার করতে পারবেন।</p>
+                <p>❌ একই দিনে একই আইডিতে বারবার অর্ডার করলে টাকা ফেরত দেওয়া হবে না।</p>
+                
+                <div className="pt-2 font-bold text-white">👍 Likes Package সংক্রান্ত গুরুত্বপূর্ণ তথ্য:</div>
+                <ul className="pl-4 space-y-1 text-xs text-slate-300">
+                  <li>• 200 Likes ⇨ Instant Delivery (আইডিতে ঢুকে থাকলে বের হয়ে আবার ঢুকলে লাইক যোগ হয়ে যাবে)</li>
+                  <li>• 400 Likes ⇨ 2 Days Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 600 Likes ⇨ 3 Days Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 1400 Likes ⇨ 7 Days Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 3000 Likes ⇨ 15 Days Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 6000 Likes ⇨ 1 Month Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 12000 Likes ⇨ 2 Month Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 18000 Likes ⇨ 3 Month Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 36000 Likes ⇨ 6 Month Package (প্রতিদিন ২০০ করে লাইক ডেলিভারি হবে)</li>
+                  <li>• 73000 Likes ⇨ 1 Year Package (প্রতিদিন প্রায় ২০০ করে লাইক ডেলিভারি হবে)</li>
+                </ul>
+
+                <p className="pt-2 font-bold text-cyan-300">⚠️ ডেলিভারি নিয়ম ও সহায়তা:</p>
+                <p>• Instant package সাথে সাথে ডেলিভারি হবে। Long-term package গুলোতে প্রতিদিন নির্দিষ্ট পরিমাণ লাইক ডেলিভারি হবে।</p>
+                <p>• নির্ধারিত সময়ের মধ্যে লাইক না পেলে আমাদের Customer Support-এ যোগাযোগ করুন।</p>
+              </div>
+            </div>
+
+            <div className="w-full md:max-w-xs">
+              <h3 className="text-base font-black text-white">Contact Us</h3>
+              <p className="mt-1.5 text-xs text-slate-400">
+                যেকোনো সমস্যায় টেলিগ্রামে যোগাযোগ করলে দ্রুত সমাধান পাবেন।
+              </p>
+              <a
+                href="https://t.me/BD21Support"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-bold text-[#06172e] transition hover:bg-cyan-300 sm:text-sm"
+              >
+                Telegram Helpdesk
+              </a>
             </div>
           </div>
         </div>
