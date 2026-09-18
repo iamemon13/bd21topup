@@ -140,10 +140,13 @@ export default function RecentOrders() {
             const name = order.account_name || order.player_name || "Unknown";
             const pkg = order.package_name || "Diamond";
             const price = order.amount || 0;
-            const initial = name.charAt(0).toUpperCase();
-            
-            // ইউজারের রিয়েল প্রোফাইল পিকচার লিংক
-            const avatarUrl = order.profiles?.avatar_url;
+
+            // যদি ডেটাবেজে রিয়েল avatar_url না থাকে, তবে ইউজারের নামের ওপর ভিত্তি করে ডায়নামিক আইকন জেনারেট হবে
+            const avatarUrl =
+              order.profiles?.avatar_url ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                name
+              )}&background=07182f&color=00ffff&bold=true`;
 
             return (
               <div
@@ -153,15 +156,11 @@ export default function RecentOrders() {
                 {/* Left Side: Avatar & Info */}
                 <div className="flex min-w-0 items-center gap-3 flex-1">
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-cyan-400/10 text-sm font-black text-cyan-400 shadow-sm">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt={name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span>{initial}</span>
-                    )}
+                    <img
+                      src={avatarUrl}
+                      alt={name}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
 
                   <div className="flex flex-col min-w-0">
