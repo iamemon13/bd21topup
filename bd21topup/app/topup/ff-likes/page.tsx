@@ -36,13 +36,12 @@ export default function FFLikesTopUpPage() {
     loadWalletBalance();
     loadPackages();
   }, []);
-
   async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "ff-likes")
+        .eq("category", "ff_likes") // 👈 নতুন ক্যাটাগরি
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -50,7 +49,6 @@ export default function FFLikesTopUpPage() {
       } else {
         setPackages([
           { id: "like1", name: "1000 Likes", price: 50 },
-          { id: "like2", name: "5000 Likes", price: 200 },
         ]);
       }
     } catch (error) {
@@ -59,6 +57,7 @@ export default function FFLikesTopUpPage() {
       setLoadingPackages(false);
     }
   }
+  
 
   async function loadWalletBalance() {
     try {
