@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
     }
 
-    // রিকোয়েস্ট তৈরি করা হচ্ছে এবং balance_after এ বর্তমান ব্যালেন্স দেওয়া হচ্ছে
+    // Shudhu request create kora hocche kono balance deductuion chhara
     const { error: insertErr } = await supabaseAdmin
       .from("withdrawals")
       .insert({
@@ -52,8 +52,7 @@ export async function POST(request: Request) {
         amount: amountNum,
         method: method,
         account_number: accountNumber,
-        status: "pending",
-        balance_after: currentBalance // UI তে ৳0 এর বদলে সঠিক ব্যালেন্স দেখাবে
+        status: "pending"
       });
 
     if (insertErr) {
