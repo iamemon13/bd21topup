@@ -37,34 +37,23 @@ export default function WeeklyMonthlyTopUpPage() {
     loadPackages();
   }, []);
 
-    async function loadPackages() {
+      async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "weekly-monthly")
+        .eq("category", "combo_offer") // 👈 নতুন ক্যাটাগরি
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
-        // শুধু "Weekly" এবং "Monthly" (যাতে 1x বা 2x নেই) সেগুলোকে ফিল্টার করে বাদ দেওয়া হচ্ছে
-        const filteredPackages = data.filter(
-          (item) =>
-            item.name.trim().toLowerCase() !== "weekly" &&
-            item.name.trim().toLowerCase() !== "monthly"
-        );
-        setPackages(filteredPackages);
+        setPackages(data); // SQL থেকেই ফিল্টার হয়ে আসবে
       } else {
         setPackages([
           { id: "1w", name: "1x Weekly", price: 158 },
           { id: "1m", name: "1x Monthly", price: 790 },
           { id: "2w", name: "2x Weekly", price: 316 },
           { id: "2m", name: "2x Monthly", price: 1580 },
-          { id: "3w", name: "3x Weekly", price: 474 },
-          { id: "3m", name: "3x Monthly", price: 2370 },
-          { id: "4w", name: "4x Weekly", price: 632 },
-          { id: "4m", name: "4x Monthly", price: 3160 },
           { id: "1m1w", name: "1 Monthly + 1 Weekly", price: 948 },
-          { id: "1m4w", name: "1 Monthly + 4 Weekly", price: 1422 },
         ]);
       }
     } catch (error) {
@@ -72,7 +61,8 @@ export default function WeeklyMonthlyTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-    }
+      }
+  
   
   async function loadWalletBalance() {
     try {
