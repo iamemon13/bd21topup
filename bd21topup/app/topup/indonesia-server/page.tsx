@@ -36,13 +36,12 @@ export default function IndonesiaServerTopUpPage() {
     loadWalletBalance();
     loadPackages();
   }, []);
-
   async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "indonesia-server")
+        .eq("category", "indo_server") // 👈 নতুন ক্যাটাগরি
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -50,7 +49,6 @@ export default function IndonesiaServerTopUpPage() {
       } else {
         setPackages([
           { id: "indo1", name: "100 Diamonds (Indonesia)", price: 90 },
-          { id: "indo2", name: "310 Diamonds (Indonesia)", price: 270 },
         ]);
       }
     } catch (error) {
@@ -59,6 +57,7 @@ export default function IndonesiaServerTopUpPage() {
       setLoadingPackages(false);
     }
   }
+  
 
   async function loadWalletBalance() {
     try {
