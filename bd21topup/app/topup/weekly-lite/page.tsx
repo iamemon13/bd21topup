@@ -37,12 +37,12 @@ export default function WeeklyLiteTopUpPage() {
     loadPackages();
   }, []);
 
-    async function loadPackages() {
+  async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "weekly_lite") // 👈 নতুন ক্যাটাগরি
+        .eq("category", "weekly_lite")
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -58,7 +58,7 @@ export default function WeeklyLiteTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-    }
+  }
   
   async function loadWalletBalance() {
     try {
@@ -217,7 +217,7 @@ export default function WeeklyLiteTopUpPage() {
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-5 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <div>
+          <div className="space-y-4">
             <div className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#0b2545]">
               <Image
                 alt="Weekly Lite"
@@ -229,13 +229,59 @@ export default function WeeklyLiteTopUpPage() {
               />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
+            <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
               <h1 className="text-2xl font-black">
                 Weekly <span className="text-cyan-400">Lite</span>
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Weekly Lite (BD Server) Instant Delivery
               </p>
+            </div>
+
+            {/* Rules Section (উইকলি/মান্থলি পেজের স্টাইলে যুক্ত করা হলো) */}
+            <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <Image
+                  alt="BD21 Logo"
+                  className="rounded-lg"
+                  height={30}
+                  src="/logo/bd21-logo.png"
+                  width={30}
+                />
+                <h3 className="text-lg font-black text-white">
+                  BD<span className="text-cyan-400">21</span>
+                </h3>
+              </div>
+
+              <ul className="space-y-2.5 text-xs leading-relaxed text-slate-300 sm:text-sm">
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  শুধুমাত্র বাংলাদেশ সার্ভারের ID Code দিয়ে টপ আপ হবে।
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  Player ID ভুল দিয়ে মেম্বারশিপ না পেলে BD21 কর্তৃপক্ষ দায়ী নয়।
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400">●</span>
+                  অর্ডার Cancel হলে কি কারনে Cancel হয়েছে তা অর্ডারে দেওয়া থাকবে।
+                </li>
+              </ul>
+
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <h3 className="text-base font-black text-white">Contact Us</h3>
+                <p className="mt-1.5 text-xs text-slate-400">
+                  যেকোনো সমস্যায় টেলিগ্রামে যোগাযোগ করলে দ্রুত সমাধান পাবেন।
+                </p>
+                <a
+                  href="https://t.me/BD21Support"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-bold text-[#06172e] transition hover:bg-cyan-300 sm:text-sm"
+                >
+                  Telegram Helpdesk
+                </a>
+              </div>
             </div>
           </div>
 
