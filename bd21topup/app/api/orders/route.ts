@@ -39,7 +39,8 @@ export async function GET(request: Request) {
          status,
          created_at,
          admin_note,
-         cancelled_at
+         cancelled_at,
+         account_name
       `)
       .eq("user_id", user.id)
       .order("created_at", {
@@ -89,10 +90,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Required fields are missing." }, { status: 400 });
     }
 
+    // ইউজারের মেটাডাটা থেকে আসল নাম বের করা হচ্ছে, না পেলে ইমেইলের প্রথম অংশ ব্যবহার করবে
+    const accName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || "User";
+
     const { data, error } = await supabaseAdmin
       .from("orders")
       .insert({
         user_id: user.id,
+        account_name: accName, // <-- এখানে account_name যোগ করা হয়েছে
         uid: uid,
         player_name: playerName || "",
         package_name: packageName,
