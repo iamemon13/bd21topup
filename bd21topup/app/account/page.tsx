@@ -223,22 +223,19 @@ export default function AccountPage() {
       setIsSavingProfile(false);
     }
   }
-
- async function handleChangePassword() {
-    // গুগল বা যাদের কারেন্ট পাসওয়ার্ড নেই, তাদের জন্য বর্তমান পাসওয়ার্ড ফিল্ড অপশনাল রাখা যেতে পারে
-    // অথবা নতুন এপিআই সরাসরি নতুন পাসওয়ার্ড সেট করে নেবে।
+async function handleChangePassword() {
     if (!newPassword || !confirmNewPassword) {
-      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড পূরণ করুন।");
+      setPasswordMessage("Notun password ebong confirm password puron korun.");
       return;
     }
 
     if (newPassword.length < 6) {
-      setPasswordMessage("নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।");
+      setPasswordMessage("Notun password kam pokhshe 6 okhorer hote hobe.");
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড এক হয়নি।");
+      setPasswordMessage("Notun password ebong confirm password ek hoyni.");
       return;
     }
 
@@ -246,31 +243,33 @@ export default function AccountPage() {
     setPasswordMessage("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace("/login");
-        return;
+      // Jodi current password deya thake, tahobe age check kore nibe ager pass shothik kina
+      if (currentPassword) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user?.email || "",
+          password: currentPassword,
+        });
+
+        if (signInError) {
+          setPasswordMessage("Bortoman password sothik noy.");
+          setIsChangingPassword(false);
+          return;
+        }
       }
 
-      // নতুন ব্যাকএন্ড এপিআই কল করা হচ্ছে (যা কারেন্ট পাসওয়ার্ড ছাড়াই সরাসরি আপডেট করবে)
-      const response = await fetch("/api/update-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ newPassword }),
+      // Direct client side updateUser use korbo, tahole unauthorized error r asbe na
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        setPasswordMessage(result.error || "পাসওয়ার্ড পরিবর্তন করা যায়নি।");
+      if (updateError) {
+        setPasswordMessage(updateError.message || "Password poriborton kora jayni.");
         setIsChangingPassword(false);
         return;
       }
 
-      setPasswordMessage("পাসওয়ার্ড সফলভাবে সেট বা পরিবর্তন করা হয়েছে!");
+      setPasswordMessage("Password shofolvabe update kora hoyeche!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
@@ -281,11 +280,12 @@ export default function AccountPage() {
       }, 1500);
     } catch (error) {
       console.error("PASSWORD CHANGE ERROR:", error);
-      setPasswordMessage("সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন।");
+      setPasswordMessage("Server-e somoshsha hoyeche, abar chesta korun.");
     } finally {
       setIsChangingPassword(false);
     }
   }
+ 
     async function handleWithdrawSubmit() {
     const amountNum = Number(withdrawAmount);
 
