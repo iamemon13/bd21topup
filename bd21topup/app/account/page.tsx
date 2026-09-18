@@ -224,19 +224,21 @@ export default function AccountPage() {
     }
   }
 
-  async function handleChangePassword() {
-    if (!currentPassword || !newPassword || !confirmNewPassword) {
-      setPasswordMessage("সবগুলো ফিল্ড পূরণ করুন।");
+ async function handleChangePassword() {
+    // গুগল বা যাদের কারেন্ট পাসওয়ার্ড নেই, তাদের জন্য বর্তমান পাসওয়ার্ড ফিল্ড অপশনাল রাখা যেতে পারে
+    // অথবা নতুন এপিআই সরাসরি নতুন পাসওয়ার্ড সেট করে নেবে।
+    if (!newPassword || !confirmNewPassword) {
+      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড পূরণ করুন।");
       return;
     }
 
     if (newPassword.length < 6) {
-      setPasswordMessage("নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।");
+      setPasswordMessage("নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।");
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড এক হয়নি।");
+      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড এক হয়নি।");
       return;
     }
 
@@ -244,28 +246,31 @@ export default function AccountPage() {
     setPasswordMessage("");
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data?.account.email || "",
-        password: currentPassword,
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login");
+        return;
+      }
+
+      // নতুন ব্যাকএন্ড এপিআই কল করা হচ্ছে (যা কারেন্ট পাসওয়ার্ড ছাড়াই সরাসরি আপডেট করবে)
+      const response = await fetch("/api/update-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ newPassword }),
       });
 
-      if (signInError) {
-        setPasswordMessage("বর্তমান পাসওয়ার্ড সঠিক নয়।");
+      const result = await response.json();
+
+      if (!response.ok) {
+        setPasswordMessage(result.error || "পাসওয়ার্ড পরিবর্তন করা যায়নি।");
         setIsChangingPassword(false);
         return;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (updateError) {
-        setPasswordMessage(updateError.message || "পাসওয়ার্ড পরিবর্তন করা যায়নি।");
-        setIsChangingPassword(false);
-        return;
-      }
-
-      setPasswordMessage("পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!");
+      setPasswordMessage("পাসওয়ার্ড সফলভাবে সেট বা পরিবর্তন করা হয়েছে!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
@@ -276,12 +281,11 @@ export default function AccountPage() {
       }, 1500);
     } catch (error) {
       console.error("PASSWORD CHANGE ERROR:", error);
-      setPasswordMessage("সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন।");
+      setPasswordMessage("সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন।");
     } finally {
       setIsChangingPassword(false);
     }
   }
-
     async function handleWithdrawSubmit() {
     const amountNum = Number(withdrawAmount);
 
