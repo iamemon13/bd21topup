@@ -164,8 +164,9 @@ export async function GET(request: Request) {
           method,
           account_number,
           status,
+          balance_after, 
           created_at
-        `,
+        `, // এখানে balance_after মিসিং ছিল, অ্যাড করা হয়েছে
       )
       .eq("user_id", user.id)
       .order("created_at", {
@@ -206,8 +207,9 @@ export async function GET(request: Request) {
     // FORMAT WALLET TRANSACTIONS
     // =====================================================
 
-    const formattedWalletTransactions = (walletRows ?? []).map(
-      (transaction) => ({
+    const formattedWalletTransactions = (walletRows ?? [])
+      .filter((transaction) => transaction.type !== "Withdrawal") // ডাবল এন্ট্রি রিমুভ করার জন্য ফিল্টার করা হলো
+      .map((transaction) => ({
         id: transaction.id,
         type: "wallet_transaction" as const,
         transactionType: transaction.type || "wallet_transaction",
@@ -218,8 +220,7 @@ export async function GET(request: Request) {
         description: transaction.description || null,
         createdAt: transaction.created_at,
         status: "completed",
-      }),
-    );
+      }));
 
     // =====================================================
     // FORMAT PENDING/REJECTED ADD MONEY
@@ -246,16 +247,16 @@ export async function GET(request: Request) {
       id: w.id,
       type: "wallet_transaction" as const,
       transactionType: "withdrawal",
-      direction: "debit", // উইথড্র করা মানে ব্যালেন্স কাটা বা ডেবিট হওয়া
+      direction: "debit", 
       amount: Number(w.amount || 0),
-      balanceAfter: 0,
+      balanceAfter: Number(w.balance_after || 0), // এখানে 0 হার্ডকোড করা ছিল, ডাটাবেজ থেকে ডাটা আনা হয়েছে
       referenceId: w.account_number || null,
       description: `Withdraw via ${w.method} (${w.account_number})`,
       createdAt: w.created_at,
-      status: w.status.toLowerCase(), // "Pending", "Approved", "Rejected" ইত্যাদি
+      status: w.status.toLowerCase(),
     }));
 
-    // সমস্ত ওয়ালেট ট্রানজেকশন একসাথে করে তারিখ অনুযায়ী সাজানো
+    // সমস্ত ওয়ালেট ট্রানজেকশন একসাথে করে তারিখ অনুযায়ী সাজানো
     const walletTransactions = [
       ...formattedWalletTransactions,
       ...formattedAddMoneyRequests,
