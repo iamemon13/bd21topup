@@ -37,28 +37,18 @@ export default function UIDTopUpPage() {
     loadPackages();
   }, []);
 
+    
     async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
         .eq("category", "uid") 
-        .order("price", { ascending: true });
+        .order("sort_order", { ascending: true }) // প্রথমে sort_order অনুযায়ী সাজাবে (১, ২, ৩)
+        .order("price", { ascending: true });     // তারপর দাম অনুযায়ী ছোট থেকে বড় সাজাবে
 
       if (data && !error) {
-        // Weekly এবং Monthly প্যাকেজগুলোকে নামের অংশ দিয়ে ফিল্টার করে আলাদা করা
-        const weeklyPackages = data.filter((p) => p.name.toLowerCase().includes("weekly"));
-        const monthlyPackages = data.filter((p) => p.name.toLowerCase().includes("monthly"));
-        
-        // বাকি সাধারণ ডায়মন্ড প্যাকেজগুলো
-        const diamondPackages = data.filter(
-          (p) => !p.name.toLowerCase().includes("weekly") && !p.name.toLowerCase().includes("monthly")
-        );
-
-        // প্রথমে Weekly, তারপর Monthly, এবং শেষে ডায়মন্ড প্যাকেজগুলো দিয়ে লিস্ট সাজানো
-        const sortedList = [...weeklyPackages, ...monthlyPackages, ...diamondPackages];
-
-        setPackages(sortedList);
+        setPackages(data); // কোনো ম্যানুয়াল ফিল্টারের দরকার নেই
       }
     } catch (error) {
       console.log("Packages load error:", error);
