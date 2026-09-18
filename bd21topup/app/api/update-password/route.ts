@@ -22,10 +22,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Notun password kam pokhshe 6 okhorer hote hobe." }, { status: 400 });
     }
 
-    // User-er ager password ba identity ache kina check korar jonno amra user sign-in check korte pari 
-    // Jodi user-er password theke thake, tahobe currentPassword ditei hobe.
-    // Supabase-e user-er password verify korar jonno admin client diye password sign-in try kora jay.
-    if (currentPassword) {
+    // User-er password ache kina ba provider check korar jonno
+    // Supabase user identities ba app_metadata theke dekhte pari user-er password provider ache kina,
+    // Athoba user-er encrypted_password thakle ba password sign-in test kore dekha jay.
+    const identities = user.identities || [];
+    const hasPasswordProvider = identities.some((id: any) => id.provider === "email");
+
+    // Jodi user-er email/password provider thake, tahobe currentPassword wajib dite hobe
+    if (hasPasswordProvider) {
+      if (!currentPassword) {
+        return NextResponse.json({ error: "Bortoman password dite hobe." }, { status: 400 });
+      }
+
       const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
         email: user.email || "",
         password: currentPassword,
@@ -36,7 +44,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Direct password update
+    // Direct password update using Admin API
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       password: newPassword,
     });
