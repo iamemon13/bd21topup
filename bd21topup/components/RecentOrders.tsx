@@ -40,17 +40,15 @@ export default function RecentOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // API থেকে ডাটা ফেচ করার ফাংশন
   const fetchOrders = async () => {
     setRefreshing(true);
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(8);
-
-      if (!error && data && data.length > 0) {
-        setOrders(data);
+      const res = await fetch("/api/recent-orders");
+      const json = await res.json();
+      
+      if (json.success && json.orders) {
+        setOrders(json.orders);
       }
     } catch (error) {
       console.error("Fetch error:", error);
@@ -63,6 +61,7 @@ export default function RecentOrders() {
   useEffect(() => {
     fetchOrders();
 
+    // রিয়েলটাইম আপডেটের জন্য Supabase সাবস্ক্রিপশন
     const channel = supabase
       .channel("public:orders")
       .on(
@@ -141,13 +140,14 @@ export default function RecentOrders() {
           </div>
         ) : (
           orders.map((order, index) => {
+            // account_name কে সবচেয়ে বেশি প্রায়োরিটি দেওয়া হয়েছে
             const name =
-              order.user_name ||
               order.account_name ||
+              order.user_name ||
               order.player_name ||
               order.playerName ||
               order.player ||
-              "Emon0313";
+              "Unknown";
 
             const pkg =
               order.package_name ||
