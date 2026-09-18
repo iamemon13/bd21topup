@@ -5,22 +5,12 @@ import { supabase } from "@/lib/supabase";
 
 type Order = {
   id: string;
-  player_name?: string;
-  playerName?: string;
-  player?: string;
-  user_name?: string;
   account_name?: string;
-  user_email?: string;
+  player_name?: string;
   package_name?: string;
-  packageName?: string;
-  package?: string;
   amount: number;
-  price?: number;
   status: string;
   created_at: string;
-  avatar_url?: string;
-  avatarUrl?: string;
-  user_avatar?: string;
 };
 
 function timeAgo(dateString: string) {
@@ -138,25 +128,15 @@ export default function RecentOrders() {
           <div className="animate-pulse p-8 text-center text-sm font-semibold text-slate-400">
             Loading live orders...
           </div>
+        ) : orders.length === 0 ? (
+          <div className="p-8 text-center text-sm font-semibold text-slate-400">
+            কোনো অর্ডার পাওয়া যায়নি
+          </div>
         ) : (
           orders.map((order, index) => {
-            // account_name কে সবচেয়ে বেশি প্রায়োরিটি দেওয়া হয়েছে
-            const name =
-              order.account_name ||
-              order.user_name ||
-              order.player_name ||
-              order.playerName ||
-              order.player ||
-              "Unknown";
-
-            const pkg =
-              order.package_name ||
-              order.packageName ||
-              order.package ||
-              "Diamond";
-
-            const price = order.amount || order.price || 0;
-            const avatar = order.avatar_url || order.avatarUrl || order.user_avatar;
+            const name = order.account_name || order.player_name || "Unknown";
+            const pkg = order.package_name || "Diamond";
+            const price = order.amount || 0;
             const initial = name.charAt(0).toUpperCase();
 
             return (
@@ -167,15 +147,7 @@ export default function RecentOrders() {
                 {/* Left Side: Real-time Account Profile Avatar & Info */}
                 <div className="flex min-w-0 items-center gap-3 flex-1">
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-cyan-400/10 text-sm font-black text-cyan-400 shadow-sm">
-                    {avatar ? (
-                      <img
-                        src={avatar}
-                        alt={name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span>{initial}</span>
-                    )}
+                    <span>{initial}</span>
                   </div>
 
                   <div className="min-w-0">
