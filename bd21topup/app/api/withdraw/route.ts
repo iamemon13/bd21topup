@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "সঠিক ১১ ডিজিটের অ্যাকাউন্ট নম্বর দিন।" }, { status: 400 });
     }
 
-    // ১. ইউজারের প্রোফাইল এবং ব্যালেন্স চেক করা
+    // ১. User er balance check kora jeno tar theke beshi request korte na pare
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from("profiles")
       .select("wallet_balance")
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
     }
 
-    // ২. উইথড্র রিকোয়েস্ট তৈরি করা (RLS বাইপাস করার জন্য supabaseAdmin ব্যবহৃত হয়েছে)
+    // ২. Shudhu request create kora hobe, balance katbe na
     const { error: insertErr } = await supabaseAdmin
       .from("withdrawals")
       .insert({
@@ -59,26 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "রিকোয়েস্ট জমা নেওয়া যায়নি।" }, { status: 500 });
     }
 
-    // ৩. ব্যালেন্স ডিডাক্ট করা (যাতে উইথড্র পেন্ডিং থাকা অবস্থায় সে ডাবল স্পেন্ড করতে না পারে)
-    const newBalance = Number(profile.wallet_balance) - amountNum;
-    await supabaseAdmin
-      .from("profiles")
-      .update({ wallet_balance: newBalance })
-      .eq("id", user.id);
-
-    // ৪. ট্রানজেকশন হিস্ট্রিতে সেভ করা
-    await supabaseAdmin
-      .from("wallet_transactions")
-      .insert({
-        user_id: user.id,
-        amount: amountNum,
-        direction: "debit",
-        type: "adjustment",
-        balance_after: newBalance,
-        description: `Withdrawal requested (${method})`
-      });
-
-    return NextResponse.json({ success: true, message: "Withdrawal successful." });
+    return NextResponse.json({ success: true, message: "Withdrawal request submitted successfully." });
     
   } catch (err) {
     console.error("WITHDRAW API ERROR:", err);
