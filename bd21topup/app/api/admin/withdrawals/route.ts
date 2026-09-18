@@ -17,7 +17,7 @@ async function verifyAdmin(request: Request) {
   return { user };
 }
 
-// PATCH: উইথড্রাল রিকোয়েস্ট স্ট্যাটাস আপডেট (Approve / Reject)
+// PATCH: উইথড্রাল রিকোয়েস্ট স্ট্যাটাস আপডেট (Approve / Reject)
 export async function PATCH(request: Request) {
   try {
     const authCheck = await verifyAdmin(request);
@@ -34,7 +34,7 @@ export async function PATCH(request: Request) {
 
     const normalizedStatus = status.toLowerCase();
 
-    // উইথড্র রিকোয়েস্ট ফেচ করা
+    // উইথড্র রিকোয়েস্ট ফেচ করা
     const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
       .from("withdrawals")
       .select("*")
@@ -42,11 +42,11 @@ export async function PATCH(request: Request) {
       .single();
 
     if (fetchErr || !withdrawalItem) {
-      return NextResponse.json({ error: "Withdrawal request পাওয়া যায়নি।" }, { status: 404 });
+      return NextResponse.json({ error: "Withdrawal request পাওয়া যায়নি।" }, { status: 404 });
     }
 
     if (withdrawalItem.status.toLowerCase() !== "pending") {
-      return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
+      return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
     }
 
     // উইথড্র স্ট্যাটাস আপডেট
@@ -57,8 +57,52 @@ export async function PATCH(request: Request) {
 
     if (updateErr) {
       console.error("WITHDRAWAL UPDATE ERROR:", updateErr);
-      return NextResponse.json({ error: "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" }, { status: 500 });
+      return NextResponse.json({ error: "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" }, { status: 500 });
     }
+
+    // REFUND LOGIC: Soki eboyami (rejected), zongisa mbongo na wallet
+    if (normalizedStatus === "rejected") {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles") // Etanda ya mosaleli
+        .select("balance")
+        .eq("id", withdrawalItem.user_id)
+        .single();
+
+      if (profile) {
+        const newBalance = (profile.balance || 0) + withdrawalItem.amount;
+
+        // Update balance
+        await supabaseAdmin
+          .from("profiles")
+          .update({ balance: newBalance })
+          .eq("id", withdrawalItem.user_id);
+
+        // Record transaction
+        await supabaseAdmin
+          .from("wallet_transactions")
+          .insert({
+            user_id: withdrawalItem.user_id,
+            amount: withdrawalItem.amount,
+            type: "Refund",
+            description: "Withdrawal rejected refund (WALLET)",
+            balance_after: newBalance
+          });
+      }
+    }
+
+    // NOTIFICATION LOGIC: Tinda mesaje mpo na mosaleli
+    const notifTitle = normalizedStatus === "approved" ? "Withdrawal Approved ✅" : "Withdrawal Rejected ❌";
+    const notifMessage = normalizedStatus === "approved"
+      ? `Your withdrawal request of ৳${withdrawalItem.amount} has been approved.`
+      : `Your withdrawal request of ৳${withdrawalItem.amount} was rejected. The amount has been refunded to your wallet.`;
+
+    await supabaseAdmin
+      .from("notifications")
+      .insert({
+        user_id: withdrawalItem.user_id,
+        title: notifTitle,
+        message: notifMessage
+      });
 
     return NextResponse.json({
       success: true,
@@ -69,4 +113,3 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
-
