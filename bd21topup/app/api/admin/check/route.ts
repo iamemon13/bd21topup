@@ -4,10 +4,17 @@ import { checkUserRole } from "@/lib/admin-auth";
 
 export async function GET(request: Request) {
   try {
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    const authCheck = await checkUserRole(request, [
+      "super_admin",
+      "admin",
+      "editor",
+    ]);
 
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     return NextResponse.json({

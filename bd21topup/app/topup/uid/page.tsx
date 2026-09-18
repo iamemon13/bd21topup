@@ -37,15 +37,14 @@ export default function UIDTopUpPage() {
     loadPackages();
   }, []);
 
-    
-        async function loadPackages() {
+  async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
         .eq("category", "uid_bd") // 👈 এখানে সঠিক ক্যাটাগরি সেট করা আছে
         .order("sort_order", { ascending: true }) // প্রথমে sort_order অনুযায়ী সাজাবে (১, ২, ৩)
-        .order("price", { ascending: true });     // তারপর দাম অনুযায়ী ছোট থেকে বড় সাজাবে
+        .order("price", { ascending: true }); // তারপর দাম অনুযায়ী ছোট থেকে বড় সাজাবে
 
       if (data && !error) {
         setPackages(data); // কোনো ম্যানুয়াল ফিল্টারের দরকার নেই
@@ -55,9 +54,7 @@ export default function UIDTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-        }
-  
-  
+  }
 
   async function loadWalletBalance() {
     try {
@@ -203,8 +200,12 @@ export default function UIDTopUpPage() {
               width={44}
             />
             <div className="flex items-center gap-1.5 text-base font-black text-white sm:text-xl">
-              <span>BD<span className="text-cyan-400">21</span></span>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 sm:text-sm">Top Up</span>
+              <span>
+                BD<span className="text-cyan-400">21</span>
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 sm:text-sm">
+                Top Up
+              </span>
             </div>
           </Link>
 
@@ -392,7 +393,9 @@ export default function UIDTopUpPage() {
                 >
                   {selectedPayment === "wallet" && (
                     <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
-                      <span className="text-[10px] font-black leading-none text-white">✓</span>
+                      <span className="text-[10px] font-black leading-none text-white">
+                        ✓
+                      </span>
                     </div>
                   )}
 
@@ -438,7 +441,9 @@ export default function UIDTopUpPage() {
                 >
                   {selectedPayment === "instant" && (
                     <div className="absolute left-0 top-0 flex h-7 w-7 items-start justify-start rounded-br-xl bg-rose-500 p-1.5 shadow-sm">
-                      <span className="text-[10px] font-black leading-none text-white">✓</span>
+                      <span className="text-[10px] font-black leading-none text-white">
+                        ✓
+                      </span>
                     </div>
                   )}
 
@@ -470,7 +475,9 @@ export default function UIDTopUpPage() {
               {selectedPayment === "wallet" && (
                 <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-cyan-200">BD21 Wallet Balance</span>
+                    <span className="text-xs font-semibold text-cyan-200">
+                      BD21 Wallet Balance
+                    </span>
                     <span className="text-sm font-black text-cyan-400 sm:text-base">
                       {loadingWallet ? "Loading..." : `৳${walletBalance}`}
                     </span>
@@ -495,12 +502,16 @@ export default function UIDTopUpPage() {
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-400">Player</span>
-                  <span className="text-right">{isUidVerified ? playerName : "Not verified"}</span>
+                  <span className="text-right">
+                    {isUidVerified ? playerName : "Not verified"}
+                  </span>
                 </div>
 
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-400">Package</span>
-                  <span className="text-right">{selectedPackage ? selectedPackage.name : "Not selected"}</span>
+                  <span className="text-right">
+                    {selectedPackage ? selectedPackage.name : "Not selected"}
+                  </span>
                 </div>
 
                 <div className="flex justify-between gap-4">
@@ -509,8 +520,8 @@ export default function UIDTopUpPage() {
                     {selectedPayment === "wallet"
                       ? "BD21 Wallet Pay"
                       : selectedPayment === "instant"
-                      ? "Instant Pay"
-                      : "Not selected"}
+                        ? "Instant Pay"
+                        : "Not selected"}
                   </span>
                 </div>
 
@@ -523,15 +534,21 @@ export default function UIDTopUpPage() {
               </div>
 
               {!isUidVerified && (
-                <p className="mt-3 text-xs text-amber-300">Continue করার আগে Player UID verify করুন।</p>
+                <p className="mt-3 text-xs text-amber-300">
+                  Continue করার আগে Player UID verify করুন।
+                </p>
               )}
 
               {isUidVerified && !selectedPackage && (
-                <p className="mt-3 text-xs text-amber-300">Continue করার আগে একটি package select করুন।</p>
+                <p className="mt-3 text-xs text-amber-300">
+                  Continue করার আগে একটি package select করুন।
+                </p>
               )}
 
               {isUidVerified && selectedPackage && !selectedPayment && (
-                <p className="mt-3 text-xs text-amber-300">Continue করার আগে একটি payment option select করুন।</p>
+                <p className="mt-3 text-xs text-amber-300">
+                  Continue করার আগে একটি payment option select করুন।
+                </p>
               )}
 
               <button
@@ -551,7 +568,13 @@ export default function UIDTopUpPage() {
           <div className="flex flex-col gap-6 md:flex-row md:justify-between">
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-2.5">
-                <Image alt="BD21 Logo" className="rounded-lg" height={36} src="/logo/bd21-logo.png" width={36} />
+                <Image
+                  alt="BD21 Logo"
+                  className="rounded-lg"
+                  height={36}
+                  src="/logo/bd21-logo.png"
+                  width={36}
+                />
                 <h3 className="text-xl font-black text-white">
                   BD<span className="text-cyan-400">21</span>
                 </h3>
@@ -568,7 +591,8 @@ export default function UIDTopUpPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-cyan-400">●</span>
-                  অর্ডার Cancel হলে কি কারনে Cancel হয়েছে তা অর্ডারে দেওয়া থাকবে।
+                  অর্ডার Cancel হলে কি কারনে Cancel হয়েছে তা অর্ডারে দেওয়া
+                  থাকবে।
                 </li>
               </ul>
             </div>
@@ -604,7 +628,9 @@ export default function UIDTopUpPage() {
                   <div className="text-base font-black">
                     BD21 <span className="text-cyan-400">Wallet</span>
                   </div>
-                  <div className="text-xs text-slate-400">Pay securely from your wallet</div>
+                  <div className="text-xs text-slate-400">
+                    Pay securely from your wallet
+                  </div>
                 </div>
               </div>
 
@@ -637,14 +663,18 @@ export default function UIDTopUpPage() {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-slate-400">Required Amount</span>
-                  <span className="font-black text-white">৳{selectedPackage.price}</span>
+                  <span className="font-black text-white">
+                    ৳{selectedPackage.price}
+                  </span>
                 </div>
               </div>
 
               {walletBalance < selectedPackage.price ? (
                 <>
                   <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3">
-                    <div className="font-bold text-amber-300 text-xs">⚠ Insufficient Balance</div>
+                    <div className="font-bold text-amber-300 text-xs">
+                      ⚠ Insufficient Balance
+                    </div>
                     <p className="mt-1 text-[11px] text-amber-100/70">
                       এই order complete করতে wallet-এ আরও ৳
                       {selectedPackage.price - walletBalance} প্রয়োজন।
@@ -675,7 +705,9 @@ export default function UIDTopUpPage() {
                 <button
                   type="button"
                   onClick={handleContinue}
-                  disabled={loadingWallet || walletBalance < selectedPackage.price}
+                  disabled={
+                    loadingWallet || walletBalance < selectedPackage.price
+                  }
                   className="mt-4 w-full rounded-xl bg-cyan-400 px-5 py-3.5 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
                 >
                   Pay ৳{selectedPackage.price} from Wallet
@@ -688,5 +720,3 @@ export default function UIDTopUpPage() {
     </main>
   );
 }
-
-            

@@ -17,7 +17,9 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const userId = String(body.userId || "").trim();
-    const action = String(body.action || "").trim().toLowerCase();
+    const action = String(body.action || "")
+      .trim()
+      .toLowerCase();
     const note = String(body.note || "").trim();
     const amount = Number(body.amount);
 
@@ -36,10 +38,7 @@ export async function POST(request: Request) {
     }
 
     if (action !== "add" && action !== "remove") {
-      return NextResponse.json(
-        { error: "Invalid action." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
     const { data: user, error: userError } = await supabaseAdmin
@@ -49,10 +48,7 @@ export async function POST(request: Request) {
       .single();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: "User not found." },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
     const currentBalance = Number(user.wallet_balance || 0);
@@ -95,7 +91,11 @@ export async function POST(request: Request) {
       direction,
       amount,
       balance_after: newBalance,
-      description: note || (action === "add" ? "Wallet balance added by admin" : "Wallet balance removed by admin"),
+      description:
+        note ||
+        (action === "add"
+          ? "Wallet balance added by admin"
+          : "Wallet balance removed by admin"),
     });
 
     return NextResponse.json({
@@ -104,9 +104,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("WALLET UPDATE SERVER ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }

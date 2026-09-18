@@ -283,10 +283,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("ACCOUNT API ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
@@ -302,10 +299,7 @@ export async function PATCH(request: Request) {
     const { fullName, phone } = body;
 
     if (!fullName) {
-      return NextResponse.json(
-        { error: "Name is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
     // ১. profiles টেবিলে আপডেট
@@ -341,9 +335,6 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     console.error("ACCOUNT PATCH ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -15,7 +15,10 @@ export async function GET(request: Request) {
     const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
 
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     const { data, error } = await supabaseAdmin
@@ -118,7 +121,9 @@ export async function PATCH(request: Request) {
 
     const body = await request.json();
     const requestId = String(body.requestId || "").trim();
-    const action = String(body.action || "").trim().toLowerCase();
+    const action = String(body.action || "")
+      .trim()
+      .toLowerCase();
     const adminNote = String(body.adminNote || "").trim();
 
     if (!requestId) {
@@ -131,10 +136,7 @@ export async function PATCH(request: Request) {
     const validActions = ["approved", "rejected", "undo"];
 
     if (!validActions.includes(action)) {
-      return NextResponse.json(
-        { error: "Invalid action." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
     /* =====================================================
@@ -219,7 +221,10 @@ export async function PATCH(request: Request) {
           });
 
         if (notificationError) {
-          console.error("ADD MONEY UNDO NOTIFICATION ERROR:", notificationError);
+          console.error(
+            "ADD MONEY UNDO NOTIFICATION ERROR:",
+            notificationError,
+          );
         }
       }
 
@@ -334,9 +339,6 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error("ADMIN ADD MONEY PATCH SERVER ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }

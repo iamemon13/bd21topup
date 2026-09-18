@@ -247,7 +247,7 @@ export async function GET(request: Request) {
       id: w.id,
       type: "wallet_transaction" as const,
       transactionType: "withdrawal",
-      direction: "debit", 
+      direction: "debit",
       amount: Number(w.amount || 0),
       balanceAfter: Number(w.balance_after || 0), // এখানে 0 হার্ডকোড করা ছিল, ডাটাবেজ থেকে ডাটা আনা হয়েছে
       referenceId: w.account_number || null,

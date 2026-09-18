@@ -11,10 +11,17 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     // Super Admin, Admin এবং Editor সবাই অর্ডার দেখতে পারবে
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    const authCheck = await checkUserRole(request, [
+      "super_admin",
+      "admin",
+      "editor",
+    ]);
 
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     const { data, error } = await supabaseAdmin
@@ -82,7 +89,11 @@ export async function PATCH(request: Request) {
        1. Check admin/editor role
     ----------------------------------------------------- */
 
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    const authCheck = await checkUserRole(request, [
+      "super_admin",
+      "admin",
+      "editor",
+    ]);
 
     if ("error" in authCheck) {
       return NextResponse.json(

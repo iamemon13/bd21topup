@@ -7,9 +7,16 @@ export const dynamic = "force-dynamic";
 // প্যাকেজের লিস্ট দেখার জন্য GET মেথড
 export async function GET(request: Request) {
   try {
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    const authCheck = await checkUserRole(request, [
+      "super_admin",
+      "admin",
+      "editor",
+    ]);
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     const { data, error } = await supabaseAdmin
@@ -38,9 +45,16 @@ export async function GET(request: Request) {
 // প্যাকেজের নাম এবং দাম আপডেট করার জন্য PUT মেথড
 export async function PUT(request: Request) {
   try {
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"]);
+    const authCheck = await checkUserRole(request, [
+      "super_admin",
+      "admin",
+      "editor",
+    ]);
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     const { id, name, price } = await request.json();

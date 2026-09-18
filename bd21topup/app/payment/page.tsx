@@ -16,7 +16,7 @@ type PaymentMethod = {
   accent: string;
   verifyColor: string;
 };
- 
+
 const paymentMethods: PaymentMethod[] = [
   {
     id: "bkash",
@@ -145,8 +145,8 @@ function PaymentContent() {
           uid,
           playerName: player,
           packageName,
-          amount: amount, 
-          receiverNumber: receiverNumber, 
+          amount: amount,
+          receiverNumber: receiverNumber,
           paymentMethod: selectedMethod.id,
           transactionId: trxId,
         }),

@@ -8,7 +8,10 @@ async function verifyAdmin(request: Request) {
   }
 
   const token = authHeader.replace("Bearer ", "").trim();
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  const {
+    data: { user },
+    error,
+  } = await supabaseAdmin.auth.getUser(token);
 
   if (error || !user) {
     return { error: "Invalid session", status: 401 };
@@ -20,20 +23,32 @@ export async function PATCH(request: Request) {
   try {
     const authCheck = await verifyAdmin(request);
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     const body = await request.json();
     const { withdrawalId, status, reason } = body;
 
-    if (!withdrawalId || !["approved", "rejected"].includes(status?.toLowerCase())) {
-      return NextResponse.json({ error: "Invalid parameters." }, { status: 400 });
+    if (
+      !withdrawalId ||
+      !["approved", "rejected"].includes(status?.toLowerCase())
+    ) {
+      return NextResponse.json(
+        { error: "Invalid parameters." },
+        { status: 400 },
+      );
     }
 
     const normalizedStatus = status.toLowerCase();
 
     if (normalizedStatus === "rejected" && !reason) {
-      return NextResponse.json({ error: "রিজেক্ট করার কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।" }, { status: 400 });
+      return NextResponse.json(
+        { error: "রিজেক্ট করার কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।" },
+        { status: 400 },
+      );
     }
 
     const { data: withdrawalItem, error: fetchErr } = await supabaseAdmin
@@ -43,11 +58,17 @@ export async function PATCH(request: Request) {
       .single();
 
     if (fetchErr || !withdrawalItem) {
-      return NextResponse.json({ error: "Withdrawal request পাওয়া যায়নি।" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Withdrawal request পাওয়া যায়নি।" },
+        { status: 404 },
+      );
     }
 
     if (withdrawalItem.status.toLowerCase() !== "pending") {
-      return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
+      return NextResponse.json(
+        { error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" },
+        { status: 400 },
+      );
     }
 
     const { data: profile } = await supabaseAdmin
@@ -63,7 +84,10 @@ export async function PATCH(request: Request) {
     // ==========================================
     if (normalizedStatus === "approved") {
       if (currentBalance < withdrawalItem.amount) {
-        return NextResponse.json({ error: "ইউজারের ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
+        return NextResponse.json(
+          { error: "ইউজারের ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" },
+          { status: 400 },
+        );
       }
 
       const newBalance = currentBalance - withdrawalItem.amount;
@@ -77,61 +101,61 @@ export async function PATCH(request: Request) {
       // ২. উইথড্র স্ট্যাটাস এবং balance_after আপডেট
       const { error: withdrawUpdateErr } = await supabaseAdmin
         .from("withdrawals")
-        .update({ 
+        .update({
           status: "approved",
-          balance_after: newBalance 
+          balance_after: newBalance,
         })
         .eq("id", withdrawalId);
 
       if (withdrawUpdateErr) {
-        return NextResponse.json({ error: "ডাটাবেজ আপডেট ফেইল করেছে।" }, { status: 500 });
+        return NextResponse.json(
+          { error: "ডাটাবেজ আপডেট ফেইল করেছে।" },
+          { status: 500 },
+        );
       }
 
       // ৩. ট্রানজেকশন হিস্ট্রি
-      await supabaseAdmin
-        .from("wallet_transactions")
-        .insert({
-          user_id: withdrawalItem.user_id,
-          amount: withdrawalItem.amount,
-          direction: "debit",
-          type: "Withdrawal",
-          balance_after: newBalance,
-          description: `Withdrawal approved (${withdrawalItem.method || 'Wallet'})`
-        });
+      await supabaseAdmin.from("wallet_transactions").insert({
+        user_id: withdrawalItem.user_id,
+        amount: withdrawalItem.amount,
+        direction: "debit",
+        type: "Withdrawal",
+        balance_after: newBalance,
+        description: `Withdrawal approved (${withdrawalItem.method || "Wallet"})`,
+      });
 
       // ৪. নোটিফিকেশন
-      await supabaseAdmin
-        .from("notifications")
-        .insert({
-          user_id: withdrawalItem.user_id,
-          title: "Withdrawal Approved ✅",
-          message: `Your withdrawal request of ৳${withdrawalItem.amount} has been approved and deducted from your wallet.`
-        });
-    } 
+      await supabaseAdmin.from("notifications").insert({
+        user_id: withdrawalItem.user_id,
+        title: "Withdrawal Approved ✅",
+        message: `Your withdrawal request of ৳${withdrawalItem.amount} has been approved and deducted from your wallet.`,
+      });
+    }
     // ==========================================
     // REJECTED LOGIC
     // ==========================================
     else if (normalizedStatus === "rejected") {
       const { error: rejectErr } = await supabaseAdmin
         .from("withdrawals")
-        .update({ 
+        .update({
           status: "rejected",
           admin_note: reason,
-          balance_after: currentBalance 
+          balance_after: currentBalance,
         })
         .eq("id", withdrawalId);
 
       if (rejectErr) {
-        return NextResponse.json({ error: "রিজেক্ট স্ট্যাটাস সেভ হয়নি।" }, { status: 500 });
+        return NextResponse.json(
+          { error: "রিজেক্ট স্ট্যাটাস সেভ হয়নি।" },
+          { status: 500 },
+        );
       }
 
-      await supabaseAdmin
-        .from("notifications")
-        .insert({
-          user_id: withdrawalItem.user_id,
-          title: "Withdrawal Rejected ❌",
-          message: `Your withdrawal request of ৳${withdrawalItem.amount} was rejected. Reason: ${reason}`
-        });
+      await supabaseAdmin.from("notifications").insert({
+        user_id: withdrawalItem.user_id,
+        title: "Withdrawal Rejected ❌",
+        message: `Your withdrawal request of ৳${withdrawalItem.amount} was rejected. Reason: ${reason}`,
+      });
     }
 
     return NextResponse.json({

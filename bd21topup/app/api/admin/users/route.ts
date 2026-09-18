@@ -8,7 +8,10 @@ export async function GET(request: Request) {
     const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
 
     if ("error" in authCheck) {
-      return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status },
+      );
     }
 
     const { data: users, error } = await supabaseAdmin
@@ -30,10 +33,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("ADMIN USERS ERROR:", error);
-      return NextResponse.json(
-        { error: "Users load failed" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Users load failed" }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -42,9 +42,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("ADMIN USERS API ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

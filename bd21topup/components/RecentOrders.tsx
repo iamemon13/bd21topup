@@ -62,7 +62,7 @@ export default function RecentOrders() {
         { event: "*", schema: "public", table: "orders" },
         () => {
           fetchOrders();
-        }
+        },
       )
       .subscribe();
 
@@ -145,7 +145,7 @@ export default function RecentOrders() {
             const avatarUrl =
               order.profiles?.avatar_url ||
               `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                name
+                name,
               )}&background=07182f&color=00ffff&bold=true`;
 
             return (

@@ -26,7 +26,8 @@ export async function GET(request: Request) {
 
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
-      .select(`
+      .select(
+        `
          id,
          uid,
          player_name,
@@ -41,7 +42,8 @@ export async function GET(request: Request) {
          admin_note,
          cancelled_at,
          account_name
-      `)
+      `,
+      )
       .eq("user_id", user.id)
       .order("created_at", {
         ascending: false,
@@ -61,10 +63,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("MY ORDERS API ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
 
@@ -77,21 +76,39 @@ export async function POST(request: Request) {
     }
 
     const token = authHeader.replace("Bearer ", "").trim();
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { uid, playerName, packageName, amount, receiverNumber, paymentMethod, transactionId } = body;
+    const {
+      uid,
+      playerName,
+      packageName,
+      amount,
+      receiverNumber,
+      paymentMethod,
+      transactionId,
+    } = body;
 
     if (!uid || !packageName || !paymentMethod || !transactionId) {
-      return NextResponse.json({ error: "Required fields are missing." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Required fields are missing." },
+        { status: 400 },
+      );
     }
 
     // ইউজারের মেটাডাটা থেকে আসল নাম বের করা হচ্ছে, না পেলে ইমেইলের প্রথম অংশ ব্যবহার করবে
-    const accName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || "User";
+    const accName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "User";
 
     const { data, error } = await supabaseAdmin
       .from("orders")
@@ -112,10 +129,16 @@ export async function POST(request: Request) {
 
     if (error) {
       if (error.code === "23505") {
-        return NextResponse.json({ error: "এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।" }, { status: 409 });
+        return NextResponse.json(
+          { error: "এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।" },
+          { status: 409 },
+        );
       }
       console.error("ORDER INSERT ERROR:", error);
-      return NextResponse.json({ error: "Order save করা যায়নি।" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Order save করা যায়নি।" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ success: true, order: data });

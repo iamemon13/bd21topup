@@ -248,7 +248,9 @@ export default function AccountPage() {
     setPasswordMessage("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         router.replace("/login");
         return;
@@ -287,7 +289,7 @@ export default function AccountPage() {
       setIsChangingPassword(false);
     }
   }
-    async function handleWithdrawSubmit() {
+  async function handleWithdrawSubmit() {
     const amountNum = Number(withdrawAmount);
 
     if (!amountNum || amountNum < 100) {
@@ -309,7 +311,9 @@ export default function AccountPage() {
     setWithdrawMessage("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         router.replace("/login");
         return;
@@ -348,9 +352,9 @@ export default function AccountPage() {
     } finally {
       setIsSubmittingWithdraw(false);
     }
-    }
-  
-    if (isLoading || !data) {
+  }
+
+  if (isLoading || !data) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07182f] px-4 text-white">
         <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] px-6 py-5 text-center text-sm font-bold text-slate-300">
@@ -678,7 +682,8 @@ export default function AccountPage() {
                   {account.email}
                 </div>
                 <p className="mt-2 text-[10px] leading-4 text-slate-500">
-                  Email আপনার login account থেকে আসে, তাই Profile Edit থেকে পরিবর্তন করা যাবে না।
+                  Email আপনার login account থেকে আসে, তাই Profile Edit থেকে
+                  পরিবর্তন করা যাবে না।
                 </p>
               </div>
             </div>
@@ -906,7 +911,9 @@ export default function AccountPage() {
                   inputMode="numeric"
                   value={withdrawAccountNumber}
                   onChange={(e) =>
-                    setWithdrawAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 11))
+                    setWithdrawAccountNumber(
+                      e.target.value.replace(/\D/g, "").slice(0, 11),
+                    )
                   }
                   placeholder="01XXXXXXXXX"
                   className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"

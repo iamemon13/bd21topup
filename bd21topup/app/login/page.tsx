@@ -76,7 +76,11 @@ export default function CustomerLoginPage() {
         redirectStartedRef.current = true;
 
         const userRole = accountData?.account?.role;
-        if (userRole === "super_admin" || userRole === "admin" || userRole === "editor") {
+        if (
+          userRole === "super_admin" ||
+          userRole === "admin" ||
+          userRole === "editor"
+        ) {
           router.replace("/admin");
         } else {
           router.replace(consumeNextPath());
@@ -154,7 +158,9 @@ export default function CustomerLoginPage() {
         setMessage(error.message);
       } else {
         setMessageType("success");
-        setMessage("পাসওয়ার্ড রিসেট লিংক আপনার ইমেলে পাঠানো হয়েছে ✅ চেক করুন।");
+        setMessage(
+          "পাসওয়ার্ড রিসেট লিংক আপনার ইমেলে পাঠানো হয়েছে ✅ চেক করুন।",
+        );
       }
     } catch (err) {
       console.error("FORGOT PASSWORD ERROR:", err);
@@ -229,7 +235,11 @@ export default function CustomerLoginPage() {
           redirectStartedRef.current = true;
 
           const userRole = accountData?.account?.role;
-          if (userRole === "super_admin" || userRole === "admin" || userRole === "editor") {
+          if (
+            userRole === "super_admin" ||
+            userRole === "admin" ||
+            userRole === "editor"
+          ) {
             router.replace("/admin");
           } else {
             router.replace(consumeNextPath());
@@ -274,7 +284,11 @@ export default function CustomerLoginPage() {
           redirectStartedRef.current = true;
 
           const userRole = accountData?.account?.role;
-          if (userRole === "super_admin" || userRole === "admin" || userRole === "editor") {
+          if (
+            userRole === "super_admin" ||
+            userRole === "admin" ||
+            userRole === "editor"
+          ) {
             router.replace("/admin");
           } else {
             router.replace(consumeNextPath());

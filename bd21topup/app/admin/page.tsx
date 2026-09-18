@@ -109,7 +109,8 @@ export default function AdminDashboard() {
     }
   }
 
-  const totalNotifications = stats.pendingOrders + stats.addMoneyRequests + stats.withdrawalRequests;
+  const totalNotifications =
+    stats.pendingOrders + stats.addMoneyRequests + stats.withdrawalRequests;
 
   return (
     <main className="min-h-screen bg-[#061b35] p-4 text-white">
@@ -122,7 +123,8 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-3xl font-bold text-cyan-400">BD21 ADMIN</h1>
               <p className="mt-2 text-sm text-gray-300">
-                Customer, Order & Wallet Management ({userRole.toUpperCase().replace("_", " ")})
+                Customer, Order & Wallet Management (
+                {userRole.toUpperCase().replace("_", " ")})
               </p>
             </div>
 
@@ -179,33 +181,37 @@ export default function AdminDashboard() {
                             </Link>
                           )}
 
-                          {(userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0 && (
-                            <Link
-                              href="/admin/add-money"
-                              className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
-                            >
-                              <span className="text-xs font-bold text-white">
-                                Add Money Req
-                              </span>
-                              <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
-                                {stats.addMoneyRequests}
-                              </span>
-                            </Link>
-                          )}
+                          {(userRole === "super_admin" ||
+                            userRole === "admin") &&
+                            stats.addMoneyRequests > 0 && (
+                              <Link
+                                href="/admin/add-money"
+                                className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                              >
+                                <span className="text-xs font-bold text-white">
+                                  Add Money Req
+                                </span>
+                                <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
+                                  {stats.addMoneyRequests}
+                                </span>
+                              </Link>
+                            )}
 
-                          {(userRole === "super_admin" || userRole === "admin") && stats.withdrawalRequests > 0 && (
-                            <Link
-                              href="/admin/withdrawals"
-                              className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
-                            >
-                              <span className="text-xs font-bold text-white">
-                                Withdrawal Req
-                              </span>
-                              <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
-                                {stats.withdrawalRequests}
-                              </span>
-                            </Link>
-                          )}
+                          {(userRole === "super_admin" ||
+                            userRole === "admin") &&
+                            stats.withdrawalRequests > 0 && (
+                              <Link
+                                href="/admin/withdrawals"
+                                className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                              >
+                                <span className="text-xs font-bold text-white">
+                                  Withdrawal Req
+                                </span>
+                                <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-black">
+                                  {stats.withdrawalRequests}
+                                </span>
+                              </Link>
+                            )}
                         </>
                       )}
                     </div>
@@ -326,11 +332,14 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-bold">Quick Actions</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ActionLink href="/admin/orders" text="Manage Orders" />
-            
+
             {(userRole === "super_admin" || userRole === "admin") && (
               <>
                 <ActionLink href="/admin/add-money" text="Review Wallet" />
-                <ActionLink href="/admin/withdrawals" text="Review Withdrawals" />
+                <ActionLink
+                  href="/admin/withdrawals"
+                  text="Review Withdrawals"
+                />
                 <ActionLink href="/admin/users" text="View Users" />
               </>
             )}
@@ -343,7 +352,10 @@ export default function AdminDashboard() {
             IMPORTANT ACTIONS (ATTENTION REQUIRED)
         ===================================================== */}
         {!loading &&
-          (stats.pendingOrders > 0 || ((userRole === "super_admin" || userRole === "admin") && (stats.addMoneyRequests > 0 || stats.withdrawalRequests > 0))) && (
+          (stats.pendingOrders > 0 ||
+            ((userRole === "super_admin" || userRole === "admin") &&
+              (stats.addMoneyRequests > 0 ||
+                stats.withdrawalRequests > 0))) && (
             <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
               <h2 className="text-lg font-black text-yellow-300">
                 Attention Required
@@ -361,33 +373,35 @@ export default function AdminDashboard() {
                   </Link>
                 )}
 
-                {(userRole === "super_admin" || userRole === "admin") && stats.addMoneyRequests > 0 && (
-                  <Link
-                    href="/admin/add-money"
-                    className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
-                  >
-                    <span className="text-sm font-bold">
-                      Pending Add Money Requests
-                    </span>
-                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-                      {stats.addMoneyRequests}
-                    </span>
-                  </Link>
-                )}
+                {(userRole === "super_admin" || userRole === "admin") &&
+                  stats.addMoneyRequests > 0 && (
+                    <Link
+                      href="/admin/add-money"
+                      className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                    >
+                      <span className="text-sm font-bold">
+                        Pending Add Money Requests
+                      </span>
+                      <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
+                        {stats.addMoneyRequests}
+                      </span>
+                    </Link>
+                  )}
 
-                {(userRole === "super_admin" || userRole === "admin") && stats.withdrawalRequests > 0 && (
-                  <Link
-                    href="/admin/withdrawals"
-                    className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
-                  >
-                    <span className="text-sm font-bold">
-                      Pending Withdrawal Requests
-                    </span>
-                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-                      {stats.withdrawalRequests}
-                    </span>
-                  </Link>
-                )}
+                {(userRole === "super_admin" || userRole === "admin") &&
+                  stats.withdrawalRequests > 0 && (
+                    <Link
+                      href="/admin/withdrawals"
+                      className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
+                    >
+                      <span className="text-sm font-bold">
+                        Pending Withdrawal Requests
+                      </span>
+                      <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
+                        {stats.withdrawalRequests}
+                      </span>
+                    </Link>
+                  )}
               </div>
             </div>
           )}

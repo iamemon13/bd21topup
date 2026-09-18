@@ -24,11 +24,11 @@ const CATEGORIES = [
 export default function AdminPackages() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState<string>("");
   const [editPrice, setEditPrice] = useState<string>("");
-  
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const router = useRouter();
 
@@ -145,7 +145,9 @@ export default function AdminPackages() {
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-400/20 pb-5">
           <div>
             <h1 className="text-2xl font-black text-cyan-400">BD21 ADMIN</h1>
-            <p className="text-sm text-slate-400">Manage Package Names & Prices</p>
+            <p className="text-sm text-slate-400">
+              Manage Package Names & Prices
+            </p>
           </div>
           <div className="flex gap-3">
             <Link
@@ -185,7 +187,8 @@ export default function AdminPackages() {
           <div>
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold text-cyan-300">
-                {CATEGORIES.find((c) => c.id === selectedCategory)?.name} Packages
+                {CATEGORIES.find((c) => c.id === selectedCategory)?.name}{" "}
+                Packages
               </h2>
               <button
                 onClick={() => setSelectedCategory(null)}
@@ -239,9 +242,13 @@ export default function AdminPackages() {
                       </div>
                     ) : (
                       <div>
-                        <div className="text-sm font-bold text-cyan-100">{pkg.name}</div>
+                        <div className="text-sm font-bold text-cyan-100">
+                          {pkg.name}
+                        </div>
                         <div className="mt-4 flex items-center justify-between">
-                          <div className="text-xl font-black text-cyan-400">৳{pkg.price}</div>
+                          <div className="text-xl font-black text-cyan-400">
+                            ৳{pkg.price}
+                          </div>
                           <button
                             onClick={() => {
                               setEditingId(pkg.id);

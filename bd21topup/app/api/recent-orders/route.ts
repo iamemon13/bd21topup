@@ -8,13 +8,18 @@ export async function GET() {
     // ১. লেটেস্ট অর্ডারগুলো নিয়ে আসা
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
-      .select("id, user_id, account_name, player_name, package_name, amount, status, created_at")
+      .select(
+        "id, user_id, account_name, player_name, package_name, amount, status, created_at",
+      )
       .order("created_at", { ascending: false })
       .limit(10);
 
     if (ordersError) {
       console.error("RECENT ORDERS ERROR:", ordersError);
-      return NextResponse.json({ error: "ডাটা লোড করা যায়নি" }, { status: 500 });
+      return NextResponse.json(
+        { error: "ডাটা লোড করা যায়নি" },
+        { status: 500 },
+      );
     }
 
     if (!orders || orders.length === 0) {
@@ -22,7 +27,9 @@ export async function GET() {
     }
 
     // ২. অর্ডারগুলোর ইউজার আইডি সংগ্রহ করা
-    const userIds = Array.from(new Set(orders.map((o) => o.user_id).filter(Boolean)));
+    const userIds = Array.from(
+      new Set(orders.map((o) => o.user_id).filter(Boolean)),
+    );
 
     // ৩. profiles টেবিল থেকে avatar_url বা ছবি নিয়ে আসা
     let avatarMap: Record<string, string> = {};
@@ -43,10 +50,12 @@ export async function GET() {
       // ৪. profiles টেবিলে ছবি না থাকলে auth.users এর metadata থেকে ছবি খোঁজা
       for (const uid of userIds) {
         if (!avatarMap[uid]) {
-          const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(uid);
+          const { data: authUser } =
+            await supabaseAdmin.auth.admin.getUserById(uid);
           if (authUser?.user) {
             const meta = authUser.user.user_metadata;
-            const authAvatar = meta?.avatar_url || meta?.picture || meta?.avatar;
+            const authAvatar =
+              meta?.avatar_url || meta?.picture || meta?.avatar;
             if (authAvatar) {
               avatarMap[uid] = authAvatar;
             }

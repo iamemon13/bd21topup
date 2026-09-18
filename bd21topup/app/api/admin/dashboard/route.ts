@@ -12,10 +12,7 @@ export async function GET(request: Request) {
     const authHeader = request.headers.get("authorization");
 
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const accessToken = authHeader.replace("Bearer ", "").trim();
@@ -26,10 +23,7 @@ export async function GET(request: Request) {
     } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // =====================================================
@@ -48,7 +42,7 @@ export async function GET(request: Request) {
     if (profileError || userRole === "user") {
       return NextResponse.json(
         { error: "Forbidden: Access Denied" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -142,9 +136,6 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("ADMIN DASHBOARD ERROR:", error);
 
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

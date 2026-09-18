@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
@@ -13,7 +12,7 @@ export async function POST(request: Request) {
     if ("error" in authCheck) {
       return NextResponse.json(
         { error: authCheck.error },
-        { status: authCheck.status }
+        { status: authCheck.status },
       );
     }
 
@@ -23,21 +22,18 @@ export async function POST(request: Request) {
     if (!Array.isArray(requestIds) || requestIds.length === 0) {
       return NextResponse.json(
         { error: "কমপক্ষে একটি রিকোয়েস্ট সিলেক্ট করুন।" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (action !== "approved" && action !== "rejected") {
-      return NextResponse.json(
-        { error: "Invalid action." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
     if (action === "rejected" && (!adminNote || !adminNote.trim())) {
       return NextResponse.json(
         { error: "বাতিল করার কারণ (Admin Note) দেওয়া বাধ্যতামূলক।" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -50,7 +46,7 @@ export async function POST(request: Request) {
           p_request_id: requestId,
           p_action: action,
           p_admin_note: adminNote?.trim() || null,
-        }
+        },
       );
 
       if (!rpcError) {
@@ -70,7 +66,7 @@ export async function POST(request: Request) {
     console.error("ADD MONEY BULK ERROR:", error);
     return NextResponse.json(
       { error: error?.message || "সার্ভারে সমস্যা হয়েছে।" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
