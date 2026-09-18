@@ -37,9 +37,8 @@ export default function UIDTopUpPage() {
     loadPackages();
   }, []);
 
-  async function loadPackages() {
+    async function loadPackages() {
     try {
-      // 👈 এখানে শুধু uid ক্যাটাগরির প্যাকেজ আনার জন্য ফিল্টার করা হয়েছে
       const { data, error } = await supabase
         .from("packages")
         .select("*")
@@ -47,21 +46,17 @@ export default function UIDTopUpPage() {
         .order("price", { ascending: true });
 
       if (data && !error) {
-        const weekly = data.find((p) => p.name.trim().toLowerCase() === "weekly");
-        const monthly = data.find((p) => p.name.trim().toLowerCase() === "monthly");
-
-        const diamonds = data.filter(
-          (p) =>
-            p.name.trim().toLowerCase() !== "weekly" &&
-            p.name.trim().toLowerCase() !== "monthly" &&
-            !p.name.toLowerCase().includes("weekly") &&
-            !p.name.toLowerCase().includes("monthly")
+        // Weekly এবং Monthly প্যাকেজগুলোকে নামের অংশ দিয়ে ফিল্টার করে আলাদা করা
+        const weeklyPackages = data.filter((p) => p.name.toLowerCase().includes("weekly"));
+        const monthlyPackages = data.filter((p) => p.name.toLowerCase().includes("monthly"));
+        
+        // বাকি সাধারণ ডায়মন্ড প্যাকেজগুলো
+        const diamondPackages = data.filter(
+          (p) => !p.name.toLowerCase().includes("weekly") && !p.name.toLowerCase().includes("monthly")
         );
 
-        const sortedList: Package[] = [];
-        if (weekly) sortedList.push(weekly);
-        if (monthly) sortedList.push(monthly);
-        sortedList.push(...diamonds);
+        // প্রথমে Weekly, তারপর Monthly, এবং শেষে ডায়মন্ড প্যাকেজগুলো দিয়ে লিস্ট সাজানো
+        const sortedList = [...weeklyPackages, ...monthlyPackages, ...diamondPackages];
 
         setPackages(sortedList);
       }
@@ -70,7 +65,8 @@ export default function UIDTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-  }
+    }
+  
 
   async function loadWalletBalance() {
     try {
