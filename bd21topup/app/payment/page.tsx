@@ -16,7 +16,7 @@ type PaymentMethod = {
   accent: string;
   verifyColor: string;
 };
-
+ 
 const paymentMethods: PaymentMethod[] = [
   {
     id: "bkash",
