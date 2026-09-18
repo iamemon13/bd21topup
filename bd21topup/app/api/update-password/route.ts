@@ -5,21 +5,21 @@ export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Onumodito noy (Unauthorized)" }, { status: 401 });
+      return NextResponse.json({ error: "অনুমোদিত নয় (Unauthorized)" }, { status: 401 });
     }
 
     const token = authHeader.replace("Bearer ", "").trim();
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Oboidho seshon (Invalid session)" }, { status: 401 });
+      return NextResponse.json({ error: "অবৈধ সেশন (Invalid session)" }, { status: 401 });
     }
 
     const body = await request.json();
     const { currentPassword, newPassword } = body;
 
     if (!newPassword || newPassword.length < 6) {
-      return NextResponse.json({ error: "Notun password kompokkhe 6 okhorer hote hobe." }, { status: 400 });
+      return NextResponse.json({ error: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।" }, { status: 400 });
     }
 
     const identities = user.identities || [];
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     if (hasEmailIdentity || isPasswordAlreadySet) {
       if (!currentPassword) {
-        return NextResponse.json({ error: "Bortoman password dite hobe." }, { status: 400 });
+        return NextResponse.json({ error: "বর্তমান পাসওয়ার্ড দিতে হবে।" }, { status: 400 });
       }
 
       const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       });
 
       if (signInError) {
-        return NextResponse.json({ error: "Bortoman password sothik noy." }, { status: 400 });
+        return NextResponse.json({ error: "বর্তমান পাসওয়ার্ড সঠিক নয়।" }, { status: 400 });
       }
     }
 
@@ -50,12 +50,12 @@ export async function POST(request: Request) {
     });
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message || "Password update kora jayni." }, { status: 500 });
+      return NextResponse.json({ error: updateError.message || "পাসওয়ার্ড আপডেট করা যায়নি।" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "Password shofolvabe update kora hoyeche!" });
+    return NextResponse.json({ success: true, message: "পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!" });
   } catch (error) {
     console.error("UPDATE PASSWORD API ERROR:", error);
-    return NextResponse.json({ error: "Sarvar error hoyeche." }, { status: 500 });
+    return NextResponse.json({ error: "সার্ভারে ত্রুটি দেখা দিয়েছে।" }, { status: 500 });
   }
 }
