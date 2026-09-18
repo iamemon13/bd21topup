@@ -38,7 +38,7 @@ export default function RecentOrders() {
         .from("orders")
         .select("id, account_name, player_name, package_name, amount, status, created_at")
         .order("created_at", { ascending: false })
-        .limit(10); // এখানে ১০টি অর্ডার লিমিট করা হয়েছে
+        .limit(10); // এখানে ১০টি অর্ডার লিমিট করা হয়েছে
 
       if (!error && data && data.length > 0) {
         setOrders(data);
@@ -132,11 +132,11 @@ export default function RecentOrders() {
           </div>
         ) : orders.length === 0 ? (
           <div className="p-8 text-center text-sm font-semibold text-slate-400">
-            কোনো অর্ডার পাওয়া যায়নি
+            কোনো অর্ডার পাওয়া যায়নি
           </div>
         ) : (
           orders.map((order, index) => {
-            // account_name কে সবচেয়ে বেশি প্রায়োরিটি দেওয়া হয়েছে
+            // account_name কে সবচেয়ে বেশি প্রায়োরিটি দেওয়া হয়েছে
             const name = order.account_name || order.player_name || "Unknown";
             const pkg = order.package_name || "Diamond";
             const price = order.amount || 0;
@@ -153,12 +153,16 @@ export default function RecentOrders() {
                     <span>{initial}</span>
                   </div>
 
-                  <div className="min-w-0">
+                  <div className="flex flex-col min-w-0">
                     <div className="truncate text-xs sm:text-sm font-bold text-white">
                       {name}
                     </div>
-                    <div className="truncate text-[11px] sm:text-xs text-slate-400">
-                      {pkg} • <span className="text-cyan-300 font-semibold">৳{price}</span>
+                    {/* দামটা নিচে নামানো হয়েছে */}
+                    <div className="truncate text-[11px] sm:text-xs text-slate-400 mt-0.5">
+                      {pkg}
+                    </div>
+                    <div className="text-[10px] sm:text-xs text-cyan-300 font-bold mt-0.5">
+                      ৳{price}
                     </div>
                   </div>
                 </div>
