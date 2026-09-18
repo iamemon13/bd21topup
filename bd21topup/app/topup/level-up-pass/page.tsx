@@ -96,16 +96,16 @@ export default function LevelUpPassPage() {
     setVerifiedUid("");
 
     try {
-      // সরাসরি আমদের নতুন ফ্রি এপিআই বা ব্যাকএন্ড রাউট কল করা
-      const response = await fetch(`https://glob-info2.vercel.app/info?uid=${cleanUid}`);
+      // লোকাল ব্যাকএন্ড এপিআই কল করা হচ্ছে (CORS সমস্যা এড়াতে)
+      const response = await fetch(`/api/check-level?uid=${cleanUid}`);
       const data = await response.json();
 
-      if (data && data.basicInfo) {
-        setPlayerName(data.basicInfo.nickname);
-        setPlayerLevel(data.basicInfo.level); // 👈 লেভেল সেট করা হলো (যেমন: 73 বা 79)
+      if (data.success) {
+        setPlayerName(data.nickname);
+        setPlayerLevel(data.level);
         setVerifiedUid(cleanUid);
       } else {
-        setUidError("UID পাওয়া যায়নি বা ইনভ্যালিড UID");
+        setUidError(data.error || "UID পাওয়া যায়নি");
       }
     } catch {
       setUidError("UID check করা যাচ্ছে না");
