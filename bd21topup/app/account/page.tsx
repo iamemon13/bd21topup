@@ -225,17 +225,17 @@ export default function AccountPage() {
   }
 async function handleChangePassword() {
     if (!newPassword || !confirmNewPassword) {
-      setPasswordMessage("Notun password ebong confirm password puron korun.");
+      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড পূরণ করুন।");
       return;
     }
 
     if (newPassword.length < 6) {
-      setPasswordMessage("Notun password kam pokhshe 6 okhorer hote hobe.");
+      setPasswordMessage("নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।");
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setPasswordMessage("Notun password ebong confirm password ek hoyni.");
+      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড এক হয়নি।");
       return;
     }
 
@@ -261,12 +261,12 @@ async function handleChangePassword() {
       const result = await response.json();
 
       if (!response.ok) {
-        setPasswordMessage(result.error || "Password poriborton kora jayni.");
+        setPasswordMessage(result.error || "পাসওয়ার্ড পরিবর্তন করা যায়নি।");
         setIsChangingPassword(false);
         return;
       }
 
-      setPasswordMessage("Password shofolvabe update kora hoyeche!");
+      setPasswordMessage("পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
@@ -277,7 +277,7 @@ async function handleChangePassword() {
       }, 1500);
     } catch (error) {
       console.error("PASSWORD CHANGE ERROR:", error);
-      setPasswordMessage("Server-e somoshsha hoyeche, abar chesta korun.");
+      setPasswordMessage("সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন।");
     } finally {
       setIsChangingPassword(false);
     }
