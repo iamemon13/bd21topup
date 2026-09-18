@@ -68,7 +68,7 @@ export default function AccountPage() {
   const router = useRouter();
 
   const [data, setData] = useState<AccountResponse | null>(null);
-  const [message, setMessage] = useState("Loading account...");
+  const [message, setMessage] = useState("অ্যাকাউন্ট লোড হচ্ছে...");
   const [isLoading, setIsLoading] = useState(true);
   const [avatarFailed, setAvatarFailed] = useState(false);
 
@@ -78,13 +78,17 @@ export default function AccountPage() {
   const [editMessage, setEditMessage] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Change Password States
+  // Change Password States & Visibility Toggles
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Withdraw States
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -96,7 +100,7 @@ export default function AccountPage() {
 
   async function loadAccount() {
     setIsLoading(true);
-    setMessage("Loading account...");
+    setMessage("অ্যাকাউন্ট লোড হচ্ছে...");
 
     try {
       const {
@@ -125,7 +129,7 @@ export default function AccountPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.error || "Account load করা যায়নি।");
+        setMessage(result.error || "অ্যাকাউন্ট লোড করা যায়নি।");
         return;
       }
 
@@ -134,7 +138,7 @@ export default function AccountPage() {
       setMessage("");
     } catch (error) {
       console.error("ACCOUNT PAGE ERROR:", error);
-      setMessage("Server-এর সাথে connection করা যায়নি।");
+      setMessage("সার্ভারের সাথে সংযোগ স্থাপন করা যায়নি।");
     } finally {
       setIsLoading(false);
     }
@@ -173,12 +177,12 @@ export default function AccountPage() {
     const phone = editPhone.trim();
 
     if (fullName.length < 2) {
-      setEditMessage("Name কমপক্ষে 2 characters হতে হবে।");
+      setEditMessage("নাম কমপক্ষে ২ অক্ষরের হতে হবে।");
       return;
     }
 
     if (phone && !/^01\d{9}$/.test(phone)) {
-      setEditMessage("সঠিক 11 digit Bangladesh mobile number দিন।");
+      setEditMessage("সঠিক ১১ ডিজিটের বাংলাদেশি মোবাইল নম্বর দিন।");
       return;
     }
 
@@ -210,7 +214,7 @@ export default function AccountPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setEditMessage(result.error || "Profile update করা যায়নি।");
+        setEditMessage(result.error || "প্রোফাইল আপডেট করা যায়নি।");
         return;
       }
 
@@ -218,12 +222,13 @@ export default function AccountPage() {
       await loadAccount();
     } catch (error) {
       console.error("PROFILE UPDATE ERROR:", error);
-      setEditMessage("Server-এর সাথে connection করা যায়নি।");
+      setEditMessage("সার্ভারের সাথে সংযোগ স্থাপন করা যায়নি।");
     } finally {
       setIsSavingProfile(false);
     }
   }
-async function handleChangePassword() {
+
+  async function handleChangePassword() {
     if (!newPassword || !confirmNewPassword) {
       setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড পূরণ করুন।");
       return;
@@ -235,7 +240,7 @@ async function handleChangePassword() {
     }
 
     if (newPassword !== confirmNewPassword) {
-      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড এক হয়নি।");
+      setPasswordMessage("নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড মিলছে না।");
       return;
     }
 
@@ -282,7 +287,8 @@ async function handleChangePassword() {
       setIsChangingPassword(false);
     }
   }
-    async function handleWithdrawSubmit() {
+
+  async function handleWithdrawSubmit() {
     const amountNum = Number(withdrawAmount);
 
     if (!amountNum || amountNum < 100) {
@@ -326,30 +332,30 @@ async function handleChangePassword() {
       const result = await response.json();
 
       if (!response.ok) {
-        setWithdrawMessage(result.error || "রিকোয়েস্ট পাঠানো ব্যর্থ হয়েছে।");
+        setWithdrawMessage(result.error || "রিকোয়েস্ট পাঠানো ব্যর্থ হয়েছে।");
         setIsSubmittingWithdraw(false);
         return;
       }
 
-      setWithdrawMessage("উইথড্রয়াল রিকোয়েস্ট সফলভাবে জমা হয়েছে!");
+      setWithdrawMessage("উইথড্রয়াল রিকোয়েস্ট সফলভাবে জমা হয়েছে!");
       setTimeout(() => {
         setShowWithdrawModal(false);
         loadAccount();
-        router.push("/transactions"); // সফল উইথড্র-এর পর সরাসরি ট্রানজেকশন পেজে রিডাইরেক্ট করবে
+        router.push("/transactions");
       }, 1500);
     } catch (error) {
       console.error("WITHDRAW ERROR:", error);
-      setWithdrawMessage("সার্ভারে সমস্যা হয়েছে।");
+      setWithdrawMessage("সার্ভারে সমস্যা হয়েছে।");
     } finally {
       setIsSubmittingWithdraw(false);
     }
-    }
-  
-    if (isLoading || !data) {
+  }
+
+  if (isLoading || !data) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07182f] px-4 text-white">
         <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] px-6 py-5 text-center text-sm font-bold text-slate-300">
-          {message || "Loading account..."}
+          {message || "অ্যাকাউন্ট লোড হচ্ছে..."}
         </div>
       </main>
     );
@@ -376,7 +382,7 @@ async function handleChangePassword() {
               onClick={handleLogout}
               className="rounded-xl border border-cyan-400/15 bg-[#07182f] px-3 py-2 text-[11px] font-black text-cyan-300"
             >
-              Logout
+              লগআউট
             </button>
           </div>
         </header>
@@ -408,7 +414,7 @@ async function handleChangePassword() {
 
                 {account.verified && (
                   <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-black text-emerald-300">
-                    ✓ VERIFIED
+                    ✓ যাচাইকৃত
                   </span>
                 )}
               </div>
@@ -421,10 +427,10 @@ async function handleChangePassword() {
                 <RankBadge name={rank.current} size="small" />
                 <div>
                   <p className="text-[11px] font-black">
-                    {rank.current} Member
+                    {rank.current} মেম্বার
                   </p>
                   <p className="text-[9px] text-slate-500">
-                    Level {rank.level} / Current Rank
+                    লেভেল {rank.level} / বর্তমান র‍্যাংক
                   </p>
                 </div>
               </div>
@@ -435,7 +441,7 @@ async function handleChangePassword() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Wallet Balance
+                  ওয়ালেট ব্যালেন্স
                 </p>
                 <p className="mt-1 text-3xl font-black text-white">
                   ৳{account.walletBalance.toFixed(0)}
@@ -452,7 +458,7 @@ async function handleChangePassword() {
                 href="/add-money"
                 className="flex h-11 w-full items-center justify-center rounded-xl bg-cyan-400 text-sm font-black text-[#06172e] transition hover:brightness-95"
               >
-                Add Money
+                টাকা যোগ করুন
               </Link>
 
               <button
@@ -466,7 +472,7 @@ async function handleChangePassword() {
                 }}
                 className="flex h-11 w-full items-center justify-center rounded-xl border border-cyan-400/30 bg-[#07182f] text-sm font-black text-cyan-300 transition hover:border-cyan-400"
               >
-                Withdraw
+                উইথড্র
               </button>
             </div>
           </div>
@@ -481,21 +487,21 @@ async function handleChangePassword() {
             <RankBadge name={rank.current} size="large" />
 
             <p className="mt-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/70">
-              Current Rank
+              বর্তমান র‍্যাংক
             </p>
 
             <h3 className="mt-1 text-2xl font-black">{rank.current}</h3>
 
             <p className="mt-1 text-[11px] text-white/75">
               {rank.next
-                ? `Next rank: ${rank.next}`
-                : "Highest BD21 rank unlocked"}
+                ? `পরবর্তী র‍্যাংক: ${rank.next}`
+                : "সর্বোচ্চ বিডি২১ র‍্যাংক আনলক করা হয়েছে"}
             </p>
           </div>
 
           <div className="mt-5">
             <div className="mb-1 flex justify-between text-[10px] font-black">
-              <span>Progress</span>
+              <span>প্রোগ্রেস</span>
               <span>{rank.progress}%</span>
             </div>
 
@@ -508,34 +514,34 @@ async function handleChangePassword() {
 
             <p className="mt-2 text-center text-[10px] font-bold text-white/80">
               {rank.next
-                ? `আর ৳${rank.amountToNext.toLocaleString()} spend করলে ${rank.next}`
-                : "Grand Master unlocked 🏆"}
+                ? `আর ৳${rank.amountToNext.toLocaleString()} খরচ করলে ${rank.next}`
+                : "গ্র্যান্ড মাস্টার আনলকড 🏆"}
             </p>
           </div>
         </section>
 
         <section className="grid grid-cols-2 gap-2">
-          <StatCard label="Orders" value={String(stats.orders)} icon="▣" />
+          <StatCard label="অর্ডারসমূহ" value={String(stats.orders)} icon="▣" />
           <StatCard
-            label="Total Spend"
+            label="মোট খরচ"
             value={`৳${stats.totalSpend.toLocaleString()}`}
             icon="৳"
           />
           <StatCard
-            label="Weekly Spend"
+            label="সাপ্তাহিক খরচ"
             value={`৳${Number(stats.weeklySpend || 0).toLocaleString()}`}
             icon="◫"
           />
-          <StatCard label="Rank" value={rank.current} icon="★" />
+          <StatCard label="র‍্যাংক" value={rank.current} icon="★" />
         </section>
 
         <section className="rounded-2xl border border-cyan-400/15 bg-[#0b2545] p-4 shadow-xl">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                Rank Journey
+                র‍্যাংক জার্নি
               </p>
-              <h3 className="mt-1 text-sm font-black">Your Path</h3>
+              <h3 className="mt-1 text-sm font-black">আপনার পথ</h3>
             </div>
 
             <span className="text-xs font-black text-cyan-300">
@@ -552,13 +558,13 @@ async function handleChangePassword() {
 
         <section className="rounded-2xl border border-cyan-400/15 bg-[#0b2545] p-4 shadow-xl">
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-300">
-            Quick Menu
+            কুইক মেনু
           </p>
 
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <QuickLink href="/orders" label="My Orders" icon="▣" />
-            <QuickLink href="/transactions" label="Transactions" icon="↔" />
-            <QuickLink href="/add-money" label="Add Money" icon="+" />
+            <QuickLink href="/orders" label="আমার অর্ডার" icon="▣" />
+            <QuickLink href="/transactions" label="লেনদেন" icon="↔" />
+            <QuickLink href="/add-money" label="টাকা যোগ করুন" icon="+" />
           </div>
         </section>
 
@@ -566,10 +572,10 @@ async function handleChangePassword() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                Account
+                অ্যাকাউন্ট
               </p>
 
-              <h3 className="mt-1 text-sm font-black">User Information</h3>
+              <h3 className="mt-1 text-sm font-black">ব্যবহারকারীর তথ্য</h3>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -584,7 +590,7 @@ async function handleChangePassword() {
                 }}
                 className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-[10px] font-black text-cyan-300 transition hover:border-cyan-400"
               >
-                🔒 Password
+                🔒 পাসওয়ার্ড
               </button>
 
               <button
@@ -592,17 +598,17 @@ async function handleChangePassword() {
                 onClick={openEditProfile}
                 className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-[10px] font-black text-cyan-300 transition hover:border-cyan-400"
               >
-                ✎ Edit Profile
+                ✎ প্রোফাইল সম্পাদনা
               </button>
             </div>
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <InfoBox label="Name" value={account.fullName} />
-            <InfoBox label="Phone" value={account.phone || "Not added yet"} />
-            <InfoBox label="Email" value={account.email} />
+            <InfoBox label="নাম" value={account.fullName} />
+            <InfoBox label="ফোন নম্বর" value={account.phone || "যোগ করা হয়নি"} />
+            <InfoBox label="ইমেইল" value={account.email} />
             <InfoBox
-              label="User ID"
+              label="ইউজার আইডি"
               value={account.id.slice(0, 8).toUpperCase()}
             />
           </div>
@@ -616,9 +622,9 @@ async function handleChangePassword() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                  BD21 Top Up
+                  বিডি২১ টপ আপ
                 </p>
-                <h2 className="mt-1 text-xl font-black">Edit Profile</h2>
+                <h2 className="mt-1 text-xl font-black">প্রোফাইল সম্পাদনা</h2>
               </div>
 
               <button
@@ -638,7 +644,7 @@ async function handleChangePassword() {
             <div className="mt-5 space-y-4">
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Name
+                  নাম
                 </span>
                 <input
                   type="text"
@@ -651,7 +657,7 @@ async function handleChangePassword() {
 
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Phone
+                  ফোন নম্বর
                 </span>
                 <input
                   type="tel"
@@ -667,13 +673,13 @@ async function handleChangePassword() {
 
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Email Address
+                  ইমেইল ঠিকানা
                 </span>
                 <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
                   {account.email}
                 </div>
                 <p className="mt-2 text-[10px] leading-4 text-slate-500">
-                  Email আপনার login account থেকে আসে, তাই Profile Edit থেকে পরিবর্তন করা যাবে না।
+                  ইমেইল আপনার লগইন অ্যাকাউন্ট থেকে এসেছে, তাই প্রোফাইল সম্পাদনা থেকে এটি পরিবর্তন করা যাবে না।
                 </p>
               </div>
             </div>
@@ -694,7 +700,7 @@ async function handleChangePassword() {
                 }}
                 className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-50"
               >
-                Cancel
+                বাতিল
               </button>
 
               <button
@@ -703,7 +709,7 @@ async function handleChangePassword() {
                 onClick={saveProfile}
                 className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
               >
-                {isSavingProfile ? "Saving..." : "Save Changes"}
+                {isSavingProfile ? "সংরক্ষণ হচ্ছে..." : "পরিবর্তন সংরক্ষণ করুন"}
               </button>
             </div>
           </div>
@@ -717,9 +723,9 @@ async function handleChangePassword() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                  Security
+                  নিরাপত্তা
                 </p>
-                <h2 className="mt-1 text-xl font-black">Change Password</h2>
+                <h2 className="mt-1 text-xl font-black">পাসওয়ার্ড পরিবর্তন</h2>
               </div>
 
               <button
@@ -739,41 +745,68 @@ async function handleChangePassword() {
             <div className="mt-5 space-y-4">
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Current Password
+                  বর্তমান পাসওয়ার্ড
                 </span>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
+                <div className="relative mt-2">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 pr-10 text-sm text-white outline-none transition focus:border-cyan-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showCurrentPassword ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                </div>
               </label>
 
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  New Password
+                  নতুন পাসওয়ার্ড
                 </span>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
+                <div className="relative mt-2">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 pr-10 text-sm text-white outline-none transition focus:border-cyan-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showNewPassword ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                </div>
               </label>
 
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Confirm New Password
+                  কনফার্ম নতুন পাসওয়ার্ড
                 </span>
-                <input
-                  type="password"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
+                <div className="relative mt-2">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 pr-10 text-sm text-white outline-none transition focus:border-cyan-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                </div>
               </label>
             </div>
 
@@ -799,7 +832,7 @@ async function handleChangePassword() {
                 }}
                 className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-50"
               >
-                Cancel
+                বাতিল
               </button>
 
               <button
@@ -808,12 +841,13 @@ async function handleChangePassword() {
                 onClick={handleChangePassword}
                 className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
               >
-                {isChangingPassword ? "Updating..." : "Update Password"}
+                {isChangingPassword ? "আপডেট হচ্ছে..." : "পাসওয়ার্ড আপডেট করুন"}
               </button>
             </div>
           </div>
         </div>
       )}
+
       {/* Withdraw Modal */}
       {showWithdrawModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
@@ -821,9 +855,9 @@ async function handleChangePassword() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                  Wallet
+                  ওয়ালেট
                 </p>
-                <h2 className="mt-1 text-xl font-black">Withdraw Money</h2>
+                <h2 className="mt-1 text-xl font-black">টাকা উইথড্র করুন</h2>
               </div>
 
               <button
@@ -840,34 +874,34 @@ async function handleChangePassword() {
             <div className="mt-5 space-y-4">
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Amount (৳)
+                  পরিমাণ (৳)
                 </span>
                 <input
                   type="number"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
-                  placeholder="যেমন: 500"
+                  placeholder="যেমন: ৫০০"
                   className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
                 />
               </label>
 
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Payment Method
+                  পেমেন্ট পদ্ধতি
                 </span>
                 <select
                   value={withdrawMethod}
                   onChange={(e) => setWithdrawMethod(e.target.value)}
                   className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
                 >
-                  <option value="bKash">bKash</option>
-                  <option value="Nagad">Nagad</option>
+                  <option value="bKash">বিকাশ (bKash)</option>
+                  <option value="Nagad">নগদ (Nagad)</option>
                 </select>
               </label>
 
               <label className="block">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Account Number (Personal)
+                  অ্যাকাউন্ট নম্বর (পার্সোনাল)
                 </span>
                 <input
                   type="tel"
@@ -901,7 +935,7 @@ async function handleChangePassword() {
                 onClick={() => setShowWithdrawModal(false)}
                 className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 disabled:opacity-50"
               >
-                Cancel
+                বাতিল
               </button>
 
               <button
@@ -910,7 +944,7 @@ async function handleChangePassword() {
                 onClick={handleWithdrawSubmit}
                 className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-[#06172e] transition hover:bg-cyan-300 disabled:opacity-50"
               >
-                {isSubmittingWithdraw ? "Submitting..." : "Confirm Withdraw"}
+                {isSubmittingWithdraw ? "জমা হচ্ছে..." : "উইথড্র নিশ্চিত করুন"}
               </button>
             </div>
           </div>
@@ -974,10 +1008,10 @@ function RankJourneyRow({ item }: { item: RankJourneyItem }) {
         }`}
       >
         {item.state === "current"
-          ? "✓ Current"
+          ? "✓ বর্তমান"
           : item.state === "unlocked"
-            ? "✓ Unlocked"
-            : "🔒 Locked"}
+            ? "✓ আনলকড"
+            : "🔒 লকড"}
       </span>
     </div>
   );
