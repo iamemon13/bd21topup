@@ -19,41 +19,41 @@ export async function POST(request: Request) {
     const { currentPassword, newPassword } = body;
 
     if (!newPassword || newPassword.length < 6) {
-      return NextResponse.json({ error: "Notun password kam pokhshe 6 okhorer hote hobe." }, { status: 400 });
+      return NextResponse.json({ error: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।" }, { status: 400 });
     }
 
-    // User-er password ache kina ba provider check korar jonno
-    // Supabase user identities ba app_metadata theke dekhte pari user-er password provider ache kina,
-    // Athoba user-er encrypted_password thakle ba password sign-in test kore dekha jay.
+    // চেক করা ইউজারটির আগে থেকেই পাসওয়ার্ড প্রোভাইডার (email identity) আছে কি না
     const identities = user.identities || [];
-    const hasPasswordProvider = identities.some((id: any) => id.provider === "email");
+    const hasPasswordAccount = identities.some((id: any) => id.provider === "email");
 
-    // Jodi user-er email/password provider thake, tahobe currentPassword wajib dite hobe
-    if (hasPasswordProvider) {
+    // যদি ইউজার আগে থেকেই পাসওয়ার্ড সেট করে থাকে (বা ইমেইল পাসওয়ার্ড অ্যাকাউন্ট হয়), 
+    // তবে বর্তমান পাসওয়ার্ড (currentPassword) দেওয়া বাধ্যতামূলক এবং সেটি সঠিক হতে হবে।
+    if (hasPasswordAccount) {
       if (!currentPassword) {
-        return NextResponse.json({ error: "Bortoman password dite hobe." }, { status: 400 });
+        return NextResponse.json({ error: "আগের পাসওয়ার্ডটি দিতে হবে।" }, { status: 400 });
       }
 
+      // বর্তমান পাসওয়ার্ড সঠিক কি না যাচাই করা
       const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
         email: user.email || "",
         password: currentPassword,
       });
 
       if (signInError) {
-        return NextResponse.json({ error: "Bortoman password sothik noy." }, { status: 400 });
+        return NextResponse.json({ error: "বর্তমান পাসওয়ার্ডটি সঠিক নয়।" }, { status: 400 });
       }
     }
 
-    // Direct password update using Admin API
+    // নতুন পাসওয়ার্ড আপডেট করা (যা সুপাবেসের ডেটাবেজে স্থায়ীভাবে সেভ থাকবে, লগআউট করলেও মুছবে না)
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       password: newPassword,
     });
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message || "Password update kora jayni." }, { status: 500 });
+      return NextResponse.json({ error: updateError.message || "পাসওয়ার্ড আপডেট করা যায়নি।" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "Password shofolvabe update kora hoyeche!" });
+    return NextResponse.json({ success: true, message: "পাসওয়ার্ড সফলভাবে সেভ ও আপডেট করা হয়েছে!" });
   } catch (error) {
     console.error("UPDATE PASSWORD API ERROR:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
