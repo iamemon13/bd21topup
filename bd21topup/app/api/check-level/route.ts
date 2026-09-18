@@ -9,32 +9,23 @@ export async function GET(request: Request) {
   }
 
   try {
-    console.log("Checking UID from external API:", uid);
-
-    const response = await fetch(`https://glob-info2.vercel.app/info?uid=${uid}`, {
+    // সচল ফ্রি ফায়ার এপিআই এন্ডপয়েন্ট ব্যবহার করা হচ্ছে
+    const response = await fetch(`https://freefire-api-six.vercel.app/get_player_personal_show?server=ind&uid=${uid}`, {
       cache: "no-store",
     });
 
-    const textResponse = await response.text();
-    console.log("External API Raw Response:", textResponse);
+    const data = await response.json();
 
-    let data;
-    try {
-      data = JSON.parse(textResponse);
-    } catch (parseError) {
-      console.error("JSON Parse Error:", parseError);
-      return NextResponse.json({ success: false, error: "Invalid response from game server" }, { status: 500 });
-    }
-
-    if (!data || !data.basicInfo) {
+    // সোর্স অনুযায়ী এপিআই রেসপন্স স্ট্রাকচার হ্যান্ডেল করা
+    if (!data || (!data.nickname && !data.name)) {
       return NextResponse.json({ success: false, error: "UID পাওয়া যায়নি" }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      nickname: data.basicInfo.nickname,
-      level: data.basicInfo.level,
-      region: data.basicInfo.region,
+      nickname: data.nickname || data.name || "Player",
+      level: data.level || 0,
+      region: data.server || "IND",
     });
   } catch (error) {
     console.error("Level Check Server Error:", error);
