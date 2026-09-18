@@ -33,29 +33,15 @@ export default function RecentOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Supabase থেকে profiles টেবিলের avatar_url সহ অর্ডার ফেচ করা
+  // API থেকে লেটেস্ট অর্ডার ফেচ করার ফাংশন
   const fetchOrders = async () => {
     setRefreshing(true);
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          id,
-          account_name,
-          player_name,
-          package_name,
-          amount,
-          status,
-          created_at,
-          profiles (
-            avatar_url
-          )
-        `)
-        .order("created_at", { ascending: false })
-        .limit(10);
+      const response = await fetch("/api/recent-orders", { cache: "no-store" });
+      const result = await response.json();
 
-      if (!error && data && data.length > 0) {
-        setOrders(data as Order[]);
+      if (result.success && result.orders) {
+        setOrders(result.orders);
       }
     } catch (error) {
       console.error("Fetch error:", error);
@@ -68,6 +54,7 @@ export default function RecentOrders() {
   useEffect(() => {
     fetchOrders();
 
+    // রিয়েল-টাইম আপডেটের জন্য Supabase চ্যানেল
     const channel = supabase
       .channel("public:orders")
       .on(
@@ -155,7 +142,7 @@ export default function RecentOrders() {
             const price = order.amount || 0;
             const initial = name.charAt(0).toUpperCase();
             
-            // User er real avatar image link
+            // ইউজারের রিয়েল প্রোফাইল পিকচার লিংক
             const avatarUrl = order.profiles?.avatar_url;
 
             return (
@@ -163,7 +150,7 @@ export default function RecentOrders() {
                 key={`${order.id}-${index}`}
                 className="flex items-center justify-between gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 hover:bg-white/[0.02] transition"
               >
-                {/* Left Side: Real Avatar & Info */}
+                {/* Left Side: Avatar & Info */}
                 <div className="flex min-w-0 items-center gap-3 flex-1">
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-cyan-400/10 text-sm font-black text-cyan-400 shadow-sm">
                     {avatarUrl ? (
