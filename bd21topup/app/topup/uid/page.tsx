@@ -39,9 +39,11 @@ export default function UIDTopUpPage() {
 
   async function loadPackages() {
     try {
+      // 👈 এখানে শুধু uid ক্যাটাগরির প্যাকেজ আনার জন্য ফিল্টার করা হয়েছে
       const { data, error } = await supabase
         .from("packages")
         .select("*")
+        .eq("category", "uid") 
         .order("price", { ascending: true });
 
       if (data && !error) {
@@ -269,6 +271,10 @@ export default function UIDTopUpPage() {
                   <div className="col-span-full animate-pulse py-6 text-center text-sm font-semibold text-cyan-400">
                     Loading Packages...
                   </div>
+                ) : packages.length === 0 ? (
+                  <div className="col-span-full py-6 text-center text-sm text-slate-400">
+                    কোনো প্যাকেজ পাওয়া যায়নি।
+                  </div>
                 ) : (
                   packages.map((item) => {
                     const isSelected = selectedPackage?.id === item.id;
@@ -485,7 +491,6 @@ export default function UIDTopUpPage() {
                 </div>
               )}
             </div>
-
             {/* Step 4: Order Summary */}
             <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
               <div className="mb-4 flex items-center gap-3">
@@ -696,3 +701,5 @@ export default function UIDTopUpPage() {
     </main>
   );
 }
+
+            
