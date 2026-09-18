@@ -29,7 +29,7 @@ export default function LevelUpPassPage() {
   const [uid, setUid] = useState("");
   const [checkingUid, setCheckingUid] = useState(false);
   const [playerName, setPlayerName] = useState("");
-  const [playerLevel, setPlayerLevel] = useState<number | null>(null); // 👈 লেভেল ট্র্যাক করার জন্য স্টেট
+  const [playerLevel, setPlayerLevel] = useState<number | null>(null);
   const [verifiedUid, setVerifiedUid] = useState("");
   const [uidError, setUidError] = useState("");
 
@@ -96,7 +96,6 @@ export default function LevelUpPassPage() {
     setVerifiedUid("");
 
     try {
-      // লোকাল ব্যাকএন্ড এপিআই কল করা হচ্ছে (CORS সমস্যা এড়াতে)
       const response = await fetch(`/api/check-level?uid=${cleanUid}`);
       const data = await response.json();
 
@@ -250,7 +249,6 @@ export default function LevelUpPassPage() {
                       <div className="mt-0.5 text-base font-black text-white">{playerName}</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {/* লেভেল ব্যাজ শো করার জায়গা */}
                       {playerLevel !== null && (
                         <div className="rounded-lg bg-cyan-500/20 border border-cyan-400/40 px-2.5 py-1 text-center">
                           <div className="text-[9px] font-bold uppercase text-cyan-300">Level</div>
