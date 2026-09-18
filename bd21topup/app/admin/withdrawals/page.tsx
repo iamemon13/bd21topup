@@ -55,7 +55,8 @@ export default function AdminWithdrawalsPage() {
     const rejected = withdrawals.filter((w) => w.status.toLowerCase() === "rejected").length;
     return { total, pending, approved, rejected };
   }, [withdrawals]);
-    const filteredWithdrawals = useMemo(() => {
+  
+  const filteredWithdrawals = useMemo(() => {
     return withdrawals.filter((item) => {
       const matchesFilter = activeFilter === "all" || item.status.toLowerCase() === activeFilter;
       const searchText = search.trim().toLowerCase();
@@ -81,6 +82,18 @@ export default function AdminWithdrawalsPage() {
 
   async function updateStatus(ids: string[], newStatus: string) {
     if (ids.length === 0) return;
+    
+    let reason = "";
+    // যদি রিজেক্ট করা হয়, তবে কারণ জানতে চাইবে
+    if (newStatus.toLowerCase() === "rejected") {
+      const userInput = window.prompt("রিজেক্ট করার কারণ (Reason) লিখুন:");
+      if (!userInput || userInput.trim() === "") {
+        alert("রিজেক্ট করার কারণ (Reason) দেওয়া বাধ্যতামূলক!");
+        return; // কারণ না দিলে রিকোয়েস্ট ক্যান্সেল হয়ে যাবে
+      }
+      reason = userInput.trim();
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -98,6 +111,7 @@ export default function AdminWithdrawalsPage() {
           body: JSON.stringify({
             withdrawalId: id,
             status: newStatus.toLowerCase(),
+            reason: reason // API তে reason পাঠানো হচ্ছে
           }),
         });
 
@@ -250,4 +264,3 @@ export default function AdminWithdrawalsPage() {
     </main>
   );
 }
-
