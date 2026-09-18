@@ -1,72 +1,3 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-
-// GET: ইউজারের নিজের অর্ডার হিস্ট্রি লোড করা
-export async function GET(request: Request) {
-  try {
-    const authHeader = request.headers.get("authorization");
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Login required." }, { status: 401 });
-    }
-
-    const accessToken = authHeader.replace("Bearer ", "").trim();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Invalid or expired session." },
-        { status: 401 },
-      );
-    }
-
-    const { data: orders, error: ordersError } = await supabaseAdmin
-      .from("orders")
-      .select(`
-         id,
-         uid,
-         player_name,
-         product_name,
-         package_name,
-         amount,
-         payment_method,
-         receiver_number,
-         transaction_id,
-         status,
-         created_at,
-         admin_note,
-         cancelled_at
-      `)
-      .eq("user_id", user.id)
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (ordersError) {
-      console.error("MY ORDERS ERROR:", ordersError);
-      return NextResponse.json(
-        { error: "Orders load করা যায়নি।" },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      orders: orders ?? [],
-    });
-  } catch (error) {
-    console.error("MY ORDERS API ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 },
-    );
-  }
-}
-
 // POST: নতুন অর্ডার বা ইনস্ট্যান্ট পেমেন্ট সাবমিট করা
 export async function POST(request: Request) {
   try {
@@ -83,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { uid, playerName, packageName, paymentMethod, transactionId } = body;
+    const { uid, playerName, packageName, amount, receiverNumber, paymentMethod, transactionId } = body;
 
     if (!uid || !packageName || !paymentMethod || !transactionId) {
       return NextResponse.json({ error: "Required fields are missing." }, { status: 400 });
@@ -96,6 +27,8 @@ export async function POST(request: Request) {
         uid: uid,
         player_name: playerName || "",
         package_name: packageName,
+        amount: amount || 0,
+        receiver_number: receiverNumber || "",
         payment_method: paymentMethod,
         transaction_id: transactionId.trim(),
         status: "pending",
