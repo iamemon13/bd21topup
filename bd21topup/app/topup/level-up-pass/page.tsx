@@ -29,6 +29,7 @@ export default function LevelUpPassPage() {
   const [uid, setUid] = useState("");
   const [checkingUid, setCheckingUid] = useState(false);
   const [playerName, setPlayerName] = useState("");
+  const [playerLevel, setPlayerLevel] = useState<number | null>(null); // 👈 লেভেল ট্র্যাক করার জন্য স্টেট
   const [verifiedUid, setVerifiedUid] = useState("");
   const [uidError, setUidError] = useState("");
 
@@ -37,12 +38,12 @@ export default function LevelUpPassPage() {
     loadPackages();
   }, []);
 
-    async function loadPackages() {
+  async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "level_up") // 👈 নতুন ক্যাটাগরি
+        .eq("category", "level_up")
         .order("price", { ascending: true });
 
       if (data && !error && data.length > 0) {
@@ -55,7 +56,7 @@ export default function LevelUpPassPage() {
     } finally {
       setLoadingPackages(false);
     }
-    }
+  }
   
   async function loadWalletBalance() {
     try {
@@ -83,6 +84,7 @@ export default function LevelUpPassPage() {
     if (!cleanUid) {
       setUidError("আগে Player UID লিখুন");
       setPlayerName("");
+      setPlayerLevel(null);
       setVerifiedUid("");
       return;
     }
@@ -90,20 +92,20 @@ export default function LevelUpPassPage() {
     setCheckingUid(true);
     setUidError("");
     setPlayerName("");
+    setPlayerLevel(null);
     setVerifiedUid("");
 
     try {
-      const response = await fetch("/api/check-uid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: cleanUid }),
-      });
+      // সরাসরি আমদের নতুন ফ্রি এপিআই বা ব্যাকএন্ড রাউট কল করা
+      const response = await fetch(`https://glob-info2.vercel.app/info?uid=${cleanUid}`);
       const data = await response.json();
-      if (data.success) {
-        setPlayerName(data.username);
+
+      if (data && data.basicInfo) {
+        setPlayerName(data.basicInfo.nickname);
+        setPlayerLevel(data.basicInfo.level); // 👈 লেভেল সেট করা হলো (যেমন: 73 বা 79)
         setVerifiedUid(cleanUid);
       } else {
-        setUidError(data.message || "UID পাওয়া যায়নি");
+        setUidError("UID পাওয়া যায়নি বা ইনভ্যালিড UID");
       }
     } catch {
       setUidError("UID check করা যাচ্ছে না");
@@ -232,7 +234,7 @@ export default function LevelUpPassPage() {
                   type="text"
                   inputMode="numeric"
                   value={uid}
-                  onChange={(e) => { setUid(e.target.value); setPlayerName(""); setVerifiedUid(""); setUidError(""); }}
+                  onChange={(e) => { setUid(e.target.value); setPlayerName(""); setPlayerLevel(null); setVerifiedUid(""); setUidError(""); }}
                   onKeyDown={(e) => { if (e.key === "Enter") checkUid(); }}
                   placeholder="Enter your Free Fire UID"
                   className="w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3.5 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
@@ -244,12 +246,21 @@ export default function LevelUpPassPage() {
                 ) : (
                   <div className="flex w-full items-center justify-between rounded-xl border border-green-400/30 bg-green-400/10 px-4 py-3">
                     <div>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-green-400">✓ Player Found</div>
+                      <div className="text-[11px] font-black uppercase tracking-wider text-green-400">✓ Player Verified</div>
                       <div className="mt-0.5 text-base font-black text-white">{playerName}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] font-bold uppercase text-slate-400">Verified UID</div>
-                      <div className="text-xs font-bold text-slate-200">{verifiedUid}</div>
+                    <div className="flex items-center gap-3">
+                      {/* লেভেল ব্যাজ শো করার জায়গা */}
+                      {playerLevel !== null && (
+                        <div className="rounded-lg bg-cyan-500/20 border border-cyan-400/40 px-2.5 py-1 text-center">
+                          <div className="text-[9px] font-bold uppercase text-cyan-300">Level</div>
+                          <div className="text-sm font-black text-cyan-400">{playerLevel}</div>
+                        </div>
+                      )}
+                      <div className="text-right">
+                        <div className="text-[10px] font-bold uppercase text-slate-400">UID</div>
+                        <div className="text-xs font-bold text-slate-200">{verifiedUid}</div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -318,7 +329,7 @@ export default function LevelUpPassPage() {
               </div>
               <div className="space-y-2.5 rounded-xl bg-[#07182f] p-4 text-xs sm:text-sm">
                 <div className="flex justify-between gap-4"><span className="text-slate-400">Product</span><span>Level Up Pass</span></div>
-                <div className="flex justify-between gap-4"><span className="text-slate-400">Player</span><span className="text-right">{isUidVerified ? playerName : "Not verified"}</span></div>
+                <div className="flex justify-between gap-4"><span className="text-slate-400">Player</span><span className="text-right">{isUidVerified ? `${playerName} (Lvl ${playerLevel})` : "Not verified"}</span></div>
                 <div className="flex justify-between gap-4"><span className="text-slate-400">Package</span><span className="text-right">{selectedPackage ? selectedPackage.name : "Not selected"}</span></div>
                 <div className="flex justify-between border-t border-white/10 pt-2.5">
                   <span className="font-bold">Total</span>
