@@ -13,12 +13,12 @@ type Package = {
 };
 
 const CATEGORIES = [
-  { id: "uid", name: "UID TopUp (BD)", icon: "💎" },
-  { id: "weekly-monthly", name: "Weekly / Monthly", icon: "📅" },
-  { id: "weekly-lite", name: "Weekly Lite", icon: "🎫" },
-  { id: "level-up-pass", name: "Level Up Pass", icon: "⭐" },
-  { id: "ff-likes", name: "FF Likes", icon: "👍" },
-  { id: "indonesia-server", name: "Indonesia Server", icon: "🇮🇩" },
+  { id: "uid_bd", name: "UID TopUp (BD)", icon: "💎" },
+  { id: "combo_offer", name: "Weekly / Monthly", icon: "📅" },
+  { id: "weekly_lite", name: "Weekly Lite", icon: "🎫" },
+  { id: "level_up", name: "Level Up Pass", icon: "⭐" },
+  { id: "ff_likes", name: "FF Likes", icon: "👍" },
+  { id: "indo_server", name: "Indonesia Server", icon: "🇮🇩" },
 ];
 
 export default function AdminPackages() {
@@ -109,7 +109,8 @@ export default function AdminPackages() {
     await supabase.auth.signOut();
     router.push("/login");
   }
-    if (loading) {
+
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#07182f] text-cyan-400">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-400 border-t-transparent"></div>
@@ -119,31 +120,22 @@ export default function AdminPackages() {
 
   const filteredPackages = packages
     .filter((pkg) => {
-      const cat = pkg.category || "uid";
-      const nameLower = pkg.name.trim().toLowerCase();
-      const isBasicWeeklyMonthly = nameLower === "weekly" || nameLower === "monthly";
-
-      if (selectedCategory === "uid") {
-        return cat === "uid" || isBasicWeeklyMonthly;
-      }
-
-      if (selectedCategory === "weekly-monthly") {
-        return cat === "weekly-monthly" && !isBasicWeeklyMonthly;
-      }
-
+      const cat = pkg.category || "uid_bd";
       return cat === selectedCategory;
     })
     .sort((a, b) => {
-      const nameA = a.name.trim().toLowerCase();
-      const nameB = b.name.trim().toLowerCase();
-      const getRank = (name: string) => {
-        if (name === "weekly") return 1;
-        if (name === "monthly") return 2;
-        return 3;
-      };
-      const rankA = getRank(nameA);
-      const rankB = getRank(nameB);
-      if (rankA !== rankB) return rankA - rankB;
+      if (selectedCategory === "uid_bd") {
+        const nameA = a.name.trim().toLowerCase();
+        const nameB = b.name.trim().toLowerCase();
+        const getRank = (name: string) => {
+          if (name === "weekly") return 1;
+          if (name === "monthly") return 2;
+          return 3;
+        };
+        const rankA = getRank(nameA);
+        const rankB = getRank(nameB);
+        if (rankA !== rankB) return rankA - rankB;
+      }
       return a.price - b.price;
     });
 
