@@ -9,11 +9,22 @@ export async function GET(request: Request) {
   }
 
   try {
+    console.log("Checking UID from external API:", uid);
+
     const response = await fetch(`https://glob-info2.vercel.app/info?uid=${uid}`, {
       cache: "no-store",
     });
 
-    const data = await response.json();
+    const textResponse = await response.text();
+    console.log("External API Raw Response:", textResponse);
+
+    let data;
+    try {
+      data = JSON.parse(textResponse);
+    } catch (parseError) {
+      console.error("JSON Parse Error:", parseError);
+      return NextResponse.json({ success: false, error: "Invalid response from game server" }, { status: 500 });
+    }
 
     if (!data || !data.basicInfo) {
       return NextResponse.json({ success: false, error: "UID পাওয়া যায়নি" }, { status: 404 });
@@ -26,7 +37,7 @@ export async function GET(request: Request) {
       region: data.basicInfo.region,
     });
   } catch (error) {
-    console.error("Level Check Error:", error);
+    console.error("Level Check Server Error:", error);
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
   }
 }
