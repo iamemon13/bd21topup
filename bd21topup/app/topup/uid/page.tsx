@@ -38,12 +38,12 @@ export default function UIDTopUpPage() {
   }, []);
 
     
-    async function loadPackages() {
+        async function loadPackages() {
     try {
       const { data, error } = await supabase
         .from("packages")
         .select("*")
-        .eq("category", "uid") 
+        .eq("category", "uid_bd") // 👈 এখানে সঠিক ক্যাটাগরি সেট করা আছে
         .order("sort_order", { ascending: true }) // প্রথমে sort_order অনুযায়ী সাজাবে (১, ২, ৩)
         .order("price", { ascending: true });     // তারপর দাম অনুযায়ী ছোট থেকে বড় সাজাবে
 
@@ -55,7 +55,8 @@ export default function UIDTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-    }
+        }
+  
   
 
   async function loadWalletBalance() {
