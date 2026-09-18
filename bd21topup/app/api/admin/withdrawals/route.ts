@@ -49,60 +49,75 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "এই রিকোয়েস্টটি ইতিমধ্যে রিভিউ করা হয়েছে।" }, { status: 400 });
     }
 
-    // উইথড্র স্ট্যাটাস আপডেট
-    const { error: updateErr } = await supabaseAdmin
-      .from("withdrawals")
-      .update({ status: normalizedStatus })
-      .eq("id", withdrawalId);
-
-    if (updateErr) {
-      console.error("WITHDRAWAL UPDATE ERROR:", updateErr);
-      return NextResponse.json({ error: "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" }, { status: 500 });
-    }
-
-    // REFUND LOGIC: Soki eboyami (rejected), zongisa mbongo na wallet
-    if (normalizedStatus === "rejected") {
+    // ==========================================
+    // ১. APPROVED লজিক: অ্যাপ্রুভ করলে ব্যালেন্স কাটবে
+    // ==========================================
+    if (normalizedStatus === "approved") {
+      // ইউজারের বর্তমান ব্যালেন্স চেক করা (যাতে অ্যাপ্রুভ করার সময় পর্যাপ্ত টাকা থাকে)
       const { data: profile } = await supabaseAdmin
-        .from("profiles") // Etanda ya mosaleli
+        .from("profiles") // আপনার ডাটাবেজ অনুযায়ী profiles বা users হবে
         .select("balance")
         .eq("id", withdrawalItem.user_id)
         .single();
 
-      if (profile) {
-        const newBalance = (profile.balance || 0) + withdrawalItem.amount;
-
-        // Update balance
-        await supabaseAdmin
-          .from("profiles")
-          .update({ balance: newBalance })
-          .eq("id", withdrawalItem.user_id);
-
-        // Record transaction
-        await supabaseAdmin
-          .from("wallet_transactions")
-          .insert({
-            user_id: withdrawalItem.user_id,
-            amount: withdrawalItem.amount,
-            type: "Refund",
-            description: "Withdrawal rejected refund (WALLET)",
-            balance_after: newBalance
-          });
+      if (!profile || profile.balance < withdrawalItem.amount) {
+        return NextResponse.json({ error: "ইউজারের ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" }, { status: 400 });
       }
+
+      const newBalance = profile.balance - withdrawalItem.amount;
+
+      // ব্যালেন্স কাটা হচ্ছে
+      await supabaseAdmin
+        .from("profiles")
+        .update({ balance: newBalance })
+        .eq("id", withdrawalItem.user_id);
+
+      // ট্রানজেকশন হিস্ট্রি সেভ করা (Debit)
+      await supabaseAdmin
+        .from("wallet_transactions")
+        .insert({
+          user_id: withdrawalItem.user_id,
+          amount: withdrawalItem.amount,
+          type: "Withdrawal",
+          description: `Withdrawal approved (${withdrawalItem.method || 'Wallet'})`,
+          balance_after: newBalance
+        });
+
+      // উইথড্র স্ট্যাটাস আপডেট
+      await supabaseAdmin
+        .from("withdrawals")
+        .update({ status: "approved" })
+        .eq("id", withdrawalId);
+
+      // নোটিফিকেশন পাঠানো
+      await supabaseAdmin
+        .from("notifications")
+        .insert({
+          user_id: withdrawalItem.user_id,
+          title: "Withdrawal Approved ✅",
+          message: `Your withdrawal request of ৳${withdrawalItem.amount} has been approved and deducted from your wallet.`
+        });
+
+    } 
+    // ==========================================
+    // ২. REJECTED লজিক: রিজেক্ট করলে শুধু স্ট্যাটাস বদলাবে, ব্যালেন্স কাটবে না
+    // ==========================================
+    else if (normalizedStatus === "rejected") {
+      // উইথড্র স্ট্যাটাস আপডেট (রিফান্ড করার দরকার নেই, কারণ টাকা কাটাই হয়নি)
+      await supabaseAdmin
+        .from("withdrawals")
+        .update({ status: "rejected" })
+        .eq("id", withdrawalId);
+
+      // নোটিফিকেশন পাঠানো
+      await supabaseAdmin
+        .from("notifications")
+        .insert({
+          user_id: withdrawalItem.user_id,
+          title: "Withdrawal Rejected ❌",
+          message: `Your withdrawal request of ৳${withdrawalItem.amount} was rejected by the admin.`
+        });
     }
-
-    // NOTIFICATION LOGIC: Tinda mesaje mpo na mosaleli
-    const notifTitle = normalizedStatus === "approved" ? "Withdrawal Approved ✅" : "Withdrawal Rejected ❌";
-    const notifMessage = normalizedStatus === "approved"
-      ? `Your withdrawal request of ৳${withdrawalItem.amount} has been approved.`
-      : `Your withdrawal request of ৳${withdrawalItem.amount} was rejected. The amount has been refunded to your wallet.`;
-
-    await supabaseAdmin
-      .from("notifications")
-      .insert({
-        user_id: withdrawalItem.user_id,
-        title: notifTitle,
-        message: notifMessage
-      });
 
     return NextResponse.json({
       success: true,
