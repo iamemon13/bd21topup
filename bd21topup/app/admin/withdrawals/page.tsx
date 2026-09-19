@@ -27,15 +27,40 @@ export default function AdminWithdrawalsPage() {
 
   async function loadWithdrawals() {
     setLoading(true);
+
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
+      // Not logged in
       if (!session) {
         router.replace("/login");
         return;
       }
 
+      // ==========================================
+      // CHECK ADMIN ROLE
+      // ==========================================
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      // Only admin and super_admin can access this page
+      if (
+        profileError ||
+        !profile ||
+        !["admin", "super_admin"].includes(profile.role)
+      ) {
+        router.replace("/");
+        return;
+      }
+
+      // ==========================================
+      // LOAD WITHDRAWALS
+      // ==========================================
       const { data, error } = await supabase
         .from("withdrawals")
         .select("*")
@@ -62,15 +87,19 @@ export default function AdminWithdrawalsPage() {
 
   const stats = useMemo(() => {
     const total = withdrawals.length;
+
     const pending = withdrawals.filter(
       (w) => w.status.toLowerCase() === "pending",
     ).length;
+
     const approved = withdrawals.filter(
       (w) => w.status.toLowerCase() === "approved",
     ).length;
+
     const rejected = withdrawals.filter(
       (w) => w.status.toLowerCase() === "rejected",
     ).length;
+
     return { total, pending, approved, rejected };
   }, [withdrawals]);
 
@@ -78,7 +107,9 @@ export default function AdminWithdrawalsPage() {
     return withdrawals.filter((item) => {
       const matchesFilter =
         activeFilter === "all" || item.status.toLowerCase() === activeFilter;
+
       const searchText = search.trim().toLowerCase();
+
       if (!matchesFilter) return false;
       if (!searchText) return true;
 
@@ -90,6 +121,7 @@ export default function AdminWithdrawalsPage() {
       ]
         .join(" ")
         .toLowerCase();
+
       return searchable.includes(searchText);
     });
   }, [withdrawals, activeFilter, search]);
@@ -118,13 +150,16 @@ export default function AdminWithdrawalsPage() {
     if (ids.length === 0) return;
 
     let reason = "";
+
     // যদি রিজেক্ট করা হয়, তবে কারণ জানতে চাইবে
     if (newStatus.toLowerCase() === "rejected") {
       const userInput = window.prompt("রিজেক্ট করার কারণ (Reason) লিখুন:");
+
       if (!userInput || userInput.trim() === "") {
         alert("রিজেক্ট করার কারণ (Reason) দেওয়া বাধ্যতামূলক!");
-        return; // কারণ না দিলে রিকোয়েস্ট ক্যান্সেল হয়ে যাবে
+        return;
       }
+
       reason = userInput.trim();
     }
 
@@ -132,8 +167,28 @@ export default function AdminWithdrawalsPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       if (!session) {
         router.replace("/login");
+        return;
+      }
+
+      // ==========================================
+      // CHECK ADMIN ROLE BEFORE STATUS UPDATE
+      // ==========================================
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (
+        profileError ||
+        !profile ||
+        !["admin", "super_admin"].includes(profile.role)
+      ) {
+        alert("আপনার এই কাজ করার অনুমতি নেই।");
+        router.replace("/");
         return;
       }
 
@@ -147,11 +202,12 @@ export default function AdminWithdrawalsPage() {
           body: JSON.stringify({
             withdrawalId: id,
             status: newStatus.toLowerCase(),
-            reason: reason, // API তে reason পাঠানো হচ্ছে
+            reason: reason,
           }),
         });
 
         const result = await response.json();
+
         if (!response.ok) {
           throw new Error(result.error || "Status update failed");
         }
@@ -160,13 +216,20 @@ export default function AdminWithdrawalsPage() {
       setWithdrawals((prev) =>
         prev.map((item) =>
           ids.includes(item.id)
-            ? { ...item, status: newStatus.toLowerCase() }
+            ? {
+                ...item,
+                status: newStatus.toLowerCase(),
+              }
             : item,
         ),
       );
+
       setSelectedIds([]);
+
       setMessage(`সফলভাবে ${ids.length}টি রিকোয়েস্ট ${newStatus} করা হয়েছে ✅`);
+
       setTimeout(() => setMessage(""), 3000);
+
       loadWithdrawals();
     } catch (err: any) {
       console.error(err);
@@ -177,12 +240,15 @@ export default function AdminWithdrawalsPage() {
   async function copyText(text: string, id: string) {
     try {
       await navigator.clipboard.writeText(text);
+
       setCopiedId(id);
+
       setTimeout(() => setCopiedId(null), 1500);
     } catch (err) {
       console.error("Copy failed", err);
     }
   }
+
   return (
     <main className="min-h-screen bg-[#061b35] p-4 pb-24 text-white sm:p-6">
       <div className="mx-auto max-w-4xl space-y-4">
@@ -192,10 +258,12 @@ export default function AdminWithdrawalsPage() {
             <h1 className="text-xl font-black text-cyan-400">
               Withdrawal Requests
             </h1>
+
             <p className="text-xs text-slate-300">
               ইউজারদের সকল উইথড্র রিকোয়েস্ট ম্যানেজ করুন
             </p>
           </div>
+
           <div className="flex gap-2">
             <Link
               href="/admin"
@@ -203,6 +271,7 @@ export default function AdminWithdrawalsPage() {
             >
               Home
             </Link>
+
             <button
               type="button"
               onClick={async () => {
@@ -222,6 +291,7 @@ export default function AdminWithdrawalsPage() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
               🔍
             </span>
+
             <input
               type="text"
               value={search}
@@ -230,6 +300,7 @@ export default function AdminWithdrawalsPage() {
               className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#0b294d] pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
             />
           </div>
+
           <button
             type="button"
             onClick={loadWithdrawals}
@@ -245,30 +316,37 @@ export default function AdminWithdrawalsPage() {
             <p className="text-[10px] font-black uppercase text-slate-400">
               Total
             </p>
+
             <p className="mt-1 text-2xl font-black text-cyan-400">
               {stats.total}
             </p>
           </div>
+
           <div className="rounded-2xl border border-yellow-500/20 bg-[#0b294d] p-3 text-center">
             <p className="text-[10px] font-black uppercase text-slate-400">
               Pending
             </p>
+
             <p className="mt-1 text-2xl font-black text-yellow-300">
               {stats.pending}
             </p>
           </div>
+
           <div className="rounded-2xl border border-green-500/20 bg-[#0b294d] p-3 text-center">
             <p className="text-[10px] font-black uppercase text-slate-400">
               Approved
             </p>
+
             <p className="mt-1 text-2xl font-black text-green-300">
               {stats.approved}
             </p>
           </div>
+
           <div className="rounded-2xl border border-red-500/20 bg-[#0b294d] p-3 text-center">
             <p className="text-[10px] font-black uppercase text-slate-400">
               Rejected
             </p>
+
             <p className="mt-1 text-2xl font-black text-red-300">
               {stats.rejected}
             </p>
@@ -286,7 +364,11 @@ export default function AdminWithdrawalsPage() {
             <button
               key={tab.id}
               onClick={() => setActiveFilter(tab.id)}
-              className={`rounded-xl border py-2 text-xs font-black transition ${activeFilter === tab.id ? "border-cyan-400 bg-cyan-400 text-black" : "border-cyan-400/20 bg-[#0b294d] text-slate-300"}`}
+              className={`rounded-xl border py-2 text-xs font-black transition ${
+                activeFilter === tab.id
+                  ? "border-cyan-400 bg-cyan-400 text-black"
+                  : "border-cyan-400/20 bg-[#0b294d] text-slate-300"
+              }`}
             >
               {tab.label}
             </button>
@@ -295,7 +377,7 @@ export default function AdminWithdrawalsPage() {
 
         {pendingIds.length > 0 && (
           <div className="flex items-center justify-between rounded-xl border border-cyan-500/20 bg-[#0b294d] px-4 py-3">
-            <label className="flex items-center gap-2 text-xs font-bold text-cyan-300 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-cyan-300">
               <input
                 type="checkbox"
                 checked={
@@ -307,6 +389,7 @@ export default function AdminWithdrawalsPage() {
               />
               Select All Pending ({pendingIds.length})
             </label>
+
             {selectedIds.length > 0 && (
               <span className="text-xs font-black text-cyan-300">
                 {selectedIds.length} Selected
@@ -333,12 +416,17 @@ export default function AdminWithdrawalsPage() {
           <div className="space-y-3">
             {filteredWithdrawals.map((item) => {
               const isPending = item.status.toLowerCase() === "pending";
+
               const isSelected = selectedIds.includes(item.id);
 
               return (
                 <div
                   key={item.id}
-                  className={`flex flex-col gap-3 rounded-2xl border bg-[#0b294d] p-4 sm:flex-row sm:items-center sm:justify-between ${isSelected ? "border-cyan-400 bg-cyan-400/5" : "border-cyan-500/20"}`}
+                  className={`flex flex-col gap-3 rounded-2xl border bg-[#0b294d] p-4 sm:flex-row sm:items-center sm:justify-between ${
+                    isSelected
+                      ? "border-cyan-400 bg-cyan-400/5"
+                      : "border-cyan-500/20"
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     {isPending && (
@@ -346,23 +434,33 @@ export default function AdminWithdrawalsPage() {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleSelect(item.id)}
-                        className="mt-1 h-4 w-4 rounded accent-cyan-400 cursor-pointer"
+                        className="mt-1 h-4 w-4 cursor-pointer rounded accent-cyan-400"
                       />
                     )}
+
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-black text-cyan-400">
                           ৳{item.amount}
                         </span>
-                        <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300 uppercase">
+
+                        <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-300">
                           {item.method}
                         </span>
+
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${item.status.toLowerCase() === "approved" ? "bg-green-400/10 text-green-300" : item.status.toLowerCase() === "rejected" ? "bg-red-400/10 text-red-300" : "bg-amber-400/10 text-amber-300"}`}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                            item.status.toLowerCase() === "approved"
+                              ? "bg-green-400/10 text-green-300"
+                              : item.status.toLowerCase() === "rejected"
+                                ? "bg-red-400/10 text-red-300"
+                                : "bg-amber-400/10 text-amber-300"
+                          }`}
                         >
                           {item.status}
                         </span>
                       </div>
+
                       <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
                         <span>
                           Account:{" "}
@@ -370,6 +468,7 @@ export default function AdminWithdrawalsPage() {
                             {item.account_number}
                           </strong>
                         </span>
+
                         <button
                           type="button"
                           onClick={() => copyText(item.account_number, item.id)}
@@ -378,6 +477,7 @@ export default function AdminWithdrawalsPage() {
                           {copiedId === item.id ? "Copied! ✓" : "Copy"}
                         </button>
                       </div>
+
                       <p className="mt-1 text-[10px] text-slate-500">
                         Time: {new Date(item.created_at).toLocaleString()}
                       </p>
@@ -393,6 +493,7 @@ export default function AdminWithdrawalsPage() {
                       >
                         Approve
                       </button>
+
                       <button
                         type="button"
                         onClick={() => updateStatus([item.id], "Rejected")}
@@ -409,12 +510,13 @@ export default function AdminWithdrawalsPage() {
         )}
       </div>
 
-      {/* Floating Bulk Action Bar with high z-index */}
+      {/* Floating Bulk Action Bar */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-16 left-1/2 z-[99999] flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-cyan-400/40 bg-[#07182f]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
           <span className="whitespace-nowrap text-xs font-black text-cyan-300">
             {selectedIds.length} Selected
           </span>
+
           <button
             type="button"
             onClick={() => updateStatus(selectedIds, "Approved")}
@@ -422,6 +524,7 @@ export default function AdminWithdrawalsPage() {
           >
             Approve Selected
           </button>
+
           <button
             type="button"
             onClick={() => updateStatus(selectedIds, "Rejected")}
@@ -429,6 +532,7 @@ export default function AdminWithdrawalsPage() {
           >
             Reject Selected
           </button>
+
           <button
             type="button"
             onClick={() => setSelectedIds([])}
