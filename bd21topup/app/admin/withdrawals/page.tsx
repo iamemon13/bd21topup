@@ -33,40 +33,18 @@ export default function AdminWithdrawalsPage() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      // Not logged in
       if (!session) {
         router.replace("/login");
         return;
       }
 
-      // ==========================================
-      // CHECK ADMIN ROLE
-      // ==========================================
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      // Only admin and super_admin can access this page
-      if (
-        profileError ||
-        !profile ||
-        !["admin", "super_admin"].includes(profile.role)
-      ) {
-        router.replace("/");
-        return;
-      }
-
-      // ==========================================
-      // LOAD WITHDRAWALS
-      // ==========================================
       const { data, error } = await supabase
         .from("withdrawals")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
+        console.error("Withdrawals load error:", error);
         setMessage("উইথড্র রিকোয়েস্ট লোড করা যায়নি।");
         return;
       }
