@@ -230,7 +230,7 @@ export async function GET(request: Request) {
       console.error("ACCOUNT ORDERS ERROR:", ordersError);
 
       return NextResponse.json(
-        { error: "Orders load করা যায়নি।" },
+        { error: "Orders load করা যায়নি." },
         { status: 500 },
       );
     }
@@ -328,6 +328,16 @@ export async function PATCH(request: Request) {
         name: fullName,
       },
     });
+
+    // ৩. orders টেবিলে এই ইউজারের সব অর্ডারের account_name আপডেট করা
+    const { error: ordersUpdateError } = await supabaseAdmin
+      .from("orders")
+      .update({ account_name: fullName })
+      .eq("user_id", auth.user.id);
+
+    if (ordersUpdateError) {
+      console.error("ORDERS ACCOUNT NAME UPDATE ERROR:", ordersUpdateError);
+    }
 
     return NextResponse.json({
       success: true,
