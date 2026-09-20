@@ -160,6 +160,7 @@ export default function AccountPage() {
   }, [data]);
 
   async function handleLogout() {
+    window.localStorage.removeItem("bd21_auth_next");
     await supabase.auth.signOut();
     router.replace("/login");
   }

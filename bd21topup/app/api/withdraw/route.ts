@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     }
 
     const token = authHeader.replace("Bearer ", "").trim();
+
     const {
       data: { user },
       error: authErr,
@@ -37,42 +38,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: profile, error: profileErr } = await supabaseAdmin
-      .from("profiles")
-      .select("wallet_balance")
-      .eq("id", user.id)
-      .single();
+    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+      "process_withdrawal",
+      {
+        p_user_id: user.id,
+        p_amount: amountNum,
+        p_method: method,
+        p_account_number: accountNumber,
+      },
+    );
 
-    if (profileErr || !profile) {
-      return NextResponse.json(
-        { error: "অ্যাকাউন্ট লোড করা যায়নি।" },
-        { status: 404 },
-      );
-    }
-
-    const currentBalance = Number(profile.wallet_balance);
-
-    if (currentBalance < amountNum) {
-      return NextResponse.json(
-        { error: "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" },
-        { status: 400 },
-      );
-    }
-
-    // উইথড্র পেন্ডিং অবস্থায় balance_after-এ বর্তমান ব্যালেন্স সেভ হবে
-    const { error: insertErr } = await supabaseAdmin
-      .from("withdrawals")
-      .insert({
-        user_id: user.id,
-        amount: amountNum,
-        method: method,
-        account_number: accountNumber,
-        status: "pending",
-        balance_after: currentBalance,
-      });
-
-    if (insertErr) {
-      console.error("WITHDRAW INSERT ERROR:", insertErr);
+    if (rpcError) {
+      console.error("WITHDRAW RPC ERROR:", rpcError);
+      if (rpcError.message.includes("Insufficient balance")) {
+        return NextResponse.json(
+          { error: "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" },
+          { status: 400 },
+        );
+      }
+      if (rpcError.message.includes("Profile not found")) {
+        return NextResponse.json(
+          { error: "অ্যাকাউন্ট লোড করা যায়নি।" },
+          { status: 404 },
+        );
+      }
       return NextResponse.json(
         { error: "রিকোয়েস্ট জমা নেওয়া যায়নি।" },
         { status: 500 },
@@ -82,9 +71,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Withdrawal request submitted successfully.",
+      data: rpcData,
     });
   } catch (err) {
     console.error("WITHDRAW API ERROR:", err);
+
     return NextResponse.json(
       { error: "সার্ভারে সমস্যা হয়েছে।" },
       { status: 500 },
