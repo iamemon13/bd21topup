@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    // Super Admin, Admin এবং Editor সবাই অর্ডার দেখতে পারবে
-    const authCheck = await checkUserRole(request, [
-      "super_admin",
-      "admin",
-      "editor",
-    ]);
+    // Super Admin অথবা manage_orders পারমিশন আছে এমন Admin/Editor অর্ডার দেখতে পারবে
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_orders",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -86,14 +86,14 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     /* -----------------------------------------------------
-       1. Check admin/editor role
+       1. Check admin/editor role & manage_orders permission
     ----------------------------------------------------- */
 
-    const authCheck = await checkUserRole(request, [
-      "super_admin",
-      "admin",
-      "editor",
-    ]);
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_orders",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -119,7 +119,7 @@ export async function PATCH(request: Request) {
     if (!orderId) {
       return NextResponse.json(
         {
-          error: "Order ID missing.",
+          error: orderId ? "" : "Order ID missing.",
         },
         {
           status: 400,
@@ -142,7 +142,7 @@ export async function PATCH(request: Request) {
        3. CANCEL ORDER
        
        Wallet orders are refunded by the database function.
-    ===================================================== */
+    ==================================================== */
 
     if (nextStatus === "cancelled") {
       const { data, error } = await supabaseAdmin.rpc("admin_cancel_order", {

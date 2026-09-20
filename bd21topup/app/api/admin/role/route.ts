@@ -13,10 +13,13 @@ export async function GET(request: Request) {
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
+
     const token = authHeader.replace("Bearer ", "").trim();
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseAdmin.auth.getUser(token);
+
     if (authError || !user) {
       return NextResponse.json({ error: "Invalid session." }, { status: 401 });
     }
@@ -26,15 +29,18 @@ export async function GET(request: Request) {
       .select("role, permissions")
       .eq("id", user.id)
       .single();
-      
+
     if (profileError) {
-      return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Profile not found." },
+        { status: 404 },
+      );
     }
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    return NextResponse.json({
+      success: true,
       role: profile.role || "user",
-      permissions: profile.permissions || []
+      permissions: profile.permissions || [],
     });
   } catch (error) {
     console.error("ROLE API GET ERROR:", error);
@@ -72,8 +78,22 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid role." }, { status: 400 });
     }
 
-    // Permission লিস্ট নিশ্চিত করা
-    const userPermissions = Array.isArray(permissions) ? permissions : [];
+    // Server-side valid permission whitelist
+    const VALID_PERMISSIONS = [
+      "manage_users",
+      "manage_orders",
+      "manage_add_money",
+      "manage_withdrawals",
+      "manage_packages",
+      "manage_notifications",
+    ];
+
+    // Permission লিস্ট ফিল্টার ও হোয়াইটলিস্ট নিশ্চিত করা
+    const userPermissions = Array.isArray(permissions)
+      ? permissions.filter(
+          (p) => typeof p === "string" && VALID_PERMISSIONS.includes(p),
+        )
+      : [];
 
     // সুপার অ্যাডমিন যেন ভুল করে নিজের রোল ডাউনগ্রেড না করে ফেলে
     if (userId === authCheck.user.id && role !== "super_admin") {

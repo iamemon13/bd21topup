@@ -6,8 +6,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    // বাল্ক রিকোয়েস্ট শুধু super_admin এবং admin করতে পারবে
-    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
+    // বাল্ক রিকোয়েস্টের জন্য manage_add_money পারমিশন এনফোর্স করা হলো
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin"],
+      "manage_add_money",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -21,7 +25,7 @@ export async function POST(request: Request) {
 
     if (!Array.isArray(requestIds) || requestIds.length === 0) {
       return NextResponse.json(
-        { error: "কমপক্ষে একটি রিকোয়েস্ট সিলেক্ট করুন।" },
+        { error: "কমপক্ষে একটি রিকোয়েস্ট সিলেক্ট করুন।" },
         { status: 400 },
       );
     }
@@ -32,12 +36,12 @@ export async function POST(request: Request) {
 
     if (action === "rejected" && (!adminNote || !adminNote.trim())) {
       return NextResponse.json(
-        { error: "বাতিল করার কারণ (Admin Note) দেওয়া বাধ্যতামূলক।" },
+        { error: "বাতিল করার কারণ (Admin Note) দেওয়া বাধ্যতামূলক।" },
         { status: 400 },
       );
     }
 
-    // ডেটাবেসের সুরক্ষিত RPC দিয়ে প্রতিটি রিকোয়েস্ট প্রসেস করা
+    // ডেটাবেসের সুরক্ষিত RPC দিয়ে প্রতিটি রিকোয়েস্ট প্রসেস করা
     let successCount = 0;
     for (const requestId of requestIds) {
       const { error: rpcError } = await supabaseAdmin.rpc(
@@ -58,14 +62,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `${successCount} টি Add Money রিকোয়েস্ট সফলভাবে ${
+      message: `${successCount} টি Add Money রিকোয়েস্ট সফলভাবে ${
         action === "approved" ? "Approve" : "Reject"
-      } করা হয়েছে।`,
+      } করা হয়েছে।`,
     });
   } catch (error: any) {
     console.error("ADD MONEY BULK ERROR:", error);
     return NextResponse.json(
-      { error: error?.message || "সার্ভারে সমস্যা হয়েছে।" },
+      { error: error?.message || "সার্ভারে সমস্যা হয়েছে।" },
       { status: 500 },
     );
   }

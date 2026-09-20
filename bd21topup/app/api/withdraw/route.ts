@@ -31,6 +31,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // ==========================================
+    // 🔒 SECURITY FIX: Withdrawal Method Validation
+    // ==========================================
+    const VALID_WITHDRAWAL_METHODS = ["bkash", "nagad", "rocket"];
+    const sanitizedMethod = String(method || "")
+      .trim()
+      .toLowerCase();
+
+    if (!VALID_WITHDRAWAL_METHODS.includes(sanitizedMethod)) {
+      return NextResponse.json(
+        { error: "অসদুপায় বা ভুল উইথড্রয়াল মেথড নির্বাচন করা হয়েছে।" },
+        { status: 400 },
+      );
+    }
+
     if (!/^01\d{9}$/.test(accountNumber)) {
       return NextResponse.json(
         { error: "সঠিক ১১ ডিজিটের অ্যাকাউন্ট নম্বর দিন।" },
@@ -43,7 +58,7 @@ export async function POST(request: Request) {
       {
         p_user_id: user.id,
         p_amount: amountNum,
-        p_method: method,
+        p_method: sanitizedMethod, // 🔒 Server-validated sanitized method
         p_account_number: accountNumber,
       },
     );

@@ -74,11 +74,40 @@ export async function POST(request: Request) {
     const { uid, playerName, packageName, receiverNumber, paymentMethod } =
       body;
 
+    // ==========================================
+    // 🔒 SECURITY FIX: Payment Method & Receiver Validation
+    // ==========================================
+    const VALID_PAYMENT_METHODS = ["bkash", "nagad", "rocket", "wallet"];
+    const sanitizedPaymentMethod = String(paymentMethod || "")
+      .trim()
+      .toLowerCase();
+
+    if (!VALID_PAYMENT_METHODS.includes(sanitizedPaymentMethod)) {
+      return NextResponse.json(
+        { error: "অসদুপায় বা ভুল পেমেন্ট মেথড নির্বাচন করা হয়েছে।" },
+        { status: 400 },
+      );
+    }
+
+    // সার্ভার-সাইড নির্ধারিত অফিশিয়াল রিসিভার নম্বর বা কনফিগারেশন ম্যাপ
+    const MERCHANT_NUMBERS: Record<string, string> = {
+      bkash: "01700000000", // প্রজেক্টের নির্ধারিত মার্চেন্ট/পার্সোনাল নম্বর
+      nagad: "01800000000",
+      rocket: "01900000000",
+      wallet: "Wallet Payment",
+    };
+
+    const secureReceiverNumber =
+      sanitizedPaymentMethod === "wallet"
+        ? "Wallet Payment"
+        : MERCHANT_NUMBERS[sanitizedPaymentMethod] ||
+          String(receiverNumber || "").trim();
+
     // 🔒 SECURITY FIX: Transaction ID length validation
     const transactionId = String(body.transactionId || "").trim();
 
     if (
-      paymentMethod !== "wallet" &&
+      sanitizedPaymentMethod !== "wallet" &&
       (transactionId.length < 8 || transactionId.length > 20)
     ) {
       return NextResponse.json(
@@ -88,7 +117,12 @@ export async function POST(request: Request) {
     }
     // ⚠️ amount ক্লায়েন্ট থেকে আর নেওয়া হচ্ছে না সিকিউরিটির জন্য
 
-    if (!uid || !packageName || !paymentMethod || !transactionId) {
+    if (
+      !uid ||
+      !packageName ||
+      !sanitizedPaymentMethod ||
+      (sanitizedPaymentMethod !== "wallet" && !transactionId)
+    ) {
       return NextResponse.json(
         { error: "Required fields are missing." },
         { status: 400 },
@@ -129,10 +163,13 @@ export async function POST(request: Request) {
         uid: uid,
         player_name: playerName || "",
         package_name: packageName,
-        amount: secureAmount, // 🔒 Server থেকে পাওয়া amount
-        receiver_number: receiverNumber || "",
-        payment_method: paymentMethod,
-        transaction_id: transactionId.trim(),
+        amount: secureAmount, // 🔒 Server থেকে পাওয়া amount
+        receiver_number: secureReceiverNumber, // 🔒 Server-validated receiver number
+        payment_method: sanitizedPaymentMethod,
+        transaction_id:
+          sanitizedPaymentMethod === "wallet"
+            ? `WALLET-${Date.now()}`
+            : transactionId.trim(),
         status: "pending",
       })
       .select()
