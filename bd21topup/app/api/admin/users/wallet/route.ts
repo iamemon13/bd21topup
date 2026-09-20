@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
   try {
-    // ওয়ালেট বা ব্যালেন্স এডিটের ক্ষমতা শুধু super_admin এবং admin এর থাকবে
-    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
+    // 🔒 PERMISSION FIX: Admin/Editor must have "manage_users" permission
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_users");
 
     if ("error" in authCheck) {
       return NextResponse.json(

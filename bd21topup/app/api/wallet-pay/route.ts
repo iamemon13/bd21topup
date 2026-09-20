@@ -1,30 +1,9 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { uid, playerName, packageName, amount } = body;
-
-    const cleanUid = String(uid || "").trim();
-    const cleanPlayerName = String(playerName || "").trim();
-    const cleanPackageName = String(packageName || "").trim();
-    const numericAmount = Number(amount);
-
-    if (
-      !cleanUid ||
-      !cleanPlayerName ||
-      !cleanPackageName ||
-      !Number.isFinite(numericAmount) ||
-      numericAmount <= 0
-    ) {
-      return NextResponse.json(
-        { success: false, message: "সব তথ্য সঠিকভাবে প্রদান করুন।" },
-        { status: 400 },
-      );
-    }
-
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
@@ -43,104 +22,73 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Login session শেষ হয়েছে। আবার Login করুন।",
+          message: "Login session শেষ হয়েছে। আবার Login করুন।",
         },
         { status: 401 },
       );
     }
 
-    // ১. ইউজারের ওয়ালেট ব্যালেন্স চেক
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name, wallet_balance")
-      .eq("id", user.id)
-      .single();
+    const body = await request.json();
+    const { uid, playerName, packageName } = body; 
+    // ⚠️ amount ক্লায়েন্ট থেকে আর নেওয়া হচ্ছে না
 
-    if (profileError || !profile) {
-      return NextResponse.json(
-        { success: false, message: "User profile পাওয়া যায়নি।" },
-        { status: 404 },
-      );
-    }
+    const cleanUid = String(uid || "").trim();
+    const cleanPlayerName = String(playerName || "").trim();
+    const cleanPackageName = String(packageName || "").trim();
 
-    const currentBalance = Number(profile.wallet_balance || 0);
-    if (currentBalance < numericAmount) {
+    if (!cleanUid || !cleanPackageName) {
       return NextResponse.json(
-        { success: false, message: "পর্যাপ্ত ওয়ালেট ব্যালেন্স নেই।" },
+        { success: false, message: "UID এবং Package Name সঠিকভাবে প্রদান করুন।" },
         { status: 400 },
       );
     }
 
-    // ২. নতুন ব্যালেন্স হিসাব করে কাটা
-    const newBalance = currentBalance - numericAmount;
-    const { error: balanceUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ wallet_balance: newBalance })
-      .eq("id", user.id);
-
-    if (balanceUpdateError) {
-      return NextResponse.json(
-        { success: false, message: "ওয়ালেট ব্যালেন্স আপডেট করা যায়নি।" },
-        { status: 500 },
-      );
-    }
-
-    // ৩. ইউনিক ট্রানজেকশন আইডি তৈরি
     const txId = `WALLET-${crypto.randomUUID()}`;
     const accountName =
-      profile.full_name ||
       user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
       user.email?.split("@")[0] ||
       "User";
 
-    // ৪. সরাসরি PENDING স্ট্যাটাস দিয়ে অর্ডার টেবিল-এ এন্ট্রি
-    const { data: orderData, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        uid: cleanUid,
-        player_name: cleanPlayerName,
-        account_name: accountName,
-        product_name: "Free Fire UID TopUp",
-        package_name: cleanPackageName,
-        amount: numericAmount,
-        payment_method: "wallet",
-        receiver_number: "Wallet Payment",
-        transaction_id: txId,
-        status: "pending", // সর্বদা পেন্ডিং থাকবে
-      })
-      .select("id")
-      .single();
+    // ==========================================
+    // 🔒 SECURITY FIX: ATOMIC RPC CALL
+    // ==========================================
+    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+      "process_wallet_payment",
+      {
+        p_user_id: user.id,
+        p_uid: cleanUid,
+        p_player_name: cleanPlayerName,
+        p_package_name: cleanPackageName,
+        p_account_name: accountName,
+        p_tx_id: txId,
+      }
+    );
 
-    // অর্ডার তৈরিতে কোনো সমস্যা হলে টাকা রিফান্ড ব্যাক
-    if (orderError || !orderData) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({ wallet_balance: currentBalance })
-        .eq("id", user.id);
+    if (rpcError) {
+      console.error("WALLET RPC ERROR:", rpcError);
+      
+      let errorMessage = "Transaction failed.";
+      if (rpcError.message.includes("Invalid package")) {
+        errorMessage = "Invalid package. সঠিক প্যাকেজ নির্বাচন করুন।";
+      } else if (rpcError.message.includes("Insufficient balance")) {
+        errorMessage = "পর্যাপ্ত ওয়ালেট ব্যালেন্স নেই।";
+      } else if (rpcError.message.includes("Profile not found")) {
+        errorMessage = "User profile পাওয়া যায়নি।";
+      }
 
       return NextResponse.json(
-        { success: false, message: "Order তৈরি করা যায়নি।" },
-        { status: 500 },
+        { success: false, message: errorMessage },
+        { status: 400 },
       );
     }
-
-    // ৫. ইউজারের ট্রানজেকশন হিস্ট্রিতে রেকর্ড যোগ
-    await supabaseAdmin.from("wallet_transactions").insert({
-      user_id: user.id,
-      type: "purchase",
-      direction: "debit",
-      amount: numericAmount,
-      balance_after: newBalance,
-      reference_id: orderData.id,
-      description: `Free Fire UID TopUp (${cleanPackageName})`,
-    });
 
     return NextResponse.json({
       success: true,
       message: "Order placed successfully! Pending admin confirmation.",
-      order_id: orderData.id,
-      balance_after: newBalance,
+      order_id: rpcData.order_id,
+      balance_after: rpcData.balance_after,
+      amount_deducted: rpcData.amount_deducted,
     });
   } catch (error) {
     console.error("WALLET PAY ROUTE ERROR:", error);

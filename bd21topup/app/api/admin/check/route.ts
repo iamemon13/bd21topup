@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       user: {
         id: authCheck.user.id,
         email: authCheck.user.email,
-        role: authCheck.role,
+        role: authCheck.profile.role,
       },
     });
   } catch (error) {

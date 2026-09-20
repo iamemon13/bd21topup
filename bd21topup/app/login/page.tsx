@@ -111,7 +111,7 @@ export default function CustomerLoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: "http://192.168.0.196:3000/auth/callback",
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
 
           queryParams: {
             access_type: "offline",

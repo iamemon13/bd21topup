@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
-    // শুধু super_admin এবং admin এই পেজ দেখতে পারবে
-    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
+    // 🔒 PERMISSION FIX: Admin/Editor must have "manage_users" permission
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_users");
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -24,6 +26,7 @@ export async function GET(request: Request) {
           phone,
           wallet_balance,
           role,
+          permissions,
           created_at
           `,
       )

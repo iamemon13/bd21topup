@@ -1,48 +1,21 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    // =====================================================
-    // 1. Check admin authentication
-    // =====================================================
+    const authCheck = await checkUserRole(request, [
+      "super_admin",
+      "admin",
+      "editor",
+    ]);
 
-    const authHeader = request.headers.get("authorization");
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const accessToken = authHeader.replace("Bearer ", "").trim();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // =====================================================
-    // 2. Role-Based Access Check (Profiles Table)
-    // =====================================================
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const userRole = profile?.role || "user";
-
-    // সাধারণ ইউজার (user) হলে ড্যাশবোর্ডে ঢোকার অনুমতি দেওয়া যাবে না
-    if (profileError || userRole === "user") {
+    if ("error" in authCheck) {
       return NextResponse.json(
-        { error: "Forbidden: Access Denied" },
-        { status: 403 },
+        { error: authCheck.error },
+        { status: authCheck.status },
       );
     }
 

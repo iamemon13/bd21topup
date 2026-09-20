@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    // শুধু super_admin এবং admin এই পেজ এক্সেস করতে পারবে
-    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
+    // 🔒 PERMISSION FIX: Admin/Editor must have "manage_add_money" permission
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_add_money");
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -49,14 +49,9 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("ADMIN ADD MONEY GET ERROR:", error);
-
       return NextResponse.json(
-        {
-          error: "Add Money requests load করা যায়নি।",
-        },
-        {
-          status: 500,
-        },
+        { error: "Add Money requests load করা যায়নি।" },
+        { status: 500 },
       );
     }
 
@@ -91,15 +86,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("ADMIN ADD MONEY SERVER ERROR:", error);
-
-    return NextResponse.json(
-      {
-        error: "Server error.",
-      },
-      {
-        status: 500,
-      },
-    );
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
 
@@ -110,7 +97,8 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const authCheck = await checkUserRole(request, ["super_admin", "admin"]);
+    // 🔒 PERMISSION FIX: Admin/Editor must have "manage_add_money" permission
+    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_add_money");
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -152,16 +140,15 @@ export async function PATCH(request: Request) {
 
       if (requestInfoError) {
         console.error("ADD MONEY UNDO REQUEST READ ERROR:", requestInfoError);
-
         return NextResponse.json(
-          { error: "Add Money request load করা যায়নি।" },
+          { error: "Add Money request load করা যায়নি।" },
           { status: 500 },
         );
       }
 
       if (!requestInfo) {
         return NextResponse.json(
-          { error: "Add Money request পাওয়া যায়নি।" },
+          { error: "Add Money request পাওয়া যায়নি।" },
           { status: 404 },
         );
       }
@@ -185,9 +172,8 @@ export async function PATCH(request: Request) {
 
       if (undoError) {
         console.error("ADMIN ADD MONEY UNDO ERROR:", undoError);
-
         return NextResponse.json(
-          { error: undoError.message || "Request undo করা যায়নি।" },
+          { error: undoError.message || "Request undo করা যায়নি।" },
           { status: 409 },
         );
       }
@@ -221,10 +207,7 @@ export async function PATCH(request: Request) {
           });
 
         if (notificationError) {
-          console.error(
-            "ADD MONEY UNDO NOTIFICATION ERROR:",
-            notificationError,
-          );
+          console.error("ADD MONEY UNDO NOTIFICATION ERROR:", notificationError);
         }
       }
 
@@ -249,16 +232,15 @@ export async function PATCH(request: Request) {
 
     if (requestInfoError) {
       console.error("ADD MONEY REQUEST READ ERROR:", requestInfoError);
-
       return NextResponse.json(
-        { error: "Add Money request load করা যায়নি।" },
+        { error: "Add Money request load করা যায়নি।" },
         { status: 500 },
       );
     }
 
     if (!requestInfo) {
       return NextResponse.json(
-        { error: "Add Money request পাওয়া যায়নি।" },
+        { error: "Add Money request পাওয়া যায়নি।" },
         { status: 404 },
       );
     }
@@ -268,7 +250,7 @@ export async function PATCH(request: Request) {
       requestInfo.status === "rejected"
     ) {
       return NextResponse.json(
-        { error: `এই request ইতোমধ্যে ${requestInfo.status} হয়েছে।` },
+        { error: `এই request ইতোমধ্যে ${requestInfo.status} হয়েছে।` },
         { status: 409 },
       );
     }
@@ -284,9 +266,8 @@ export async function PATCH(request: Request) {
 
     if (reviewError) {
       console.error("ADMIN ADD MONEY REVIEW ERROR:", reviewError);
-
       return NextResponse.json(
-        { error: reviewError.message || "Request review করা যায়নি।" },
+        { error: reviewError.message || "Request review করা যায়নি।" },
         { status: 500 },
       );
     }
@@ -338,7 +319,6 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     console.error("ADMIN ADD MONEY PATCH SERVER ERROR:", error);
-
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -12,7 +12,7 @@ type DashboardStats = {
   completedOrders: number;
   cancelledOrders: number;
   addMoneyRequests: number;
-  withdrawalRequests: number; // উইথড্রয়াল স্ট্যাটস যোগ করা হয়েছে
+  withdrawalRequests: number;
 };
 
 export default function AdminDashboard() {
@@ -31,7 +31,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
+  
   const [userRole, setUserRole] = useState<string>("user");
+  const [userPermissions, setUserPermissions] = useState<string[]>([]); // 🔒 Added permissions state
 
   async function loadStats() {
     try {
@@ -46,7 +48,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      // ১. ইউজারের রোল ফেচ করা
+      // ১. ইউজারের রোল এবং পারমিশন ফেচ করা
       const roleRes = await fetch("/api/admin/role", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -55,6 +57,7 @@ export default function AdminDashboard() {
       const roleData = await roleRes.json();
       if (roleData.success) {
         setUserRole(roleData.role);
+        setUserPermissions(roleData.permissions || []); // 🔒 Set dynamic permissions
       }
 
       // ২. ড্যাশবোর্ড স্ট্যাটস ফেচ করা
@@ -109,8 +112,14 @@ export default function AdminDashboard() {
     }
   }
 
+  // 🔒 Permission Checker Helper
+  const hasPerm = (perm: string) => userRole === "super_admin" || userPermissions.includes(perm);
+
+  // 🔒 Calculate notifications based ONLY on permitted sections
   const totalNotifications =
-    stats.pendingOrders + stats.addMoneyRequests + stats.withdrawalRequests;
+    (hasPerm("manage_orders") ? stats.pendingOrders : 0) +
+    (hasPerm("manage_add_money") ? stats.addMoneyRequests : 0) +
+    (hasPerm("manage_withdrawals") ? stats.withdrawalRequests : 0);
 
   return (
     <main className="min-h-screen bg-[#061b35] p-4 text-white">
@@ -163,11 +172,11 @@ export default function AdminDashboard() {
                         </div>
                       ) : totalNotifications === 0 ? (
                         <div className="px-2 py-3 text-center text-xs text-slate-400">
-                          সব ক্লিয়ার! কোনো পেন্ডিং রিকোয়েস্ট নেই। 🎉
+                          সব ক্লিয়ার! কোনো পেন্ডিং রিকোয়েস্ট নেই। 🎉
                         </div>
                       ) : (
                         <>
-                          {stats.pendingOrders > 0 && (
+                          {hasPerm("manage_orders") && stats.pendingOrders > 0 && (
                             <Link
                               href="/admin/orders"
                               className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
@@ -181,9 +190,7 @@ export default function AdminDashboard() {
                             </Link>
                           )}
 
-                          {(userRole === "super_admin" ||
-                            userRole === "admin") &&
-                            stats.addMoneyRequests > 0 && (
+                          {hasPerm("manage_add_money") && stats.addMoneyRequests > 0 && (
                               <Link
                                 href="/admin/add-money"
                                 className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
@@ -197,9 +204,7 @@ export default function AdminDashboard() {
                               </Link>
                             )}
 
-                          {(userRole === "super_admin" ||
-                            userRole === "admin") &&
-                            stats.withdrawalRequests > 0 && (
+                          {hasPerm("manage_withdrawals") && stats.withdrawalRequests > 0 && (
                               <Link
                                 href="/admin/withdrawals"
                                 className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
@@ -231,7 +236,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* =================================================
-              NAVIGATION
+              NAVIGATION (Dynamic based on permissions)
           ================================================= */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-6">
             <Link
@@ -240,34 +245,41 @@ export default function AdminDashboard() {
             >
               Dashboard
             </Link>
-            <Link
-              href="/admin/orders"
-              className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
-            >
-              Orders
-            </Link>
+            
+            {hasPerm("manage_orders") && (
+              <Link
+                href="/admin/orders"
+                className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+              >
+                Orders
+              </Link>
+            )}
 
-            {(userRole === "super_admin" || userRole === "admin") && (
-              <>
-                <Link
-                  href="/admin/add-money"
-                  className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
-                >
-                  Add Money
-                </Link>
-                <Link
-                  href="/admin/withdrawals"
-                  className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
-                >
-                  Withdrawals
-                </Link>
-                <Link
-                  href="/admin/users"
-                  className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
-                >
-                  Users
-                </Link>
-              </>
+            {hasPerm("manage_add_money") && (
+              <Link
+                href="/admin/add-money"
+                className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+              >
+                Add Money
+              </Link>
+            )}
+
+            {hasPerm("manage_withdrawals") && (
+              <Link
+                href="/admin/withdrawals"
+                className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+              >
+                Withdrawals
+              </Link>
+            )}
+            
+            {hasPerm("manage_users") && (
+              <Link
+                href="/admin/users"
+                className="rounded-xl border border-cyan-500/40 px-4 py-2 text-center transition hover:bg-cyan-500/10"
+              >
+                Users
+              </Link>
             )}
 
             <Link
@@ -280,7 +292,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* =====================================================
-            ORDER / USER STATS
+            ORDER / USER STATS (Dynamic based on permissions)
         ===================================================== */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
@@ -288,11 +300,13 @@ export default function AdminDashboard() {
             value={loading ? "..." : stats.totalOrders}
             color="cyan"
           />
-          <StatCard
-            title="PENDING ORDERS"
-            value={loading ? "..." : stats.pendingOrders}
-            color="yellow"
-          />
+          {hasPerm("manage_orders") && (
+            <StatCard
+              title="PENDING ORDERS"
+              value={loading ? "..." : stats.pendingOrders}
+              color="yellow"
+            />
+          )}
           <StatCard
             title="COMPLETED"
             value={loading ? "..." : stats.completedOrders}
@@ -304,46 +318,39 @@ export default function AdminDashboard() {
             color="red"
           />
 
-          {(userRole === "super_admin" || userRole === "admin") && (
-            <>
-              <StatCard
-                title="TOTAL USERS"
-                value={loading ? "..." : stats.totalUsers}
-                color="cyan"
-              />
-              <StatCard
-                title="ADD MONEY REQ"
-                value={loading ? "..." : stats.addMoneyRequests}
-                color="yellow"
-              />
-              <StatCard
-                title="WITHDRAWAL REQ"
-                value={loading ? "..." : stats.withdrawalRequests}
-                color="yellow"
-              />
-            </>
+          {hasPerm("manage_users") && (
+            <StatCard
+              title="TOTAL USERS"
+              value={loading ? "..." : stats.totalUsers}
+              color="cyan"
+            />
+          )}
+          {hasPerm("manage_add_money") && (
+            <StatCard
+              title="ADD MONEY REQ"
+              value={loading ? "..." : stats.addMoneyRequests}
+              color="yellow"
+            />
+          )}
+          {hasPerm("manage_withdrawals") && (
+            <StatCard
+              title="WITHDRAWAL REQ"
+              value={loading ? "..." : stats.withdrawalRequests}
+              color="yellow"
+            />
           )}
         </div>
 
         {/* =====================================================
-            QUICK ACTIONS
+            QUICK ACTIONS (Dynamic based on permissions)
         ===================================================== */}
         <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-[#0b294d] p-5">
           <h2 className="text-xl font-bold">Quick Actions</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <ActionLink href="/admin/orders" text="Manage Orders" />
-
-            {(userRole === "super_admin" || userRole === "admin") && (
-              <>
-                <ActionLink href="/admin/add-money" text="Review Wallet" />
-                <ActionLink
-                  href="/admin/withdrawals"
-                  text="Review Withdrawals"
-                />
-                <ActionLink href="/admin/users" text="View Users" />
-              </>
-            )}
-
+            {hasPerm("manage_orders") && <ActionLink href="/admin/orders" text="Manage Orders" />}
+            {hasPerm("manage_add_money") && <ActionLink href="/admin/add-money" text="Review Wallet" />}
+            {hasPerm("manage_withdrawals") && <ActionLink href="/admin/withdrawals" text="Review Withdrawals" />}
+            {hasPerm("manage_users") && <ActionLink href="/admin/users" text="View Users" />}
             <ActionLink href="/admin/packages" text="Update Prices" />
           </div>
         </div>
@@ -352,16 +359,15 @@ export default function AdminDashboard() {
             IMPORTANT ACTIONS (ATTENTION REQUIRED)
         ===================================================== */}
         {!loading &&
-          (stats.pendingOrders > 0 ||
-            ((userRole === "super_admin" || userRole === "admin") &&
-              (stats.addMoneyRequests > 0 ||
-                stats.withdrawalRequests > 0))) && (
+          ((hasPerm("manage_orders") && stats.pendingOrders > 0) ||
+            (hasPerm("manage_add_money") && stats.addMoneyRequests > 0) ||
+            (hasPerm("manage_withdrawals") && stats.withdrawalRequests > 0)) && (
             <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
               <h2 className="text-lg font-black text-yellow-300">
                 Attention Required
               </h2>
               <div className="mt-3 space-y-2">
-                {stats.pendingOrders > 0 && (
+                {hasPerm("manage_orders") && stats.pendingOrders > 0 && (
                   <Link
                     href="/admin/orders"
                     className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
@@ -373,8 +379,7 @@ export default function AdminDashboard() {
                   </Link>
                 )}
 
-                {(userRole === "super_admin" || userRole === "admin") &&
-                  stats.addMoneyRequests > 0 && (
+                {hasPerm("manage_add_money") && stats.addMoneyRequests > 0 && (
                     <Link
                       href="/admin/add-money"
                       className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"
@@ -388,8 +393,7 @@ export default function AdminDashboard() {
                     </Link>
                   )}
 
-                {(userRole === "super_admin" || userRole === "admin") &&
-                  stats.withdrawalRequests > 0 && (
+                {hasPerm("manage_withdrawals") && stats.withdrawalRequests > 0 && (
                     <Link
                       href="/admin/withdrawals"
                       className="flex items-center justify-between rounded-xl bg-[#07182f] p-3 transition hover:bg-[#102a49]"

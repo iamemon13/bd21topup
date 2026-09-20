@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // GET: ইউজারের নিজের অর্ডার হিস্ট্রি লোড করা
@@ -27,22 +27,7 @@ export async function GET(request: Request) {
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
       .select(
-        `
-         id,
-         uid,
-         player_name,
-         product_name,
-         package_name,
-         amount,
-         payment_method,
-         receiver_number,
-         transaction_id,
-         status,
-         created_at,
-         admin_note,
-         cancelled_at,
-         account_name
-      `,
+        `id, uid, player_name, product_name, package_name, amount, payment_method, receiver_number, transaction_id, status, created_at, admin_note, cancelled_at, account_name`
       )
       .eq("user_id", user.id)
       .order("created_at", {
@@ -90,11 +75,12 @@ export async function POST(request: Request) {
       uid,
       playerName,
       packageName,
-      amount,
       receiverNumber,
       paymentMethod,
       transactionId,
     } = body;
+
+    // ⚠️ amount ক্লায়েন্ট থেকে আর নেওয়া হচ্ছে না সিকিউরিটির জন্য
 
     if (!uid || !packageName || !paymentMethod || !transactionId) {
       return NextResponse.json(
@@ -103,7 +89,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // ইউজারের মেটাডাটা থেকে আসল নাম বের করা হচ্ছে, না পেলে ইমেইলের প্রথম অংশ ব্যবহার করবে
+    // ==========================================
+    // 🔒 SECURITY FIX: সার্ভার-সাইড প্যাকেজ প্রাইজ চেকিং
+    // ==========================================
+    const { data: pkg, error: pkgError } = await supabaseAdmin
+      .from("packages")
+      .select("price")
+      .eq("name", packageName)
+      .single();
+
+    if (pkgError || !pkg) {
+      console.error("PACKAGE LOOKUP ERROR:", pkgError);
+      return NextResponse.json(
+        { error: "Invalid package. সঠিক প্যাকেজ নির্বাচন করুন।" },
+        { status: 400 },
+      );
+    }
+
+    // ডাটাবেজের আসল দাম কনফার্ম করা হলো
+    const secureAmount = Number(pkg.price);
+
     const accName =
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
@@ -114,11 +119,11 @@ export async function POST(request: Request) {
       .from("orders")
       .insert({
         user_id: user.id,
-        account_name: accName, // <-- এখানে account_name যোগ করা হয়েছে
+        account_name: accName,
         uid: uid,
         player_name: playerName || "",
         package_name: packageName,
-        amount: amount || 0,
+        amount: secureAmount, // 🔒 Server থেকে পাওয়া amount
         receiver_number: receiverNumber || "",
         payment_method: paymentMethod,
         transaction_id: transactionId.trim(),
