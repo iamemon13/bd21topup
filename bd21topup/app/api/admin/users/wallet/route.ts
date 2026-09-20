@@ -5,7 +5,11 @@ import { checkUserRole } from "@/lib/admin-auth";
 export async function POST(request: Request) {
   try {
     // 🔒 PERMISSION FIX: Admin/Editor must have "manage_users" permission
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_users");
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_users",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -41,62 +45,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, wallet_balance, full_name")
-      .eq("id", userId)
-      .single();
+    // Atomic RPC কল
+    const { data: newBalance, error } = await supabaseAdmin.rpc(
+      "admin_adjust_wallet",
+      {
+        p_user_id: userId,
+        p_amount: amount,
+        p_action: action,
+        p_note: note,
+      },
+    );
 
-    if (userError || !user) {
-      return NextResponse.json({ error: "User not found." }, { status: 404 });
-    }
-
-    const currentBalance = Number(user.wallet_balance || 0);
-    let newBalance = currentBalance;
-    let direction: "credit" | "debit";
-
-    if (action === "add") {
-      newBalance = currentBalance + amount;
-      direction = "credit";
-    } else {
-      newBalance = currentBalance - amount;
-      direction = "debit";
-    }
-
-    if (newBalance < 0) {
-      return NextResponse.json(
-        { error: "Insufficient wallet balance." },
-        { status: 400 },
-      );
-    }
-
-    const { error: updateError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        wallet_balance: newBalance,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    if (updateError) {
+    if (error) {
+      console.error("RPC Error:", error);
+      if (error.message.includes("Insufficient wallet balance")) {
+        return NextResponse.json(
+          { error: "Insufficient wallet balance." },
+          { status: 400 },
+        );
+      }
+      if (error.message.includes("User not found")) {
+        return NextResponse.json({ error: "User not found." }, { status: 404 });
+      }
       return NextResponse.json(
         { error: "Wallet update failed." },
         { status: 500 },
       );
     }
-
-    await supabaseAdmin.from("wallet_transactions").insert({
-      user_id: userId,
-      type: "adjustment",
-      direction,
-      amount,
-      balance_after: newBalance,
-      description:
-        note ||
-        (action === "add"
-          ? "Wallet balance added by admin"
-          : "Wallet balance removed by admin"),
-    });
 
     return NextResponse.json({
       success: true,

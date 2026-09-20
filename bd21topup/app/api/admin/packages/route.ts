@@ -59,8 +59,17 @@ export async function PUT(request: Request) {
 
     const { id, name, price } = await request.json();
 
-    if (!id || !name || typeof price !== "number") {
-      return NextResponse.json({ error: "সঠিক ডাটা দিন" }, { status: 400 });
+    if (
+      !id ||
+      !name ||
+      typeof price !== "number" ||
+      !Number.isFinite(price) ||
+      price <= 0
+    ) {
+      return NextResponse.json(
+        { error: "সঠিক এবং পজিটিভ দাম দিন" },
+        { status: 400 },
+      );
     }
 
     const { error } = await supabaseAdmin
