@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
       .select(
-        `id, uid, player_name, product_name, package_name, amount, payment_method, receiver_number, transaction_id, status, created_at, admin_note, cancelled_at, account_name`
+        `id, uid, player_name, product_name, package_name, amount, payment_method, receiver_number, transaction_id, status, created_at, admin_note, cancelled_at, account_name`,
       )
       .eq("user_id", user.id)
       .order("created_at", {
@@ -71,15 +71,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const {
-      uid,
-      playerName,
-      packageName,
-      receiverNumber,
-      paymentMethod,
-      transactionId,
-    } = body;
+    const { uid, playerName, packageName, receiverNumber, paymentMethod } =
+      body;
 
+    // 🔒 SECURITY FIX: Transaction ID length validation
+    const transactionId = String(body.transactionId || "").trim();
+
+    if (
+      paymentMethod !== "wallet" &&
+      (transactionId.length < 8 || transactionId.length > 20)
+    ) {
+      return NextResponse.json(
+        { error: "সঠিক Transaction ID দিন (৮ থেকে ২০ অক্ষরের মধ্যে)।" },
+        { status: 400 },
+      );
+    }
     // ⚠️ amount ক্লায়েন্ট থেকে আর নেওয়া হচ্ছে না সিকিউরিটির জন্য
 
     if (!uid || !packageName || !paymentMethod || !transactionId) {

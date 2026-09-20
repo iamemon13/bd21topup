@@ -3,9 +3,19 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
+// 🔒 SECURITY FIX: Name Masking Function (e.g., Emon Khan -> E*** Khan)
+function maskName(name: string | null | undefined) {
+  if (!name) return "User";
+  const parts = name.trim().split(" ");
+  if (parts.length > 1) {
+    return `${parts[0].charAt(0)}*** ${parts[parts.length - 1]}`;
+  }
+  return `${name.charAt(0)}***`;
+}
+
 export async function GET() {
   try {
-    // ১. লেটেস্ট অর্ডারগুলো নিয়ে আসা
+    // ১. লেটেস্ট অর্ডারগুলো নিয়ে আসা
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
       .select(
@@ -31,12 +41,12 @@ export async function GET() {
       new Set(orders.map((o) => o.user_id).filter(Boolean)),
     );
 
-    // ৩. profiles টেবিল থেকে avatar_url বা ছবি নিয়ে আসা
+    // ৩. profiles টেবিল থেকে avatar_url বা ছবি নিয়ে আসা
     let avatarMap: Record<string, string> = {};
     if (userIds.length > 0) {
       const { data: profiles } = await supabaseAdmin
         .from("profiles")
-        .select("id, avatar_url") // যদি কলামের নাম অন্য কিছু হয় যেমন image হয়, তবে এখানে চেঞ্জ করতে হবে
+        .select("id, avatar_url")
         .in("id", userIds);
 
       if (profiles) {
@@ -64,14 +74,17 @@ export async function GET() {
       }
     }
 
-    // ৫. অর্ডারের সাথে সঠিক ছবি যুক্ত করা
+    // ৫. 🔒 SECURITY FIX: Data Minimization (Removing user_id & id from response)
     const formattedOrders = orders.map((order) => ({
-      ...order,
+      account_name: order.account_name || "User", // আসল অ্যাকাউন্ট নাম দেখানো হবে
+      package_name: order.package_name,
+      amount: order.amount,
+      status: order.status,
+      created_at: order.created_at,
       profiles: {
         avatar_url: order.user_id ? avatarMap[order.user_id] || null : null,
       },
     }));
-
     return NextResponse.json({ success: true, orders: formattedOrders });
   } catch (error) {
     console.error("API ERROR:", error);
