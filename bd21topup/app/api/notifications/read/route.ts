@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 async function getUser(request: Request) {
   const authHeader = request.headers.get("authorization");
 
@@ -8,7 +11,7 @@ async function getUser(request: Request) {
     return null;
   }
 
-  const token = authHeader.replace("Bearer ", "").trim();
+  const token = authHeader.slice(7).trim();
 
   if (!token) {
     return null;
@@ -26,19 +29,9 @@ async function getUser(request: Request) {
   return user;
 }
 
-/*
-  Mark notification as read.
-
-  Body:
-  {
-    "notificationId": "uuid"
-  }
-
-  Or mark all:
-  {
-    "all": true
-  }
-*/
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export async function PATCH(request: Request) {
   try {
@@ -56,15 +49,39 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const body = await request.json();
+    let rawBody: unknown;
 
-    const notificationId = String(body.notificationId || "").trim();
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid JSON body.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
-    const markAll = body.all === true;
+    if (!isRecord(rawBody)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid request body.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
-    // =====================================================
-    // MARK ALL AS READ
-    // =====================================================
+    const markAll = rawBody.all === true;
+
+    /* =====================================================
+       MARK ALL AS READ
+    ===================================================== */
 
     if (markAll) {
       const { error } = await supabaseAdmin
@@ -95,15 +112,29 @@ export async function PATCH(request: Request) {
       });
     }
 
-    // =====================================================
-    // SINGLE NOTIFICATION
-    // =====================================================
+    /* =====================================================
+       SINGLE NOTIFICATION
+    ===================================================== */
 
-    if (!notificationId) {
+    if (typeof rawBody.notificationId !== "string") {
       return NextResponse.json(
         {
           success: false,
           error: "Notification ID required.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const notificationId = rawBody.notificationId.trim();
+
+    if (!UUID_REGEX.test(notificationId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid notification ID.",
         },
         {
           status: 400,
