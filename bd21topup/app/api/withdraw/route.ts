@@ -13,7 +13,7 @@ const withdrawSchema = z.object({
     .max(100000, "একসাথে সর্বোচ্চ ১,০০,০০০ টাকার বেশি উইথড্র করা যাবে না।"),
 
   // 🛠️ TypeScript Fix: Used 'message' instead of 'invalid_type_error'
-  method: z.enum(["bkash", "nagad", "rocket"], {
+  method: z.enum(["bkash", "nagad", "rocket", "upay"], {
     message: "অসদুপায় বা ভুল উইথড্রয়াল মেথড নির্বাচন করা হয়েছে।",
   }),
 

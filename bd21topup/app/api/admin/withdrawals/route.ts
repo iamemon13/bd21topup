@@ -1,16 +1,38 @@
 ﻿import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
+const ALLOWED_STATUSES = ["approved", "rejected"] as const;
+
+type ReviewStatus = (typeof ALLOWED_STATUSES)[number];
+
+function isValidUuid(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function isValidReviewStatus(value: string): value is ReviewStatus {
+  return (ALLOWED_STATUSES as readonly string[]).includes(value);
+}
+
 /* =========================================================
    GET: Load Withdrawal Requests
 ========================================================= */
+
 export async function GET(request: Request) {
   try {
-    // 🔒 PERMISSION FIX: Admin/Editor must have "manage_withdrawals" permission
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_withdrawals");
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_withdrawals",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -21,7 +43,8 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("withdrawals")
-      .select(`
+      .select(
+        `
         id,
         user_id,
         amount,
@@ -31,26 +54,28 @@ export async function GET(request: Request) {
         admin_note,
         balance_after,
         created_at
-      `)
+      `,
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("ADMIN WITHDRAWALS GET ERROR:", error);
+
       return NextResponse.json(
         { error: "Withdrawal requests load করা যায়নি।" },
         { status: 500 },
       );
     }
 
-    const withdrawals = (data ?? []).map((item: any) => ({
+    const withdrawals = (data ?? []).map((item) => ({
       id: item.id,
       userId: item.user_id,
-      amount: Number(item.amount || 0),
+      amount: Number(item.amount ?? 0),
       method: item.method,
       accountNumber: item.account_number,
       status: item.status,
       adminNote: item.admin_note,
-      balanceAfter: Number(item.balance_after || 0),
+      balanceAfter: Number(item.balance_after ?? 0),
       createdAt: item.created_at,
     }));
 
@@ -60,6 +85,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("ADMIN WITHDRAWALS GET SERVER ERROR:", error);
+
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
@@ -67,10 +93,18 @@ export async function GET(request: Request) {
 /* =========================================================
    PATCH: Approve / Reject Withdrawal Request
 ========================================================= */
+
 export async function PATCH(request: Request) {
   try {
-    // 🔒 PERMISSION FIX: Admin/Editor must have "manage_withdrawals" permission
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_withdrawals");
+    /* -----------------------------------------------------
+       1. Authentication + permission check
+    ----------------------------------------------------- */
+
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_withdrawals",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -79,78 +113,160 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { withdrawalId, status, reason } = body;
+    /* -----------------------------------------------------
+       2. Parse JSON safely
+    ----------------------------------------------------- */
 
-    if (
-      !withdrawalId ||
-      !["approved", "rejected"].includes(
-        typeof status === "string" ? status.toLowerCase() : "",
-      )
-    ) {
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "Invalid parameters." },
+        { error: "Invalid JSON request body." },
         { status: 400 },
       );
     }
 
-    const normalizedStatus = status.toLowerCase();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 },
+      );
+    }
+
+    const requestBody = body as Record<string, unknown>;
+
+    const withdrawalId = requestBody.withdrawalId;
+    const rawStatus = requestBody.status;
+    const rawReason = requestBody.reason;
+
+    /* -----------------------------------------------------
+       3. Validate withdrawal ID
+    ----------------------------------------------------- */
+
+    if (!isValidUuid(withdrawalId)) {
+      return NextResponse.json(
+        { error: "Invalid withdrawal ID." },
+        { status: 400 },
+      );
+    }
+
+    /* -----------------------------------------------------
+       4. Validate status
+    ----------------------------------------------------- */
+
+    if (typeof rawStatus !== "string") {
+      return NextResponse.json(
+        { error: "Invalid withdrawal status." },
+        { status: 400 },
+      );
+    }
+
+    const normalizedStatus = rawStatus.trim().toLowerCase();
+
+    if (!isValidReviewStatus(normalizedStatus)) {
+      return NextResponse.json(
+        {
+          error: "Invalid status. Only approved or rejected is allowed.",
+        },
+        { status: 400 },
+      );
+    }
+
+    /* -----------------------------------------------------
+       5. Validate admin reason / note
+    ----------------------------------------------------- */
+
+    if (
+      rawReason !== undefined &&
+      rawReason !== null &&
+      typeof rawReason !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "Reason must be text." },
+        { status: 400 },
+      );
+    }
+
     const normalizedReason =
-      typeof reason === "string" ? reason.trim() : "";
+      typeof rawReason === "string" ? rawReason.trim() : "";
+
+    if (normalizedReason.length > 500) {
+      return NextResponse.json(
+        {
+          error: "Reason সর্বোচ্চ ৫০০ অক্ষরের মধ্যে হতে হবে।",
+        },
+        { status: 400 },
+      );
+    }
 
     if (normalizedStatus === "rejected" && !normalizedReason) {
       return NextResponse.json(
-        { error: "বাতিল করার সঠিক কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।" },
+        {
+          error: "বাতিল করার সঠিক কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।",
+        },
         { status: 400 },
       );
     }
 
-    const { data, error } = await supabaseAdmin.rpc(
-      "admin_review_withdrawal",
-      {
-        p_withdrawal_id: withdrawalId,
-        p_action: normalizedStatus,
-        p_admin_note: normalizedReason || null,
-      },
-    );
+    /* -----------------------------------------------------
+       6. Atomic database review
+    ----------------------------------------------------- */
+
+    const { data, error } = await supabaseAdmin.rpc("admin_review_withdrawal", {
+      p_withdrawal_id: withdrawalId,
+      p_action: normalizedStatus,
+      p_admin_note: normalizedReason || null,
+    });
 
     if (error) {
       console.error("ADMIN WITHDRAWAL RPC ERROR:", error);
+
       const message = error.message || "";
 
-      if (message === "Withdrawal request not found") {
+      if (message.includes("Withdrawal request not found")) {
         return NextResponse.json(
           { error: "Withdrawal request পাওয়া যায়নি।" },
           { status: 404 },
         );
       }
-      if (message === "Withdrawal request already reviewed") {
+
+      if (message.includes("Withdrawal request already reviewed")) {
         return NextResponse.json(
-          { error: "এই রিকোয়েস্টটি আগেই রিভিউ করা হয়েছে।" },
-          { status: 400 },
+          {
+            error: "এই Withdrawal request-টি আগেই review করা হয়েছে।",
+          },
+          { status: 409 },
         );
       }
-      if (message === "Insufficient wallet balance") {
-        return NextResponse.json(
-          { error: "ইউজারের ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই।" },
-          { status: 400 },
-        );
-      }
-      if (message === "User profile not found") {
+
+      if (message.includes("User profile not found")) {
         return NextResponse.json(
           { error: "ইউজার প্রোফাইল পাওয়া যায়নি।" },
           { status: 404 },
         );
       }
-      if (message === "Invalid withdrawal amount") {
+
+      if (message.includes("Invalid withdrawal amount")) {
         return NextResponse.json(
           { error: "Invalid withdrawal amount." },
           { status: 400 },
         );
       }
-      if (message === "Rejection reason is required") {
+
+      if (message.includes("Rejection reason is required")) {
         return NextResponse.json(
-          { error: "বাতিল করার সঠিক কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।" },
+          {
+            error: "বাতিল করার সঠিক কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (message.includes("Invalid action")) {
+        return NextResponse.json(
+          { error: "Invalid withdrawal action." },
           { status: 400 },
         );
       }
@@ -161,16 +277,35 @@ export async function PATCH(request: Request) {
       );
     }
 
+    /* -----------------------------------------------------
+       7. Audit log
+    ----------------------------------------------------- */
+
+    await logAdminAction({
+      adminId: authCheck.user.id,
+      actionType:
+        normalizedStatus === "approved"
+          ? "APPROVE_WITHDRAWAL"
+          : "REJECT_WITHDRAWAL",
+      targetId: withdrawalId,
+      details:
+        normalizedStatus === "approved"
+          ? "Withdrawal request approved."
+          : `Withdrawal request rejected. Reason: ${normalizedReason}`,
+    });
+
+    /* -----------------------------------------------------
+       8. Success response
+    ----------------------------------------------------- */
+
     return NextResponse.json({
       success: true,
       message: `Withdrawal request ${normalizedStatus} successfully.`,
       data,
     });
-  } catch (err) {
-    console.error("ADMIN WITHDRAWAL PATCH ERROR:", err);
-    return NextResponse.json(
-      { error: "Server error." },
-      { status: 500 },
-    );
+  } catch (error) {
+    console.error("ADMIN WITHDRAWAL PATCH ERROR:", error);
+
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
