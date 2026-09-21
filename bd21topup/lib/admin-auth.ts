@@ -1,14 +1,14 @@
-﻿import { supabaseAdmin } from "./supabase-admin";
+﻿import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function checkUserRole(
   request: Request,
   allowedRoles: string[],
-  requiredPermission?: string
+  requiredPermission?: string,
 ) {
   try {
     const authHeader = request.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return { error: "Login required.", status: 401 };
+      return { error: "Unauthorized. Token missing.", status: 401 };
     }
 
     const token = authHeader.replace("Bearer ", "").trim();
@@ -21,45 +21,39 @@ export async function checkUserRole(
       return { error: "Invalid session.", status: 401 };
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
+    // ✅ FIX: .single() → .maybeSingle()
+    const { data: adminData, error: roleError } = await supabaseAdmin
+      .from("admin_roles")
       .select("role, permissions")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (profileError || !profile) {
-      return { error: "Access Denied: Profile not found", status: 403 };
+    if (roleError) {
+      console.error("ADMIN ROLES FETCH ERROR:", roleError);
+      return { error: "Access Denied. You are not an admin.", status: 403 };
     }
 
-    const userRole = profile.role || "user";
-    
-    // super_admin সবসময় ফুল পারমিশন পাবে
-    if (userRole === "super_admin") {
-      return { user, profile };
+    if (!adminData) {
+      return { error: "Access Denied. You are not an admin.", status: 403 };
     }
 
-    // Role চেক
-    if (!allowedRoles.includes(userRole)) {
-      return { error: "Access Denied: You do not have permission", status: 403 };
+    if (!allowedRoles.includes(adminData.role)) {
+      return { error: "Access Denied. Insufficient role.", status: 403 };
     }
 
-    // Specific Permission চেক (যদি রিকোয়ার্ড থাকে)
-    if (requiredPermission) {
-      const userPermissions = Array.isArray(profile.permissions) 
-        ? profile.permissions 
-        : [];
-        
+    if (requiredPermission && adminData.role !== "super_admin") {
+      const userPermissions = adminData.permissions || [];
       if (!userPermissions.includes(requiredPermission)) {
-        return { 
-          error: `Access Denied: Missing '${requiredPermission}' permission`, 
-          status: 403 
+        return {
+          error: "Access Denied. Missing required permission.",
+          status: 403,
         };
       }
     }
 
-    return { user, profile };
+    return { user, role: adminData.role };
   } catch (error) {
     console.error("AUTH CHECK ERROR:", error);
-    return { error: "Internal Server Error", status: 500 };
+    return { error: "Internal server error during auth check.", status: 500 };
   }
 }

@@ -72,8 +72,10 @@ export async function POST(request: Request) {
       });
 
     if (updateError) {
+      // 🔒 SECURITY FIX: Hide auth error message from client
+      console.error("PASSWORD UPDATE ERROR:", updateError);
       return NextResponse.json(
-        { error: updateError.message || "পাসওয়ার্ড আপডেট করা যায়নি।" },
+        { error: "পাসওয়ার্ড আপডেট করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
         { status: 500 },
       );
     }

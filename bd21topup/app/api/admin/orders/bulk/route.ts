@@ -43,8 +43,9 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("BULK COMPLETE ERROR:", error);
+        // 🔒 SECURITY FIX: Removed error.message
         return NextResponse.json(
-          { error: error.message || "অর্ডার কমপ্লিট করা যায়নি।" },
+          { error: "অর্ডার কমপ্লিট করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
           { status: 500 },
         );
       }
@@ -75,18 +76,18 @@ export async function POST(request: Request) {
           },
         );
 
-        // RPC এর ভেতরেই স্টেট মেশিন চেক আছে বলে ধরে নেওয়া হচ্ছে (cancelled -> cancelled হবে না)
+        // RPC এর ভেতরেই স্টেট মেশিন চেক আছে বলে ধরে নেওয়া হচ্ছে (cancelled -> cancelled হবে না)
         if (error || (data && data.success === false)) {
           console.error(
             `BULK CANCEL RPC ERROR for order ${orderId}:`,
             error?.message || data?.message,
           );
+          // 🔒 SECURITY FIX: Removed error?.message from response
           return NextResponse.json(
             {
               error:
                 data?.message ||
-                error?.message ||
-                "অর্ডার বাতিল বা রিফান্ড করতে সমস্যা হয়েছে।",
+                "অর্ডার বাতিল বা রিফান্ড করতে সমস্যা হয়েছে। সার্ভারে সমস্যা হয়েছে।",
             },
             { status: 500 },
           );
@@ -102,8 +103,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: any) {
     console.error("BULK ACTION SERVER ERROR:", error);
+    // 🔒 SECURITY FIX: Removed error?.message
     return NextResponse.json(
-      { error: error?.message || "সার্ভারে সমস্যা হয়েছে।" },
+      { error: "সার্ভারে সমস্যা হয়েছে। রিকোয়েস্ট প্রসেস করা যায়নি।" },
       { status: 500 },
     );
   }

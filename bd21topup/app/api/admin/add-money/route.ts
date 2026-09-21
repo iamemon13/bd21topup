@@ -12,7 +12,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     // 🔒 PERMISSION FIX: Admin/Editor must have "manage_add_money" permission
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_add_money");
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_add_money",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -98,7 +102,11 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     // 🔒 PERMISSION FIX: Admin/Editor must have "manage_add_money" permission
-    const authCheck = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_add_money");
+    const authCheck = await checkUserRole(
+      request,
+      ["super_admin", "admin", "editor"],
+      "manage_add_money",
+    );
 
     if ("error" in authCheck) {
       return NextResponse.json(
@@ -172,8 +180,9 @@ export async function PATCH(request: Request) {
 
       if (undoError) {
         console.error("ADMIN ADD MONEY UNDO ERROR:", undoError);
+        // 🔒 SECURITY FIX: Removed undoError.message from client response
         return NextResponse.json(
-          { error: undoError.message || "Request undo করা যায়নি।" },
+          { error: "Request undo করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
           { status: 409 },
         );
       }
@@ -207,7 +216,10 @@ export async function PATCH(request: Request) {
           });
 
         if (notificationError) {
-          console.error("ADD MONEY UNDO NOTIFICATION ERROR:", notificationError);
+          console.error(
+            "ADD MONEY UNDO NOTIFICATION ERROR:",
+            notificationError,
+          );
         }
       }
 
@@ -266,8 +278,9 @@ export async function PATCH(request: Request) {
 
     if (reviewError) {
       console.error("ADMIN ADD MONEY REVIEW ERROR:", reviewError);
+      // 🔒 SECURITY FIX: Removed reviewError.message from client response
       return NextResponse.json(
-        { error: reviewError.message || "Request review করা যায়নি।" },
+        { error: "Request review করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
         { status: 500 },
       );
     }

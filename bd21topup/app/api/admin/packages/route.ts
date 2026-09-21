@@ -26,8 +26,9 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("DB Error:", error);
+      // 🔒 SECURITY FIX: removed details: "Server error"
       return NextResponse.json(
-        { error: "Failed to load packages", details: error.message },
+        { error: "Failed to load packages. Server error." },
         { status: 500 },
       );
     }
@@ -35,8 +36,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, packages: data });
   } catch (error: any) {
     console.error("API Error:", error);
+    // 🔒 SECURITY FIX: removed details: "Server error"
     return NextResponse.json(
-      { error: "Server error", details: error.message },
+      { error: "Server error. Request could not be processed." },
       { status: 500 },
     );
   }
@@ -83,8 +85,9 @@ export async function PUT(request: Request) {
 
     if (error) {
       console.error("Update Error:", error);
+      // 🔒 SECURITY FIX: removed details: "Server error"
       return NextResponse.json(
-        { error: "আপডেট করা যায়নি", details: error.message },
+        { error: "আপডেট করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
         { status: 500 },
       );
     }
@@ -95,8 +98,9 @@ export async function PUT(request: Request) {
     });
   } catch (error: any) {
     console.error("Update API Error:", error);
+    // 🔒 SECURITY FIX: removed details: "Server error"
     return NextResponse.json(
-      { error: "Server error", details: error.message },
+      { error: "Server error. Request could not be processed." },
       { status: 500 },
     );
   }

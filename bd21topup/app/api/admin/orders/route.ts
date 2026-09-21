@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Orders load করা যায়নি।",
+          error: "Orders load করা যায়নি。",
         },
         {
           status: 500,
@@ -153,10 +153,11 @@ export async function PATCH(request: Request) {
       if (error) {
         console.error("ADMIN CANCEL ORDER ERROR:", error);
 
+        // 🔒 SECURITY FIX: Removed error.message from response
         return NextResponse.json(
           {
             success: false,
-            error: error.message,
+            error: "Order cancel করা যায়নি। সার্ভারে সমস্যা হয়েছে।",
           },
           {
             status: 409,

@@ -24,23 +24,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid session." }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
+    // 🛠️ FIX 1: Fetching from admin_roles instead of profiles
+    const { data: adminRole, error: adminRoleError } = await supabaseAdmin
+      .from("admin_roles")
       .select("role, permissions")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (profileError) {
-      return NextResponse.json(
-        { error: "Profile not found." },
-        { status: 404 },
-      );
+    if (adminRoleError) {
+      return NextResponse.json({ error: "Role fetch error." }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      role: profile.role || "user",
-      permissions: profile.permissions || [],
+      role: adminRole?.role || "user", // admin_roles এ না থাকলে সে সাধারণ user
+      permissions: adminRole?.permissions || [],
     });
   } catch (error) {
     console.error("ROLE API GET ERROR:", error);
@@ -103,21 +101,41 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // ডাটাবেজে Role এবং Permissions আপডেট করা
-    const { error: updateError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        role: role,
-        permissions: userPermissions,
-      })
-      .eq("id", userId);
+    // 🛠️ FIX 2: Handle database updates correctly for the separate admin_roles table
+    if (role === "user") {
+      // যদি রোল user হয়, তবে তাকে admin_roles টেবিল থেকে ডিলিট করে দাও
+      const { error: deleteError } = await supabaseAdmin
+        .from("admin_roles")
+        .delete()
+        .eq("user_id", userId);
 
-    if (updateError) {
-      console.error("ROLE/PERMISSION UPDATE ERROR:", updateError);
-      return NextResponse.json(
-        { error: "Role এবং Permission আপডেট করা যায়নি।" },
-        { status: 500 },
-      );
+      if (deleteError) {
+        console.error("ROLE DELETE ERROR:", deleteError);
+        return NextResponse.json(
+          { error: "ইউজারকে ডিমোট করা যায়নি।" },
+          { status: 500 },
+        );
+      }
+    } else {
+      // যদি রোল admin/editor/super_admin হয়, তবে admin_roles টেবিলে upsert করো
+      const { error: upsertError } = await supabaseAdmin
+        .from("admin_roles")
+        .upsert(
+          {
+            user_id: userId,
+            role: role,
+            permissions: userPermissions,
+          },
+          { onConflict: "user_id" },
+        );
+
+      if (upsertError) {
+        console.error("ROLE/PERMISSION UPSERT ERROR:", upsertError);
+        return NextResponse.json(
+          { error: "Role এবং Permission আপডেট করা যায়নি।" },
+          { status: 500 },
+        );
+      }
     }
 
     return NextResponse.json({

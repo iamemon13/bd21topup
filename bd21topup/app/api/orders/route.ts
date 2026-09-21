@@ -1,57 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-// GET: ইউজারের নিজের অর্ডার হিস্ট্রি লোড করা
-export async function GET(request: Request) {
-  try {
-    const authHeader = request.headers.get("authorization");
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Login required." }, { status: 401 });
-    }
-
-    const accessToken = authHeader.replace("Bearer ", "").trim();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Invalid or expired session." },
-        { status: 401 },
-      );
-    }
-
-    const { data: orders, error: ordersError } = await supabaseAdmin
-      .from("orders")
-      .select(
-        `id, uid, player_name, product_name, package_name, amount, payment_method, receiver_number, transaction_id, status, created_at, admin_note, cancelled_at, account_name`,
-      )
-      .eq("user_id", user.id)
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (ordersError) {
-      console.error("MY ORDERS ERROR:", ordersError);
-      return NextResponse.json(
-        { error: "Orders load করা যায়নি।" },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      orders: orders ?? [],
-    });
-  } catch (error) {
-    console.error("MY ORDERS API ERROR:", error);
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
-  }
-}
-
 // POST: নতুন অর্ডার বা ইনস্ট্যান্ট পেমেন্ট সাবমিট করা
 export async function POST(request: Request) {
   try {
@@ -75,9 +24,23 @@ export async function POST(request: Request) {
       body;
 
     // ==========================================
-    // 🔒 SECURITY FIX: Payment Method & Receiver Validation
+    // 🔒 SECURITY FIX 1: Wallet Payment Bypass Prevention (স্টেপ ১)
     // ==========================================
-    const VALID_PAYMENT_METHODS = ["bkash", "nagad", "rocket", "wallet"];
+    if (paymentMethod === "wallet") {
+      return NextResponse.json(
+        {
+          error:
+            "Wallet payments must be processed via /api/wallet-pay endpoint.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // ==========================================
+    // 🔒 SECURITY FIX 2: Payment Method & Receiver Validation
+    // ==========================================
+    // "wallet" এখান থেকে বাদ দেওয়া হয়েছে কারণ এটি ম্যানুয়াল পেমেন্ট রুট
+    const VALID_PAYMENT_METHODS = ["bkash", "nagad", "rocket"];
     const sanitizedPaymentMethod = String(paymentMethod || "")
       .trim()
       .toLowerCase();
@@ -89,40 +52,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // সার্ভার-সাইড নির্ধারিত অফিশিয়াল রিসিভার নম্বর বা কনফিগারেশন ম্যাপ
+    // সার্ভার-সাইড নির্ধারিত অফিশিয়াল রিসিভার নম্বর বা কনফিগারেশন ম্যাপ
     const MERCHANT_NUMBERS: Record<string, string> = {
-      bkash: "01700000000", // প্রজেক্টের নির্ধারিত মার্চেন্ট/পার্সোনাল নম্বর
+      bkash: "01700000000",
       nagad: "01800000000",
       rocket: "01900000000",
-      wallet: "Wallet Payment",
     };
 
     const secureReceiverNumber =
-      sanitizedPaymentMethod === "wallet"
-        ? "Wallet Payment"
-        : MERCHANT_NUMBERS[sanitizedPaymentMethod] ||
-          String(receiverNumber || "").trim();
+      MERCHANT_NUMBERS[sanitizedPaymentMethod] ||
+      String(receiverNumber || "").trim();
 
-    // 🔒 SECURITY FIX: Transaction ID length validation
+    // 🔒 SECURITY FIX 3: Transaction ID length validation
     const transactionId = String(body.transactionId || "").trim();
 
-    if (
-      sanitizedPaymentMethod !== "wallet" &&
-      (transactionId.length < 8 || transactionId.length > 20)
-    ) {
+    if (transactionId.length < 8 || transactionId.length > 20) {
       return NextResponse.json(
         { error: "সঠিক Transaction ID দিন (৮ থেকে ২০ অক্ষরের মধ্যে)।" },
         { status: 400 },
       );
     }
-    // ⚠️ amount ক্লায়েন্ট থেকে আর নেওয়া হচ্ছে না সিকিউরিটির জন্য
 
-    if (
-      !uid ||
-      !packageName ||
-      !sanitizedPaymentMethod ||
-      (sanitizedPaymentMethod !== "wallet" && !transactionId)
-    ) {
+    if (!uid || !packageName || !sanitizedPaymentMethod || !transactionId) {
       return NextResponse.json(
         { error: "Required fields are missing." },
         { status: 400 },
@@ -130,7 +81,7 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
-    // 🔒 SECURITY FIX: সার্ভার-সাইড প্যাকেজ প্রাইজ চেকিং
+    // 🔒 সার্ভার-সাইড প্যাকেজ প্রাইজ চেকিং
     // ==========================================
     const { data: pkg, error: pkgError } = await supabaseAdmin
       .from("packages")
@@ -163,13 +114,10 @@ export async function POST(request: Request) {
         uid: uid,
         player_name: playerName || "",
         package_name: packageName,
-        amount: secureAmount, // 🔒 Server থেকে পাওয়া amount
-        receiver_number: secureReceiverNumber, // 🔒 Server-validated receiver number
+        amount: secureAmount,
+        receiver_number: secureReceiverNumber,
         payment_method: sanitizedPaymentMethod,
-        transaction_id:
-          sanitizedPaymentMethod === "wallet"
-            ? `WALLET-${Date.now()}`
-            : transactionId.trim(),
+        transaction_id: transactionId,
         status: "pending",
       })
       .select()
@@ -183,8 +131,9 @@ export async function POST(request: Request) {
         );
       }
       console.error("ORDER INSERT ERROR:", error);
+      // 🔒 SECURITY FIX (স্টেপ ৮ এর কিছু অংশ): ডাটাবেসের ভেতরের এরর ক্লায়েন্টকে না দেখানো
       return NextResponse.json(
-        { error: "Order save করা যায়নি।" },
+        { error: "Order save করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
         { status: 500 },
       );
     }

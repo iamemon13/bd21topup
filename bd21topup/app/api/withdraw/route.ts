@@ -1,5 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { z } from "zod";
+
+// ==========================================
+// 🔒 SECURITY FIX: Zod Input Validation Schema
+// ==========================================
+const withdrawSchema = z.object({
+  // 🛠️ TypeScript Fix: Removed parameter object to match strict TS types
+  amount: z.coerce
+    .number()
+    .min(100, "কমপক্ষে ১০০ টাকা উইথড্র করতে হবে।")
+    .max(100000, "একসাথে সর্বোচ্চ ১,০০,০০০ টাকার বেশি উইথড্র করা যাবে না।"),
+
+  // 🛠️ TypeScript Fix: Used 'message' instead of 'invalid_type_error'
+  method: z.enum(["bkash", "nagad", "rocket"], {
+    message: "অসদুপায় বা ভুল উইথড্রয়াল মেথড নির্বাচন করা হয়েছে।",
+  }),
+
+  accountNumber: z
+    .string()
+    .regex(/^01\d{9}$/, "সঠিক ১১ ডিজিটের অ্যাকাউন্ট নম্বর দিন।"),
+});
 
 export async function POST(request: Request) {
   try {
@@ -21,44 +42,22 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { amount, method, accountNumber } = body;
-    const amountNum = Number(amount);
 
-    if (!amountNum || amountNum < 100) {
-      return NextResponse.json(
-        { error: "কমপক্ষে ১০০ টাকা উইথড্র করতে হবে।" },
-        { status: 400 },
-      );
+    const validationResult = withdrawSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      const errorMessage = validationResult.error.issues[0].message;
+      return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
-    // ==========================================
-    // 🔒 SECURITY FIX: Withdrawal Method Validation
-    // ==========================================
-    const VALID_WITHDRAWAL_METHODS = ["bkash", "nagad", "rocket"];
-    const sanitizedMethod = String(method || "")
-      .trim()
-      .toLowerCase();
-
-    if (!VALID_WITHDRAWAL_METHODS.includes(sanitizedMethod)) {
-      return NextResponse.json(
-        { error: "অসদুপায় বা ভুল উইথড্রয়াল মেথড নির্বাচন করা হয়েছে।" },
-        { status: 400 },
-      );
-    }
-
-    if (!/^01\d{9}$/.test(accountNumber)) {
-      return NextResponse.json(
-        { error: "সঠিক ১১ ডিজিটের অ্যাকাউন্ট নম্বর দিন।" },
-        { status: 400 },
-      );
-    }
+    const { amount, method, accountNumber } = validationResult.data;
 
     const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
       "process_withdrawal",
       {
         p_user_id: user.id,
-        p_amount: amountNum,
-        p_method: sanitizedMethod, // 🔒 Server-validated sanitized method
+        p_amount: amount,
+        p_method: method,
         p_account_number: accountNumber,
       },
     );
@@ -90,7 +89,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("WITHDRAW API ERROR:", err);
-
     return NextResponse.json(
       { error: "সার্ভারে সমস্যা হয়েছে।" },
       { status: 500 },

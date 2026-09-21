@@ -133,6 +133,7 @@ export async function GET(request: Request) {
 
     const authEmail = user.email ?? null;
 
+    // 🛠️ FIX 1: profiles টেবিল থেকে role কলাম রিমুভ করা হয়েছে
     let { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select(
@@ -142,7 +143,6 @@ export async function GET(request: Request) {
           phone,
           email,
           wallet_balance,
-          role,
           created_at
         `,
       )
@@ -159,6 +159,7 @@ export async function GET(request: Request) {
     }
 
     if (!profile) {
+      // 🛠️ FIX 2: upsert থেকেও role রিমুভ করা হয়েছে
       const { error: createProfileError } = await supabaseAdmin
         .from("profiles")
         .upsert(
@@ -167,7 +168,6 @@ export async function GET(request: Request) {
             full_name: fallbackName,
             phone: fallbackPhone,
             email: authEmail,
-            role: "user",
             wallet_balance: 0,
           },
           { onConflict: "id" },
@@ -182,6 +182,7 @@ export async function GET(request: Request) {
         );
       }
 
+      // 🛠️ FIX 3: Reload কোয়ারি থেকেও role রিমুভ করা হয়েছে
       const { data: loadedProfile, error: reloadError } = await supabaseAdmin
         .from("profiles")
         .select(
@@ -191,7 +192,6 @@ export async function GET(request: Request) {
             phone,
             email,
             wallet_balance,
-            role,
             created_at
           `,
         )
@@ -219,6 +219,15 @@ export async function GET(request: Request) {
 
       profile.email = authEmail;
     }
+
+    // 🛠️ FIX 4: admin_roles টেবিল থেকে ইউজারের আসল রোল চেক করা
+    const { data: adminRoleData } = await supabaseAdmin
+      .from("admin_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const userRole = adminRoleData?.role || "user";
 
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
@@ -265,7 +274,7 @@ export async function GET(request: Request) {
         email: profile.email || authEmail || "",
         fullName: profile.full_name || fallbackName || "BD21 User",
         phone: profile.phone,
-        role: profile.role || "user",
+        role: userRole, // 🛠️ FIX 5: এখানে admin_roles থেকে পাওয়া রোল পাঠানো হচ্ছে
         walletBalance: Number(profile.wallet_balance || 0),
         avatarUrl:
           user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
@@ -302,7 +311,6 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // ১. profiles টেবিলে আপডেট
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
@@ -320,7 +328,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // ২. Supabase Auth সেশনের user_metadata আপডেট
     await supabaseAdmin.auth.admin.updateUserById(auth.user.id, {
       user_metadata: {
         ...auth.user.user_metadata,
@@ -329,7 +336,6 @@ export async function PATCH(request: Request) {
       },
     });
 
-    // ৩. orders টেবিলে এই ইউজারের সব অর্ডারের account_name আপডেট করা
     const { error: ordersUpdateError } = await supabaseAdmin
       .from("orders")
       .update({ account_name: fullName })

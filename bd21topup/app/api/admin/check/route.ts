@@ -23,7 +23,8 @@ export async function GET(request: Request) {
       user: {
         id: authCheck.user.id,
         email: authCheck.user.email,
-        role: authCheck.profile.role,
+        // 🛠️ TypeScript Fix: 'profile.role' এর বদলে সরাসরি 'role' ব্যবহার করা হয়েছে
+        role: authCheck.role,
       },
     });
   } catch (error) {

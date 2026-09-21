@@ -74,9 +74,9 @@ export async function GET() {
       }
     }
 
-    // ৫. 🔒 SECURITY FIX: Data Minimization (Removing user_id & id from response)
+    // ৫. 🔒 SECURITY FIX: Data Minimization & Name Masking
     const formattedOrders = orders.map((order) => ({
-      account_name: order.account_name || "User", // আসল অ্যাকাউন্ট নাম দেখানো হবে
+      account_name: maskName(order.account_name), // 🔒 এখন নামগুলো মাস্ক হয়ে যাবে (যেমন: E*** Khan)
       package_name: order.package_name,
       amount: order.amount,
       status: order.status,

@@ -8,7 +8,15 @@ const CACHE_TTL_MINUTES = 5; // ৫ মিনিট ক্যাশ
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for") || "unknown_ip";
+    // ==========================================
+    // 🔒 SECURITY FIX 1: IP Spoofing Prevention
+    // ==========================================
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const realIp = request.headers.get("x-real-ip");
+    // শুধুমাত্র প্রথম আইপি-টি নেওয়া হচ্ছে, যাতে ফেক হেডার চেইন ব্লক করা যায়
+    const ip =
+      realIp ||
+      (forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown_ip");
 
     // ==========================================
     // ১. Global Rate Limiting (Supabase RPC)
@@ -22,8 +30,16 @@ export async function POST(request: Request) {
       },
     );
 
+    // 🔒 SECURITY FIX 2: Fail Closed - ডাটাবেস এরর দিলে রিকোয়েস্ট ব্লক করা হবে
     if (rateLimitError) {
       console.error("RATE LIMIT DB ERROR:", rateLimitError);
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Service temporarily unavailable. Please try again.",
+        },
+        { status: 503 },
+      );
     }
 
     if (isAllowed === false) {
@@ -40,9 +56,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const uid = String(body.uid || "").trim();
 
-    if (!uid || !/^\d+$/.test(uid)) {
+    // 🔒 SECURITY FIX 3: Strict UID Length Validation
+    if (!uid || !/^\d{5,15}$/.test(uid)) {
       return NextResponse.json(
-        { success: false, message: "সঠিক Player UID লিখুন" },
+        {
+          success: false,
+          message: "সঠিক Player UID লিখুন (৫ থেকে ১৫ সংখ্যার মধ্যে)।",
+        },
         { status: 400 },
       );
     }
