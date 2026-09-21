@@ -12,6 +12,10 @@ const ranks = [
   { name: "Grand Master", min: 100001, max: null },
 ] as const;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function getRank(totalSpend: number) {
   const index = ranks.findIndex((rank) => {
     if (rank.max === null) {
@@ -22,7 +26,6 @@ function getRank(totalSpend: number) {
   });
 
   const safeIndex = index === -1 ? 0 : index;
-
   const current = ranks[safeIndex];
   const next = ranks[safeIndex + 1] ?? null;
 
@@ -32,7 +35,6 @@ function getRank(totalSpend: number) {
   if (next) {
     const rangeStart = current.min;
     const rangeEnd = next.min;
-
     const currentProgress = Math.max(0, totalSpend - rangeStart);
 
     progress = Math.min(
@@ -81,7 +83,7 @@ async function getAuthenticatedUser(request: Request) {
     };
   }
 
-  const token = authHeader.replace("Bearer ", "").trim();
+  const token = authHeader.slice(7).trim();
 
   if (!token) {
     return {
@@ -126,14 +128,17 @@ export async function GET(request: Request) {
 
     const fallbackName = String(
       user.user_metadata?.full_name || user.user_metadata?.name || "",
-    ).trim();
+    )
+      .trim()
+      .slice(0, 100);
 
-    const fallbackPhone =
-      String(user.user_metadata?.phone || "").trim() || null;
+    const fallbackPhoneRaw = String(user.user_metadata?.phone || "").trim();
+    const fallbackPhone = fallbackPhoneRaw
+      ? fallbackPhoneRaw.slice(0, 30)
+      : null;
 
     const authEmail = user.email ?? null;
 
-    // 🛠️ FIX 1: profiles টেবিল থেকে role কলাম রিমুভ করা হয়েছে
     let { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select(
@@ -159,30 +164,28 @@ export async function GET(request: Request) {
     }
 
     if (!profile) {
-      // 🛠️ FIX 2: upsert থেকেও role রিমুভ করা হয়েছে
       const { error: createProfileError } = await supabaseAdmin
         .from("profiles")
-        .upsert(
-          {
-            id: user.id,
-            full_name: fallbackName,
-            phone: fallbackPhone,
-            email: authEmail,
-            wallet_balance: 0,
-          },
-          { onConflict: "id" },
-        );
+        .insert({
+          id: user.id,
+          full_name: fallbackName || "BD21 User",
+          phone: fallbackPhone,
+          email: authEmail,
+          wallet_balance: 0,
+        });
 
       if (createProfileError) {
-        console.error("PROFILE CREATE ERROR:", createProfileError);
+        // Concurrent request may have created the same profile.
+        if (createProfileError.code !== "23505") {
+          console.error("PROFILE CREATE ERROR:", createProfileError);
 
-        return NextResponse.json(
-          { error: "Profile তৈরি করা যায়নি।" },
-          { status: 500 },
-        );
+          return NextResponse.json(
+            { error: "Profile তৈরি করা যায়নি।" },
+            { status: 500 },
+          );
+        }
       }
 
-      // 🛠️ FIX 3: Reload কোয়ারি থেকেও role রিমুভ করা হয়েছে
       const { data: loadedProfile, error: reloadError } = await supabaseAdmin
         .from("profiles")
         .select(
@@ -199,6 +202,8 @@ export async function GET(request: Request) {
         .single();
 
       if (reloadError || !loadedProfile) {
+        console.error("PROFILE RELOAD ERROR:", reloadError);
+
         return NextResponse.json(
           { error: "Profile load করা যায়নি।" },
           { status: 500 },
@@ -209,7 +214,7 @@ export async function GET(request: Request) {
     }
 
     if (profile.email !== authEmail) {
-      await supabaseAdmin
+      const { error: emailUpdateError } = await supabaseAdmin
         .from("profiles")
         .update({
           email: authEmail,
@@ -217,15 +222,22 @@ export async function GET(request: Request) {
         })
         .eq("id", user.id);
 
-      profile.email = authEmail;
+      if (emailUpdateError) {
+        console.error("PROFILE EMAIL SYNC ERROR:", emailUpdateError);
+      } else {
+        profile.email = authEmail;
+      }
     }
 
-    // 🛠️ FIX 4: admin_roles টেবিল থেকে ইউজারের আসল রোল চেক করা
-    const { data: adminRoleData } = await supabaseAdmin
+    const { data: adminRoleData, error: adminRoleError } = await supabaseAdmin
       .from("admin_roles")
       .select("role")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (adminRoleError) {
+      console.error("ACCOUNT ROLE LOAD ERROR:", adminRoleError);
+    }
 
     const userRole = adminRoleData?.role || "user";
 
@@ -261,7 +273,12 @@ export async function GET(request: Request) {
     const weeklySpend = completedOrders
       .filter((order) => {
         const createdAt = new Date(order.created_at).getTime();
-        return createdAt >= sevenDaysAgo && createdAt <= now;
+
+        return (
+          Number.isFinite(createdAt) &&
+          createdAt >= sevenDaysAgo &&
+          createdAt <= now
+        );
       })
       .reduce((sum, order) => sum + Number(order.amount || 0), 0);
 
@@ -274,7 +291,7 @@ export async function GET(request: Request) {
         email: profile.email || authEmail || "",
         fullName: profile.full_name || fallbackName || "BD21 User",
         phone: profile.phone,
-        role: userRole, // 🛠️ FIX 5: এখানে admin_roles থেকে পাওয়া রোল পাঠানো হচ্ছে
+        role: userRole,
         walletBalance: Number(profile.wallet_balance || 0),
         avatarUrl:
           user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
@@ -304,41 +321,136 @@ export async function PATCH(request: Request) {
       return auth.errorResponse!;
     }
 
-    const body = await request.json();
-    const { fullName, phone } = body;
+    let rawBody: unknown;
 
-    if (!fullName) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
 
-    const { error: profileError } = await supabaseAdmin
+    if (!isRecord(rawBody)) {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 },
+      );
+    }
+
+    if (typeof rawBody.fullName !== "string") {
+      return NextResponse.json({ error: "Name is required." }, { status: 400 });
+    }
+
+    const fullName = rawBody.fullName.trim();
+
+    if (fullName.length < 1 || fullName.length > 100) {
+      return NextResponse.json(
+        { error: "Name must be between 1 and 100 characters." },
+        { status: 400 },
+      );
+    }
+
+    let phone: string | null = null;
+
+    if (
+      rawBody.phone !== undefined &&
+      rawBody.phone !== null &&
+      rawBody.phone !== ""
+    ) {
+      if (typeof rawBody.phone !== "string") {
+        return NextResponse.json(
+          { error: "Invalid phone number." },
+          { status: 400 },
+        );
+      }
+
+      phone = rawBody.phone.trim();
+
+      if (phone.length > 30) {
+        return NextResponse.json(
+          { error: "Phone number is too long." },
+          { status: 400 },
+        );
+      }
+
+      if (!/^[0-9+\-()\s]*$/.test(phone)) {
+        return NextResponse.json(
+          { error: "Invalid phone number." },
+          { status: 400 },
+        );
+      }
+
+      if (!phone) {
+        phone = null;
+      }
+    }
+
+    const { data: updatedProfile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         full_name: fullName,
-        phone: phone || null,
+        phone,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", auth.user.id);
+      .eq("id", auth.user.id)
+      .select("id")
+      .maybeSingle();
 
     if (profileError) {
       console.error("PROFILE UPDATE ERROR:", profileError);
+
       return NextResponse.json(
         { error: "Profile আপডেট করা যায়নি।" },
         { status: 500 },
       );
     }
 
-    await supabaseAdmin.auth.admin.updateUserById(auth.user.id, {
-      user_metadata: {
-        ...auth.user.user_metadata,
-        full_name: fullName,
-        name: fullName,
-      },
-    });
+    if (!updatedProfile) {
+      const { error: createProfileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: auth.user.id,
+          full_name: fullName,
+          phone,
+          email: auth.user.email ?? null,
+          wallet_balance: 0,
+        });
+
+      if (createProfileError) {
+        console.error("PROFILE CREATE ERROR:", createProfileError);
+
+        return NextResponse.json(
+          { error: "Profile তৈরি করা যায়নি।" },
+          { status: 500 },
+        );
+      }
+    }
+
+    const { error: metadataError } =
+      await supabaseAdmin.auth.admin.updateUserById(auth.user.id, {
+        user_metadata: {
+          ...auth.user.user_metadata,
+          full_name: fullName,
+          name: fullName,
+        },
+      });
+
+    if (metadataError) {
+      console.error("AUTH METADATA UPDATE ERROR:", metadataError);
+
+      return NextResponse.json(
+        { error: "Profile metadata update করা যায়নি।" },
+        { status: 500 },
+      );
+    }
 
     const { error: ordersUpdateError } = await supabaseAdmin
       .from("orders")
-      .update({ account_name: fullName })
+      .update({
+        account_name: fullName,
+      })
       .eq("user_id", auth.user.id);
 
     if (ordersUpdateError) {
@@ -351,6 +463,7 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     console.error("ACCOUNT PATCH ERROR:", error);
+
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
