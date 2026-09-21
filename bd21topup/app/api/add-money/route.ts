@@ -1,12 +1,31 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { paymentConfig } from "@/lib/payment-config";
+import { z } from "zod";
 
 const allowedMethods = ["bkash", "nagad", "rocket", "upay"] as const;
-type PaymentMethod = (typeof allowedMethods)[number];
+
+const addMoneySchema = z.object({
+  amount: z.coerce
+    .number()
+    .finite()
+    .min(10, "Amount কমপক্ষে ৳10 হতে হবে।")
+    .max(100000, "Amount সর্বোচ্চ ৳100,000 হতে পারবে।"),
+
+  paymentMethod: z.enum(allowedMethods, {
+    message: "সঠিক payment method select করুন।",
+  }),
+
+  transactionId: z
+    .string()
+    .trim()
+    .min(4, "সঠিক Transaction ID দিন।")
+    .max(80, "Transaction ID সর্বোচ্চ ৮০ অক্ষরের হতে পারবে।"),
+});
 
 async function getUserFromRequest(request: Request) {
   const authHeader = request.headers.get("authorization");
+
   if (!authHeader?.startsWith("Bearer ")) {
     return {
       user: null,
@@ -17,7 +36,18 @@ async function getUserFromRequest(request: Request) {
     };
   }
 
-  const token = authHeader.replace("Bearer ", "").trim();
+  const token = authHeader.slice(7).trim();
+
+  if (!token) {
+    return {
+      user: null,
+      response: NextResponse.json(
+        { error: "Login required." },
+        { status: 401 },
+      ),
+    };
+  }
+
   const {
     data: { user },
     error,
@@ -33,13 +63,21 @@ async function getUserFromRequest(request: Request) {
     };
   }
 
-  return { user, response: null };
+  return {
+    user,
+    response: null,
+  };
 }
 
-// GET: ইউজারের নিজের Add Money রিকোয়েস্টগুলোর হিস্ট্রি লোড করা
+/* =========================================================
+   GET
+   Load authenticated user's Add Money history
+========================================================= */
+
 export async function GET(request: Request) {
   try {
     const auth = await getUserFromRequest(request);
+
     if (!auth.user) {
       return auth.response!;
     }
@@ -47,15 +85,28 @@ export async function GET(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("add_money_requests")
       .select(
-        "id, amount, payment_method, receiver_number, transaction_id, status, admin_note, created_at, reviewed_at",
+        `
+        id,
+        amount,
+        payment_method,
+        receiver_number,
+        transaction_id,
+        status,
+        admin_note,
+        created_at,
+        reviewed_at
+        `,
       )
       .eq("user_id", auth.user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error("ADD MONEY GET ERROR:", error);
+
       return NextResponse.json(
-        { error: "Add Money history load করা যায়নি।" },
+        { error: "Add Money history load করা যায়নি।" },
         { status: 500 },
       );
     }
@@ -66,55 +117,89 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("ADD MONEY GET SERVER ERROR:", error);
+
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
 
-// POST: নতুন Add Money রিকোয়েস্ট সাবমিট করা
+/* =========================================================
+   POST
+   Submit new Add Money request
+========================================================= */
+
 export async function POST(request: Request) {
   try {
+    /* -----------------------------------------------------
+       1. Authenticate user
+    ----------------------------------------------------- */
+
     const auth = await getUserFromRequest(request);
+
     if (!auth.user) {
       return auth.response!;
     }
 
-    const body = await request.json();
+    /* -----------------------------------------------------
+       2. Parse JSON safely
+    ----------------------------------------------------- */
 
-    const amount = Number(body.amount);
-    const paymentMethod = String(body.paymentMethod || "")
-      .trim()
-      .toLowerCase() as PaymentMethod;
-    const transactionId = String(body.transactionId || "").trim();
+    let body: unknown;
 
-    if (!Number.isFinite(amount) || amount < 10 || amount > 100000) {
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "Amount ৳10 থেকে ৳100,000 এর মধ্যে হতে হবে।" },
+        { error: "Invalid JSON request body." },
         { status: 400 },
       );
     }
 
-    if (!allowedMethods.includes(paymentMethod)) {
+    /* -----------------------------------------------------
+       3. Validate request body
+    ----------------------------------------------------- */
+
+    const validationResult = addMoneySchema.safeParse(body);
+
+    if (!validationResult.success) {
+      const firstIssue = validationResult.error.issues[0];
+
       return NextResponse.json(
-        { error: "সঠিক payment method select করুন।" },
+        {
+          error: firstIssue?.message || "Invalid Add Money request.",
+        },
         { status: 400 },
       );
     }
 
-    if (transactionId.length < 4 || transactionId.length > 80) {
-      return NextResponse.json(
-        { error: "সঠিক Transaction ID দিন।" },
-        { status: 400 },
-      );
-    }
+    const { amount, paymentMethod, transactionId } = validationResult.data;
+
+    /* -----------------------------------------------------
+       4. Resolve receiver server-side
+       
+       Client cannot choose/forge receiver number.
+    ----------------------------------------------------- */
 
     const receiverNumber = paymentConfig[paymentMethod]?.number;
 
     if (!receiverNumber) {
+      console.error(
+        `ADD MONEY CONFIG ERROR: Receiver missing for ${paymentMethod}`,
+      );
+
       return NextResponse.json(
         { error: "Payment receiver configured না।" },
         { status: 500 },
       );
     }
+
+    /* -----------------------------------------------------
+       5. Insert request
+
+       Important:
+       - user_id comes from verified Auth session
+       - receiver_number comes from server config
+       - status is forced to pending
+    ----------------------------------------------------- */
 
     const { data, error } = await supabaseAdmin
       .from("add_money_requests")
@@ -127,21 +212,62 @@ export async function POST(request: Request) {
         status: "pending",
       })
       .select(
-        "id, amount, payment_method, receiver_number, transaction_id, status, created_at",
+        `
+        id,
+        amount,
+        payment_method,
+        receiver_number,
+        transaction_id,
+        status,
+        created_at
+        `,
       )
       .single();
 
     if (error) {
+      /*
+       * PostgreSQL UNIQUE violation.
+       * transaction_id already exists.
+       */
       if (error.code === "23505") {
         return NextResponse.json(
-          { error: "এই Transaction ID আগে ব্যবহার করা হয়েছে।" },
+          {
+            error: "এই Transaction ID আগে ব্যবহার করা হয়েছে।",
+          },
           { status: 409 },
         );
       }
 
+      /*
+       * PostgreSQL CHECK constraint violation.
+       */
+      if (error.code === "23514") {
+        return NextResponse.json(
+          {
+            error: "Add Money request-এর তথ্য সঠিক নয়।",
+          },
+          { status: 400 },
+        );
+      }
+
+      /*
+       * Foreign key violation.
+       */
+      if (error.code === "23503") {
+        return NextResponse.json(
+          {
+            error: "User account পাওয়া যায়নি।",
+          },
+          { status: 404 },
+        );
+      }
+
       console.error("ADD MONEY CREATE ERROR:", error);
+
       return NextResponse.json(
-        { error: "Add Money request submit করা যায়নি।" },
+        {
+          error: "Add Money request submit করা যায়নি।",
+        },
         { status: 500 },
       );
     }
@@ -153,6 +279,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("ADD MONEY POST SERVER ERROR:", error);
+
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
