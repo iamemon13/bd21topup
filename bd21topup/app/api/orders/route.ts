@@ -1,146 +1,325 @@
 ﻿import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { paymentConfig } from "@/lib/payment-config";
 
-// POST: নতুন অর্ডার বা ইনস্ট্যান্ট পেমেন্ট সাবমিট করা
+const externalPaymentMethods = ["bkash", "nagad", "rocket", "upay"] as const;
+
+const orderSchema = z.object({
+  uid: z.coerce
+    .string()
+    .trim()
+    .min(1, "UID required.")
+    .max(100, "UID is too long."),
+
+  playerName: z.coerce
+    .string()
+    .trim()
+    .max(100, "Player name is too long.")
+    .optional()
+    .default(""),
+
+  packageName: z.coerce
+    .string()
+    .trim()
+    .min(1, "Package required.")
+    .max(200, "Package name is too long."),
+
+  paymentMethod: z.enum(externalPaymentMethods),
+
+  transactionId: z.coerce
+    .string()
+    .trim()
+    .min(4, "Transaction ID is too short.")
+    .max(80, "Transaction ID is too long."),
+});
+
 export async function POST(request: Request) {
   try {
+    /* =====================================================
+       1. AUTH
+    ===================================================== */
+
     const authHeader = request.headers.get("authorization");
+
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Login required.",
+        },
+        {
+          status: 401,
+        },
+      );
     }
 
-    const token = authHeader.replace("Bearer ", "").trim();
+    const accessToken = authHeader.slice(7).trim();
+
+    if (!accessToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Login required.",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
     const {
       data: { user },
       error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
+    } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { uid, playerName, packageName, receiverNumber, paymentMethod } =
-      body;
-
-    // ==========================================
-    // 🔒 SECURITY FIX 1: Wallet Payment Bypass Prevention (স্টেপ ১)
-    // ==========================================
-    if (paymentMethod === "wallet") {
       return NextResponse.json(
         {
-          error:
-            "Wallet payments must be processed via /api/wallet-pay endpoint.",
+          success: false,
+          error: "Invalid or expired session.",
         },
-        { status: 400 },
+        {
+          status: 401,
+        },
       );
     }
 
-    // ==========================================
-    // 🔒 SECURITY FIX 2: Payment Method & Receiver Validation
-    // ==========================================
-    // "wallet" এখান থেকে বাদ দেওয়া হয়েছে কারণ এটি ম্যানুয়াল পেমেন্ট রুট
-    const VALID_PAYMENT_METHODS = ["bkash", "nagad", "rocket"];
-    const sanitizedPaymentMethod = String(paymentMethod || "")
-      .trim()
-      .toLowerCase();
+    /* =====================================================
+       2. SAFE JSON PARSING
+    ===================================================== */
 
-    if (!VALID_PAYMENT_METHODS.includes(sanitizedPaymentMethod)) {
+    let rawBody: unknown;
+
+    try {
+      rawBody = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "অসদুপায় বা ভুল পেমেন্ট মেথড নির্বাচন করা হয়েছে।" },
-        { status: 400 },
+        {
+          success: false,
+          error: "Invalid JSON body.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
-    // সার্ভার-সাইড নির্ধারিত অফিশিয়াল রিসিভার নম্বর বা কনফিগারেশন ম্যাপ
-    const MERCHANT_NUMBERS: Record<string, string> = {
-      bkash: "01700000000",
-      nagad: "01800000000",
-      rocket: "01900000000",
-    };
+    /* =====================================================
+       3. VALIDATE INPUT
+    ===================================================== */
 
-    const secureReceiverNumber =
-      MERCHANT_NUMBERS[sanitizedPaymentMethod] ||
-      String(receiverNumber || "").trim();
+    const parsed = orderSchema.safeParse(rawBody);
 
-    // 🔒 SECURITY FIX 3: Transaction ID length validation
-    const transactionId = String(body.transactionId || "").trim();
-
-    if (transactionId.length < 8 || transactionId.length > 20) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "সঠিক Transaction ID দিন (৮ থেকে ২০ অক্ষরের মধ্যে)।" },
-        { status: 400 },
+        {
+          success: false,
+          error:
+            parsed.error.issues[0]?.message || "Invalid order information.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
-    if (!uid || !packageName || !sanitizedPaymentMethod || !transactionId) {
+    const { uid, playerName, packageName, paymentMethod, transactionId } =
+      parsed.data;
+
+    /*
+     * Wallet payment is intentionally impossible in this route.
+     * Zod enum only allows external payment methods.
+     */
+
+    /* =====================================================
+       4. SERVER-SIDE RECEIVER NUMBER
+    ===================================================== */
+
+    const paymentDetails = paymentConfig[paymentMethod];
+
+    if (!paymentDetails?.number) {
       return NextResponse.json(
-        { error: "Required fields are missing." },
-        { status: 400 },
+        {
+          success: false,
+          error: "Payment method configuration পাওয়া যায়নি।",
+        },
+        {
+          status: 500,
+        },
       );
     }
 
-    // ==========================================
-    // 🔒 সার্ভার-সাইড প্যাকেজ প্রাইজ চেকিং
-    // ==========================================
+    const secureReceiverNumber = paymentDetails.number;
+
+    /* =====================================================
+       5. SERVER-SIDE PACKAGE LOOKUP
+    ===================================================== */
+
     const { data: pkg, error: pkgError } = await supabaseAdmin
       .from("packages")
-      .select("price")
+      .select("name, price")
       .eq("name", packageName)
-      .single();
+      .maybeSingle();
 
-    if (pkgError || !pkg) {
+    if (pkgError) {
       console.error("PACKAGE LOOKUP ERROR:", pkgError);
+
       return NextResponse.json(
-        { error: "Invalid package. সঠিক প্যাকেজ নির্বাচন করুন।" },
-        { status: 400 },
+        {
+          success: false,
+          error: "Package verify করা যায়নি।",
+        },
+        {
+          status: 500,
+        },
       );
     }
 
-    // ডাটাবেজের আসল দাম কনফার্ম করা হলো
+    if (!pkg) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid package. সঠিক package নির্বাচন করুন।",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
     const secureAmount = Number(pkg.price);
 
-    const accName =
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      user.email?.split("@")[0] ||
-      "User";
+    if (!Number.isFinite(secureAmount) || secureAmount <= 0) {
+      console.error("INVALID PACKAGE PRICE:", {
+        packageName: pkg.name,
+        price: pkg.price,
+      });
 
-    const { data, error } = await supabaseAdmin
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Package price configuration invalid.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* =====================================================
+       6. ACCOUNT NAME
+    ===================================================== */
+
+    const accountName =
+      typeof user.user_metadata?.full_name === "string" &&
+      user.user_metadata.full_name.trim()
+        ? user.user_metadata.full_name.trim().slice(0, 150)
+        : typeof user.user_metadata?.name === "string" &&
+            user.user_metadata.name.trim()
+          ? user.user_metadata.name.trim().slice(0, 150)
+          : user.email?.split("@")[0]?.slice(0, 150) || "User";
+
+    /* =====================================================
+       7. CREATE ORDER
+    ===================================================== */
+
+    const { data: order, error: insertError } = await supabaseAdmin
       .from("orders")
       .insert({
         user_id: user.id,
-        account_name: accName,
-        uid: uid,
-        player_name: playerName || "",
-        package_name: packageName,
+        account_name: accountName,
+        uid,
+        player_name: playerName,
+        package_name: pkg.name,
         amount: secureAmount,
         receiver_number: secureReceiverNumber,
-        payment_method: sanitizedPaymentMethod,
+        payment_method: paymentMethod,
         transaction_id: transactionId,
         status: "pending",
       })
-      .select()
+      .select(
+        `
+          id,
+          user_id,
+          uid,
+          player_name,
+          package_name,
+          amount,
+          payment_method,
+          receiver_number,
+          transaction_id,
+          status,
+          created_at
+        `,
+      )
       .single();
 
-    if (error) {
-      if (error.code === "23505") {
+    if (insertError) {
+      if (insertError.code === "23505") {
         return NextResponse.json(
-          { error: "এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।" },
-          { status: 409 },
+          {
+            success: false,
+            error: "এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।",
+          },
+          {
+            status: 409,
+          },
         );
       }
-      console.error("ORDER INSERT ERROR:", error);
-      // 🔒 SECURITY FIX (স্টেপ ৮ এর কিছু অংশ): ডাটাবেসের ভেতরের এরর ক্লায়েন্টকে না দেখানো
+
+      if (insertError.code === "23503") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "User account পাওয়া যায়নি।",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      if (insertError.code === "23514") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Order information database rules পূরণ করেনি।",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      console.error("ORDER INSERT ERROR:", insertError);
+
       return NextResponse.json(
-        { error: "Order save করা যায়নি। সার্ভারে সমস্যা হয়েছে।" },
-        { status: 500 },
+        {
+          success: false,
+          error: "Order save করা যায়নি। সার্ভারে সমস্যা হয়েছে।",
+        },
+        {
+          status: 500,
+        },
       );
     }
 
-    return NextResponse.json({ success: true, order: data });
-  } catch (err) {
-    console.error("ORDERS API SERVER ERROR:", err);
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    console.error("ORDERS API SERVER ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Server error.",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }
