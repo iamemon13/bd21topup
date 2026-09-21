@@ -23,9 +23,53 @@ type ProviderResult =
       unavailable: boolean;
     };
 
+const MAX_RESPONSE_BYTES = 100_000;
+const MAX_USERNAME_LENGTH = 100;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeUsername(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const username = value.trim();
+
+  if (!username) {
+    return null;
+  }
+
+  return username.slice(0, MAX_USERNAME_LENGTH);
+}
+
+async function readJsonSafely(response: Response): Promise<unknown | null> {
+  const contentLength = response.headers.get("content-length");
+
+  if (contentLength) {
+    const declaredSize = Number(contentLength);
+
+    if (Number.isFinite(declaredSize) && declaredSize > MAX_RESPONSE_BYTES) {
+      return null;
+    }
+  }
+
+  const text = await response.text();
+
+  if (text.length > MAX_RESPONSE_BYTES) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 // ======================================================
 // Provider 1: SiamBhau
-// Primary - 1000 checks/day
 // ======================================================
 
 async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
@@ -37,7 +81,7 @@ async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
 
       return {
         success: false,
-        message: "SiamBhau unavailable",
+        message: "UID provider unavailable",
         unavailable: true,
       };
     }
@@ -46,9 +90,12 @@ async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
 
     url.searchParams.set("uid", uid);
     url.searchParams.set("region", "BD");
+
+    // Provider currently expects the key as a query parameter.
+    // Never log this URL because it contains the secret.
     url.searchParams.set("key", apiKey);
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -57,40 +104,49 @@ async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
       signal: AbortSignal.timeout(3000),
     });
 
-    const text = await response.text();
+    const parsed = await readJsonSafely(response);
 
-    let data: any = null;
-
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.error("SIAMBHAU returned non-JSON response");
+    if (!parsed || !isRecord(parsed)) {
+      console.error("SIAMBHAU returned invalid response");
 
       return {
         success: false,
-        message: "SiamBhau unavailable",
+        message: "UID provider unavailable",
         unavailable: true,
       };
     }
 
-    console.log("SIAMBHAU STATUS:", response.status);
+    const data = parsed;
 
-    const username =
-      data?.basicInfo?.nickname ||
-      data?.basicinfo?.nickname ||
-      data?.data?.basicInfo?.nickname ||
-      data?.data?.basicinfo?.nickname ||
-      data?.nickname ||
-      data?.username ||
-      data?.name;
+    let username: string | null = null;
+
+    const basicInfo = isRecord(data.basicInfo)
+      ? data.basicInfo
+      : isRecord(data.basicinfo)
+        ? data.basicinfo
+        : null;
+
+    const nestedData = isRecord(data.data) ? data.data : null;
+
+    const nestedBasicInfo =
+      nestedData && isRecord(nestedData.basicInfo)
+        ? nestedData.basicInfo
+        : nestedData && isRecord(nestedData.basicinfo)
+          ? nestedData.basicinfo
+          : null;
+
+    username =
+      normalizeUsername(basicInfo?.nickname) ||
+      normalizeUsername(nestedBasicInfo?.nickname) ||
+      normalizeUsername(data.nickname) ||
+      normalizeUsername(data.username) ||
+      normalizeUsername(data.name);
 
     if (response.ok && username) {
-      console.log("SIAMBHAU PLAYER FOUND:", username);
-
       return {
         success: true,
         uid,
-        username: String(username),
+        username,
         provider: "siambhau",
       };
     }
@@ -105,7 +161,7 @@ async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
 
     return {
       success: false,
-      message: "SiamBhau unavailable",
+      message: "UID provider unavailable",
       unavailable: true,
     };
   } catch (error) {
@@ -113,7 +169,7 @@ async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
 
     return {
       success: false,
-      message: "SiamBhau unavailable",
+      message: "UID provider unavailable",
       unavailable: true,
     };
   }
@@ -121,7 +177,6 @@ async function checkWithSiamBhau(uid: string): Promise<ProviderResult> {
 
 // ======================================================
 // Provider 2: GoXtop
-// Backup - 100 checks/day
 // ======================================================
 
 async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
@@ -133,7 +188,7 @@ async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
 
       return {
         success: false,
-        message: "GoXtop unavailable",
+        message: "UID provider unavailable",
         unavailable: true,
       };
     }
@@ -143,7 +198,7 @@ async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
     url.searchParams.set("code", "freefire_bd");
     url.searchParams.set("characterId", uid);
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -153,33 +208,28 @@ async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
       signal: AbortSignal.timeout(3000),
     });
 
-    const text = await response.text();
+    const parsed = await readJsonSafely(response);
 
-    let data: any = null;
-
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.error("GOXTOP returned non-JSON response");
+    if (!parsed || !isRecord(parsed)) {
+      console.error("GOXTOP returned invalid response");
 
       return {
         success: false,
-        message: "GoXtop unavailable",
+        message: "UID provider unavailable",
         unavailable: true,
       };
     }
 
-    console.log("GOXTOP STATUS:", response.status);
-
-    const username = data?.username || data?.nickname || data?.name;
+    const username =
+      normalizeUsername(parsed.username) ||
+      normalizeUsername(parsed.nickname) ||
+      normalizeUsername(parsed.name);
 
     if (response.ok && username) {
-      console.log("GOXTOP PLAYER FOUND:", username);
-
       return {
         success: true,
         uid,
-        username: String(username),
+        username,
         provider: "goxtop",
       };
     }
@@ -194,7 +244,7 @@ async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
 
     return {
       success: false,
-      message: "GoXtop unavailable",
+      message: "UID provider unavailable",
       unavailable: true,
     };
   } catch (error) {
@@ -202,7 +252,7 @@ async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
 
     return {
       success: false,
-      message: "GoXtop unavailable",
+      message: "UID provider unavailable",
       unavailable: true,
     };
   }
@@ -210,7 +260,6 @@ async function checkWithGoXtop(uid: string): Promise<ProviderResult> {
 
 // ======================================================
 // Provider 3: FFbazar
-// Last fallback
 // ======================================================
 
 async function checkWithFFBazar(uid: string): Promise<ProviderResult> {
@@ -224,8 +273,7 @@ async function checkWithFFBazar(uid: string): Promise<ProviderResult> {
           "Content-Type": "application/json",
           Origin: "https://ffbazar.com",
           Referer: "https://ffbazar.com/",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/152 Safari/537.36",
+          "User-Agent": "BD21Topup/1.0",
         },
         body: JSON.stringify({
           playerid: uid,
@@ -243,22 +291,35 @@ async function checkWithFFBazar(uid: string): Promise<ProviderResult> {
       };
     }
 
-    const data = await response.json();
+    const parsed = await readJsonSafely(response);
 
-    console.log("FFBAZAR STATUS:", response.status);
+    if (!parsed || !isRecord(parsed)) {
+      return {
+        success: false,
+        message: "UID provider unavailable",
+        unavailable: true,
+      };
+    }
+
+    const nestedData = isRecord(parsed.data) ? parsed.data : null;
+
+    const username = normalizeUsername(nestedData?.username);
 
     if (
-      data?.error === false &&
-      data?.status === 200 &&
-      data?.msg === "id_found" &&
-      data?.data?.username
+      parsed.error === false &&
+      parsed.status === 200 &&
+      parsed.msg === "id_found" &&
+      username
     ) {
-      console.log("FFBAZAR PLAYER FOUND:", data.data.username);
+      const returnedUid =
+        typeof nestedData?.id === "string" || typeof nestedData?.id === "number"
+          ? String(nestedData.id)
+          : uid;
 
       return {
         success: true,
-        uid: String(data.data.id || uid),
-        username: String(data.data.username),
+        uid: /^\d{5,15}$/.test(returnedUid) ? returnedUid : uid,
+        username,
         provider: "ffbazar",
       };
     }
@@ -284,14 +345,19 @@ async function checkWithFFBazar(uid: string): Promise<ProviderResult> {
 // ======================================================
 
 export async function checkFreeFireUid(uid: string): Promise<UidCheckResult> {
-  // 1. SiamBhau
+  if (!/^\d{5,15}$/.test(uid)) {
+    return {
+      success: false,
+      message: "সঠিক Player UID লিখুন।",
+    };
+  }
+
   const siamResult = await checkWithSiamBhau(uid);
 
   if (siamResult.success) {
     return siamResult;
   }
 
-  // SiamBhau normally responded and says UID invalid
   if (!siamResult.unavailable) {
     return {
       success: false,
@@ -299,16 +365,12 @@ export async function checkFreeFireUid(uid: string): Promise<UidCheckResult> {
     };
   }
 
-  console.log("SiamBhau unavailable → trying GoXtop");
-
-  // 2. GoXtop
   const goXtopResult = await checkWithGoXtop(uid);
 
   if (goXtopResult.success) {
     return goXtopResult;
   }
 
-  // GoXtop normally responded and says UID invalid
   if (!goXtopResult.unavailable) {
     return {
       success: false,
@@ -316,9 +378,6 @@ export async function checkFreeFireUid(uid: string): Promise<UidCheckResult> {
     };
   }
 
-  console.log("GoXtop unavailable → trying FFbazar");
-
-  // 3. FFbazar
   const ffBazarResult = await checkWithFFBazar(uid);
 
   if (ffBazarResult.success) {

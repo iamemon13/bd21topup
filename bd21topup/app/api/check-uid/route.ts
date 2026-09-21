@@ -2,25 +2,53 @@ import { NextResponse } from "next/server";
 import { checkFreeFireUid } from "../../../lib/uid-checker";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-const RATE_LIMIT_WINDOW = 60; // 1 মিনিট (সেকেন্ডে)
-const MAX_REQUESTS_PER_MINUTE = 15; // মিনিটে সর্বোচ্চ ১৫ বার
-const CACHE_TTL_MINUTES = 5; // ৫ মিনিট ক্যাশ
+const RATE_LIMIT_WINDOW = 60;
+const MAX_REQUESTS_PER_MINUTE = 15;
+const CACHE_TTL_MINUTES = 5;
+const MAX_USERNAME_LENGTH = 100;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getClientIp(request: Request) {
+  const vercelForwardedFor = request.headers.get("x-vercel-forwarded-for");
+
+  if (vercelForwardedFor) {
+    const first = vercelForwardedFor.split(",")[0]?.trim();
+
+    if (first) {
+      return first.slice(0, 100);
+    }
+  }
+
+  const realIp = request.headers.get("x-real-ip");
+
+  if (realIp?.trim()) {
+    return realIp.trim().slice(0, 100);
+  }
+
+  const forwardedFor = request.headers.get("x-forwarded-for");
+
+  if (forwardedFor) {
+    const first = forwardedFor.split(",")[0]?.trim();
+
+    if (first) {
+      return first.slice(0, 100);
+    }
+  }
+
+  return "unknown";
+}
 
 export async function POST(request: Request) {
   try {
-    // ==========================================
-    // 🔒 SECURITY FIX 1: IP Spoofing Prevention
-    // ==========================================
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const realIp = request.headers.get("x-real-ip");
-    // শুধুমাত্র প্রথম আইপি-টি নেওয়া হচ্ছে, যাতে ফেক হেডার চেইন ব্লক করা যায়
-    const ip =
-      realIp ||
-      (forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown_ip");
+    const ip = getClientIp(request);
 
-    // ==========================================
-    // ১. Global Rate Limiting (Supabase RPC)
-    // ==========================================
+    /* =====================================================
+       RATE LIMIT
+    ===================================================== */
+
     const { data: isAllowed, error: rateLimitError } = await supabaseAdmin.rpc(
       "check_uid_rate_limit",
       {
@@ -30,107 +58,184 @@ export async function POST(request: Request) {
       },
     );
 
-    // 🔒 SECURITY FIX 2: Fail Closed - ডাটাবেস এরর দিলে রিকোয়েস্ট ব্লক করা হবে
     if (rateLimitError) {
-      console.error("RATE LIMIT DB ERROR:", rateLimitError);
+      console.error("UID RATE LIMIT ERROR:", rateLimitError);
+
       return NextResponse.json(
         {
           success: false,
           message: "Service temporarily unavailable. Please try again.",
         },
-        { status: 503 },
+        {
+          status: 503,
+        },
       );
     }
 
-    if (isAllowed === false) {
+    if (isAllowed !== true) {
       return NextResponse.json(
         {
           success: false,
           message:
             "আপনি অনেক বেশি রিকোয়েস্ট পাঠাচ্ছেন। ১ মিনিট পর আবার চেষ্টা করুন।",
         },
-        { status: 429 }, // Too Many Requests
+        {
+          status: 429,
+        },
       );
     }
 
-    const body = await request.json();
-    const uid = String(body.uid || "").trim();
+    /* =====================================================
+       REQUEST BODY
+    ===================================================== */
 
-    // 🔒 SECURITY FIX 3: Strict UID Length Validation
-    if (!uid || !/^\d{5,15}$/.test(uid)) {
+    let rawBody: unknown;
+
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid JSON body.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (!isRecord(rawBody)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid request body.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (typeof rawBody.uid !== "string" && typeof rawBody.uid !== "number") {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "সঠিক Player UID লিখুন।",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const uid = String(rawBody.uid).trim();
+
+    if (!/^\d{5,15}$/.test(uid)) {
       return NextResponse.json(
         {
           success: false,
           message: "সঠিক Player UID লিখুন (৫ থেকে ১৫ সংখ্যার মধ্যে)।",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    // ==========================================
-    // ২. Global Cache চেকিং
-    // ==========================================
+    /* =====================================================
+       CACHE
+    ===================================================== */
+
     const { data: cachedUid, error: cacheReadError } = await supabaseAdmin
       .from("uid_cache")
       .select("username, expires_at")
       .eq("uid", uid)
-      .single();
+      .maybeSingle();
 
-    if (cacheReadError && cacheReadError.code !== "PGRST116") {
-      console.error("CACHE READ ERROR:", cacheReadError);
+    if (cacheReadError) {
+      console.error("UID CACHE READ ERROR:", cacheReadError);
     }
 
-    if (cachedUid && new Date(cachedUid.expires_at) > new Date()) {
-      console.log(`UID VERIFIED FROM GLOBAL CACHE: ${uid}`);
-      return NextResponse.json({
-        success: true,
-        uid: uid,
-        username: cachedUid.username,
-      });
+    if (cachedUid) {
+      const expiresAt = new Date(cachedUid.expires_at).getTime();
+
+      if (
+        Number.isFinite(expiresAt) &&
+        expiresAt > Date.now() &&
+        typeof cachedUid.username === "string" &&
+        cachedUid.username.trim()
+      ) {
+        return NextResponse.json({
+          success: true,
+          uid,
+          username: cachedUid.username.trim().slice(0, MAX_USERNAME_LENGTH),
+        });
+      }
     }
 
-    // ==========================================
-    // ৩. External Provider কল (ক্যাশে না থাকলে)
-    // ==========================================
+    /* =====================================================
+       PROVIDER LOOKUP
+    ===================================================== */
+
     const result = await checkFreeFireUid(uid);
 
-    if (result.success) {
-      console.log(`UID VERIFIED: ${result.uid} via ${result.provider}`);
-
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + CACHE_TTL_MINUTES);
-
-      // ⚠️ ERROR LOGGING ⚠️
-      const { error: upsertError } = await supabaseAdmin
-        .from("uid_cache")
-        .upsert({
-          uid: result.uid,
-          username: result.username,
-          expires_at: expiresAt.toISOString(),
-        });
-
-      if (upsertError) {
-        console.error("❌ CACHE SAVE ERROR:", upsertError);
-      } else {
-        console.log("✅ CACHE SAVED SUCCESSFULLY");
-      }
-
+    if (!result.success) {
       return NextResponse.json({
-        success: true,
-        uid: result.uid,
-        username: result.username,
+        success: false,
+        message: result.message,
       });
+    }
+
+    const safeUsername = result.username.trim().slice(0, MAX_USERNAME_LENGTH);
+
+    if (!safeUsername) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "UID check করা যাচ্ছে না",
+        },
+        {
+          status: 502,
+        },
+      );
+    }
+
+    const safeUid = /^\d{5,15}$/.test(result.uid) ? result.uid : uid;
+
+    const expiresAt = new Date(Date.now() + CACHE_TTL_MINUTES * 60 * 1000);
+
+    const { error: upsertError } = await supabaseAdmin.from("uid_cache").upsert(
+      {
+        uid: safeUid,
+        username: safeUsername,
+        expires_at: expiresAt.toISOString(),
+      },
+      {
+        onConflict: "uid",
+      },
+    );
+
+    if (upsertError) {
+      console.error("UID CACHE SAVE ERROR:", upsertError);
     }
 
     return NextResponse.json({
-      success: false,
-      message: result.message,
+      success: true,
+      uid: safeUid,
+      username: safeUsername,
     });
   } catch (error) {
     console.error("UID CHECK ERROR:", error);
+
     return NextResponse.json(
-      { success: false, message: "UID check করা যাচ্ছে না" },
-      { status: 500 },
+      {
+        success: false,
+        message: "UID check করা যাচ্ছে না",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
