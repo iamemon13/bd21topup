@@ -51,7 +51,13 @@ export async function checkUserRole(
       }
     }
 
-    return { user, role: adminData.role };
+    return {
+      user,
+      role: adminData.role,
+      permissions: Array.isArray(adminData.permissions)
+        ? adminData.permissions
+        : [],
+    };
   } catch (error) {
     console.error("AUTH CHECK ERROR:", error);
     return { error: "Internal server error during auth check.", status: 500 };

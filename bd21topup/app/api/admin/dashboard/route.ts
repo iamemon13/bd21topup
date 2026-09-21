@@ -14,101 +14,168 @@ export async function GET(request: Request) {
 
     if ("error" in authCheck) {
       return NextResponse.json(
-        { error: authCheck.error },
-        { status: authCheck.status },
+        {
+          success: false,
+          error: authCheck.error,
+        },
+        {
+          status: authCheck.status,
+        },
       );
     }
 
-    // =====================================================
-    // 3. Total Orders
-    // =====================================================
+    const isSuperAdmin = authCheck.role === "super_admin";
 
-    const { count: totalOrders } = await supabaseAdmin
-      .from("orders")
-      .select("*", { count: "exact", head: true });
+    const permissions = new Set(
+      Array.isArray(authCheck.permissions) ? authCheck.permissions : [],
+    );
 
-    // =====================================================
-    // 4. Total Users
-    // =====================================================
+    const canManageOrders = isSuperAdmin || permissions.has("manage_orders");
 
-    const { count: totalUsers } = await supabaseAdmin
-      .from("profiles")
-      .select("*", { count: "exact", head: true });
+    const canManageUsers = isSuperAdmin || permissions.has("manage_users");
 
-    // =====================================================
-    // 5. Pending Orders
-    // =====================================================
+    const canManageAddMoney =
+      isSuperAdmin || permissions.has("manage_add_money");
 
-    const { count: pendingOrders } = await supabaseAdmin
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending");
+    const canManageWithdrawals =
+      isSuperAdmin || permissions.has("manage_withdrawals");
 
-    // =====================================================
-    // 6. Processing Orders
-    // =====================================================
+    /* =====================================================
+       Query only data this admin is allowed to access
+    ===================================================== */
 
-    const { count: processingOrders } = await supabaseAdmin
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "processing");
+    const [
+      totalOrdersResult,
+      totalUsersResult,
+      pendingOrdersResult,
+      processingOrdersResult,
+      completedOrdersResult,
+      cancelledOrdersResult,
+      addMoneyRequestsResult,
+      withdrawalRequestsResult,
+    ] = await Promise.all([
+      canManageOrders
+        ? supabaseAdmin
+            .from("orders")
+            .select("*", { count: "exact", head: true })
+        : Promise.resolve({ count: 0, error: null }),
 
-    // =====================================================
-    // 7. Completed Orders
-    // =====================================================
+      canManageUsers
+        ? supabaseAdmin
+            .from("profiles")
+            .select("*", { count: "exact", head: true })
+        : Promise.resolve({ count: 0, error: null }),
 
-    const { count: completedOrders } = await supabaseAdmin
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "completed");
+      canManageOrders
+        ? supabaseAdmin
+            .from("orders")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "pending")
+        : Promise.resolve({ count: 0, error: null }),
 
-    // =====================================================
-    // 8. Cancelled Orders
-    // =====================================================
+      canManageOrders
+        ? supabaseAdmin
+            .from("orders")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "processing")
+        : Promise.resolve({ count: 0, error: null }),
 
-    const { count: cancelledOrders } = await supabaseAdmin
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "cancelled");
+      canManageOrders
+        ? supabaseAdmin
+            .from("orders")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "completed")
+        : Promise.resolve({ count: 0, error: null }),
 
-    // =====================================================
-    // 9. Add Money Requests
-    // =====================================================
+      canManageOrders
+        ? supabaseAdmin
+            .from("orders")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "cancelled")
+        : Promise.resolve({ count: 0, error: null }),
 
-    const { count: addMoneyRequests } = await supabaseAdmin
-      .from("add_money_requests")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending");
+      canManageAddMoney
+        ? supabaseAdmin
+            .from("add_money_requests")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "pending")
+        : Promise.resolve({ count: 0, error: null }),
 
-    // =====================================================
-    // 10. Withdrawal Requests (Pending)
-    // =====================================================
+      canManageWithdrawals
+        ? supabaseAdmin
+            .from("withdrawals")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "pending")
+        : Promise.resolve({ count: 0, error: null }),
+    ]);
 
-    const { count: withdrawalRequests } = await supabaseAdmin
-      .from("withdrawals")
-      .select("*", { count: "exact", head: true })
-      .ilike("status", "pending");
+    /* =====================================================
+       Detect database failures
+    ===================================================== */
 
-    // =====================================================
-    // 11. Return Dashboard Stats
-    // =====================================================
+    const queryErrors = [
+      totalOrdersResult.error,
+      totalUsersResult.error,
+      pendingOrdersResult.error,
+      processingOrdersResult.error,
+      completedOrdersResult.error,
+      cancelledOrdersResult.error,
+      addMoneyRequestsResult.error,
+      withdrawalRequestsResult.error,
+    ].filter(Boolean);
+
+    if (queryErrors.length > 0) {
+      console.error("ADMIN DASHBOARD QUERY ERROR:", queryErrors);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Dashboard statistics load করা যায়নি।",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* =====================================================
+       Response
+    ===================================================== */
 
     return NextResponse.json({
       success: true,
+
+      access: {
+        manageUsers: canManageUsers,
+        manageOrders: canManageOrders,
+        manageAddMoney: canManageAddMoney,
+        manageWithdrawals: canManageWithdrawals,
+      },
+
       stats: {
-        totalOrders: totalOrders || 0,
-        totalUsers: totalUsers || 0,
-        pendingOrders: pendingOrders || 0,
-        processingOrders: processingOrders || 0,
-        completedOrders: completedOrders || 0,
-        cancelledOrders: cancelledOrders || 0,
-        addMoneyRequests: addMoneyRequests || 0,
-        withdrawalRequests: withdrawalRequests || 0,
+        totalOrders: totalOrdersResult.count ?? 0,
+        totalUsers: totalUsersResult.count ?? 0,
+
+        pendingOrders: pendingOrdersResult.count ?? 0,
+        processingOrders: processingOrdersResult.count ?? 0,
+        completedOrders: completedOrdersResult.count ?? 0,
+        cancelledOrders: cancelledOrdersResult.count ?? 0,
+
+        addMoneyRequests: addMoneyRequestsResult.count ?? 0,
+        withdrawalRequests: withdrawalRequestsResult.count ?? 0,
       },
     });
   } catch (error) {
     console.error("ADMIN DASHBOARD ERROR:", error);
 
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Server error.",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }
