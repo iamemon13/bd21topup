@@ -3,91 +3,87 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
-// 🔒 SECURITY FIX: Name Masking Function (e.g., Emon Khan -> E*** Khan)
+/*
+  Public recent-order feed.
+
+  Important:
+  - Never return user_id
+  - Never return profile/auth avatar
+  - Never expose full or partially identifying names
+*/
 function maskName(name: string | null | undefined) {
-  if (!name) return "User";
-  const parts = name.trim().split(" ");
-  if (parts.length > 1) {
-    return `${parts[0].charAt(0)}*** ${parts[parts.length - 1]}`;
+  const cleanName = String(name || "").trim();
+
+  if (!cleanName) {
+    return "U***";
   }
-  return `${name.charAt(0)}***`;
+
+  const firstCharacter = cleanName.charAt(0).toUpperCase();
+
+  return firstCharacter ? `${firstCharacter}***` : "U***";
 }
 
 export async function GET() {
   try {
-    // ১. লেটেস্ট অর্ডারগুলো নিয়ে আসা
-    const { data: orders, error: ordersError } = await supabaseAdmin
+    const { data: orders, error } = await supabaseAdmin
       .from("orders")
       .select(
-        "id, user_id, account_name, player_name, package_name, amount, status, created_at",
+        `
+          account_name,
+          package_name,
+          amount,
+          status,
+          created_at
+        `,
       )
-      .order("created_at", { ascending: false })
+      .order("created_at", {
+        ascending: false,
+      })
       .limit(10);
 
-    if (ordersError) {
-      console.error("RECENT ORDERS ERROR:", ordersError);
+    if (error) {
+      console.error("RECENT ORDERS ERROR:", error);
+
       return NextResponse.json(
-        { error: "ডাটা লোড করা যায়নি" },
-        { status: 500 },
+        {
+          success: false,
+          error: "ডাটা লোড করা যায়নি।",
+        },
+        {
+          status: 500,
+        },
       );
     }
 
-    if (!orders || orders.length === 0) {
-      return NextResponse.json({ success: true, orders: [] });
-    }
-
-    // ২. অর্ডারগুলোর ইউজার আইডি সংগ্রহ করা
-    const userIds = Array.from(
-      new Set(orders.map((o) => o.user_id).filter(Boolean)),
-    );
-
-    // ৩. profiles টেবিল থেকে avatar_url বা ছবি নিয়ে আসা
-    let avatarMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabaseAdmin
-        .from("profiles")
-        .select("id, avatar_url")
-        .in("id", userIds);
-
-      if (profiles) {
-        profiles.forEach((p) => {
-          if (p.id && p.avatar_url) {
-            avatarMap[p.id] = p.avatar_url;
-          }
-        });
-      }
-
-      // ৪. profiles টেবিলে ছবি না থাকলে auth.users এর metadata থেকে ছবি খোঁজা
-      for (const uid of userIds) {
-        if (!avatarMap[uid]) {
-          const { data: authUser } =
-            await supabaseAdmin.auth.admin.getUserById(uid);
-          if (authUser?.user) {
-            const meta = authUser.user.user_metadata;
-            const authAvatar =
-              meta?.avatar_url || meta?.picture || meta?.avatar;
-            if (authAvatar) {
-              avatarMap[uid] = authAvatar;
-            }
-          }
-        }
-      }
-    }
-
-    // ৫. 🔒 SECURITY FIX: Data Minimization & Name Masking
-    const formattedOrders = orders.map((order) => ({
-      account_name: maskName(order.account_name), // 🔒 এখন নামগুলো মাস্ক হয়ে যাবে (যেমন: E*** Khan)
+    const formattedOrders = (orders ?? []).map((order) => ({
+      account_name: maskName(order.account_name),
       package_name: order.package_name,
-      amount: order.amount,
+      amount: Number(order.amount || 0),
       status: order.status,
       created_at: order.created_at,
+
+      // Keep response shape compatible with existing frontend
+      // without exposing user avatars.
       profiles: {
-        avatar_url: order.user_id ? avatarMap[order.user_id] || null : null,
+        avatar_url: null,
       },
     }));
-    return NextResponse.json({ success: true, orders: formattedOrders });
+
+    return NextResponse.json({
+      success: true,
+      orders: formattedOrders,
+    });
   } catch (error) {
-    console.error("API ERROR:", error);
-    return NextResponse.json({ error: "সার্ভার এরর" }, { status: 500 });
+    console.error("RECENT ORDERS API ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "সার্ভার এরর।",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }
