@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
@@ -17,6 +17,9 @@ export async function POST(request: Request) {
         { status: authCheck.status },
       );
     }
+
+    // authCheck থেকে বর্তমান অ্যাডমিনের তথ্য বের করে নিচ্ছি অডিট লগের জন্য
+    const adminUser = authCheck.user;
 
     const body = await request.json();
 
@@ -71,6 +74,17 @@ export async function POST(request: Request) {
         { error: "Wallet update failed." },
         { status: 500 },
       );
+    }
+
+    // 🔒 AUDIT LOGGING: সফল ট্রানজেকশনের রেকর্ড রাখা
+    if (adminUser) {
+      await logAdminAction({
+        adminId: adminUser.id,
+        actionType:
+          action === "add" ? "ADD_MONEY_TO_WALLET" : "REMOVE_MONEY_FROM_WALLET",
+        targetId: userId,
+        details: `${action === "add" ? "Added" : "Removed"} ৳${amount}. Note: ${note || "None"}`,
+      });
     }
 
     return NextResponse.json({
