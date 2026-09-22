@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
@@ -15,41 +15,43 @@ export default function ResetPasswordPage() {
   const [messageType, setMessageType] = useState<"error" | "success">("error");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecoveryReady, setIsRecoveryReady] = useState(false);
+  const [isCheckingRecovery, setIsCheckingRecovery] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    let recoveryDetected = false;
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        recoveryDetected = true;
         setIsRecoveryReady(true);
+        setIsCheckingRecovery(false);
+        setMessage("");
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        setIsRecoveryReady(false);
       }
     });
 
-    async function checkSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    const timeout = window.setTimeout(() => {
+      if (!mounted || recoveryDetected) return;
 
-      if (!mounted) return;
-
-      if (session) {
-        setIsRecoveryReady(true);
-      } else {
-        setMessageType("error");
-        setMessage(
-          "Password reset linkটি invalid বা expired হতে পারে। আবার নতুন reset link নিন.",
-        );
-      }
-    }
-
-    void checkSession();
+      setIsCheckingRecovery(false);
+      setMessageType("error");
+      setMessage(
+        "Password reset linkটি invalid বা expired হতে পারে। আবার নতুন reset link নিন.",
+      );
+    }, 3000);
 
     return () => {
       mounted = false;
+      window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -61,12 +63,17 @@ export default function ResetPasswordPage() {
     setMessageType("error");
 
     if (!isRecoveryReady) {
-      setMessage("Password reset session পাওয়া যায়নি। আবার reset link নিন.");
+      setMessage("Password recovery session পাওয়া যায়নি। আবার reset link নিন.");
       return;
     }
 
-    if (password.length < 6) {
-      setMessage("Password কমপক্ষে 6 characters হতে হবে।");
+    if (password.length < 8) {
+      setMessage("Password কমপক্ষে 8 characters হতে হবে।");
+      return;
+    }
+
+    if (password.length > 128) {
+      setMessage("Password সর্বোচ্চ 128 characters হতে পারবে।");
       return;
     }
 
@@ -89,6 +96,8 @@ export default function ResetPasswordPage() {
 
       setMessageType("success");
       setMessage("Password সফলভাবে পরিবর্তন হয়েছে ✅");
+
+      setIsRecoveryReady(false);
 
       await supabase.auth.signOut();
 
@@ -153,6 +162,12 @@ export default function ResetPasswordPage() {
             }}
           />
 
+          {isCheckingRecovery && !message && (
+            <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2.5 text-center text-xs font-bold text-cyan-200">
+              Password reset link যাচাই করা হচ্ছে...
+            </div>
+          )}
+
           {message && (
             <div
               className={`rounded-xl px-3 py-2.5 text-center text-xs font-bold ${
@@ -175,7 +190,7 @@ export default function ResetPasswordPage() {
         </form>
 
         <p className="mt-4 text-center text-[10px] leading-5 text-slate-500">
-          After changing your password, you will be returned to Login.
+          Password reset করতে email-এর recovery link ব্যবহার করতে হবে।
         </p>
       </div>
     </main>
@@ -203,6 +218,8 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         placeholder="••••••••"
         autoComplete="new-password"
+        minLength={8}
+        maxLength={128}
         className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
       />
     </div>
