@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { loadUserSupportCases } from "@/lib/support-cases";
 
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Order transactions load করা যায়নি।",
+          error: "Order transactions load à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤",
         },
         { status: 500 },
       );
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Wallet transactions load করা যায়নি।",
+          error: "Wallet transactions load à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤",
         },
         { status: 500 },
       );
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Add money requests load করা যায়নি।",
+          error: "Add money requests load à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤",
         },
         { status: 500 },
       );
@@ -167,7 +167,7 @@ export async function GET(request: Request) {
           status,
           balance_after, 
           created_at
-        `, // এখানে balance_after মিসিং ছিল, অ্যাড করা হয়েছে
+        `, // à¦à¦–à¦¾à¦¨à§‡ balance_after à¦®à¦¿à¦¸à¦¿à¦‚ à¦›à¦¿à¦², à¦…à§à¦¯à¦¾à¦¡ à¦•à¦°à¦¾ à¦¹à§Ÿà§‡à¦›à§‡
       )
       .eq("user_id", user.id)
       .order("created_at", {
@@ -179,7 +179,7 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Withdrawal requests load করা যায়নি।",
+          error: "Withdrawal requests load à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤",
         },
         { status: 500 },
       );
@@ -211,7 +211,7 @@ export async function GET(request: Request) {
     // =====================================================
 
     const formattedWalletTransactions = (walletRows ?? [])
-      .filter((transaction) => transaction.type !== "Withdrawal") // ডাবল এন্ট্রি রিমুভ করার জন্য ফিল্টার করা হলো
+      .filter((transaction) => transaction.type?.toLowerCase() !== "withdrawal") // à¦¡à¦¾à¦¬à¦² à¦à¦¨à§à¦Ÿà§à¦°à¦¿ à¦°à¦¿à¦®à§à¦­ à¦•à¦°à¦¾à¦° à¦œà¦¨à§à¦¯ à¦«à¦¿à¦²à§à¦Ÿà¦¾à¦° à¦•à¦°à¦¾ à¦¹à¦²à§‹
       .map((transaction) => ({
         id: transaction.id,
         type: "wallet_transaction" as const,
@@ -254,14 +254,14 @@ export async function GET(request: Request) {
       transactionType: "withdrawal",
       direction: "debit",
       amount: Number(w.amount || 0),
-      balanceAfter: Number(w.balance_after || 0), // এখানে 0 হার্ডকোড করা ছিল, ডাটাবেজ থেকে ডাটা আনা হয়েছে
+      balanceAfter: Number(w.balance_after || 0), // à¦à¦–à¦¾à¦¨à§‡ 0 à¦¹à¦¾à¦°à§à¦¡à¦•à§‹à¦¡ à¦•à¦°à¦¾ à¦›à¦¿à¦², à¦¡à¦¾à¦Ÿà¦¾à¦¬à§‡à¦œ à¦¥à§‡à¦•à§‡ à¦¡à¦¾à¦Ÿà¦¾ à¦†à¦¨à¦¾ à¦¹à§Ÿà§‡à¦›à§‡
       referenceId: w.account_number || null,
       description: `Withdraw via ${w.method} (${w.account_number})`,
       createdAt: w.created_at,
       status: w.status.toLowerCase(),
     }));
 
-    // সমস্ত ওয়ালেট ট্রানজেকশন একসাথে করে তারিখ অনুযায়ী সাজানো
+    // à¦¸à¦®à¦¸à§à¦¤ à¦“à¦¯à¦¼à¦¾à¦²à§‡à¦Ÿ à¦Ÿà§à¦°à¦¾à¦¨à¦œà§‡à¦•à¦¶à¦¨ à¦à¦•à¦¸à¦¾à¦¥à§‡ à¦•à¦°à§‡ à¦¤à¦¾à¦°à¦¿à¦– à¦…à¦¨à§à¦¯à¦¾à¦¯à¦¼à§€ à¦¸à¦¾à¦œà¦¾à¦¨à§‹
     const walletTransactions = [
       ...formattedWalletTransactions,
       ...formattedAddMoneyRequests,
@@ -313,3 +313,4 @@ export async function GET(request: Request) {
     );
   }
 }
+
