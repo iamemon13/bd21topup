@@ -63,6 +63,53 @@ function sanitizeDetails(value: unknown): string | null {
     .slice(0, 2000);
 }
 
+async function findAdminIdsByEmail(search: string): Promise<string[]> {
+  const normalizedSearch = search.trim().toLowerCase();
+
+  if (!normalizedSearch.includes("@")) {
+    return [];
+  }
+
+  try {
+    const matchedIds: string[] = [];
+    let page = 1;
+    const perPage = 1000;
+
+    while (page <= 10) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (error) {
+        console.error("ADMIN ACTIVITY EMAIL SEARCH ERROR:", error);
+        break;
+      }
+
+      const users = data.users ?? [];
+
+      for (const user of users) {
+        const email = user.email?.toLowerCase();
+
+        if (email && email.includes(normalizedSearch)) {
+          matchedIds.push(user.id);
+        }
+      }
+
+      if (users.length < perPage) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    return [...new Set(matchedIds)];
+  } catch (error) {
+    console.error("ADMIN ACTIVITY EMAIL SEARCH ERROR:", error);
+    return [];
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const token = getBearerToken(request);
@@ -125,9 +172,7 @@ export async function GET(request: Request) {
     }
 
     const actionType = url.searchParams.get("action_type")?.trim() || "";
-
     const adminId = url.searchParams.get("admin_id")?.trim() || "";
-
     const search = url.searchParams.get("search")?.trim() || "";
 
     if (actionType && !isValidActionType(actionType)) {
@@ -151,6 +196,8 @@ export async function GET(request: Request) {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
+    const matchingAdminIds = search ? await findAdminIdsByEmail(search) : [];
+
     let query = supabaseAdmin
       .from("admin_audit_logs")
       .select(
@@ -171,14 +218,22 @@ export async function GET(request: Request) {
     if (search) {
       const safeSearch = escapePostgrestSearch(search);
 
-      query = query.or(
-        [
-          `action_type.ilike.%${safeSearch}%`,
-          `target_id.ilike.%${safeSearch}%`,
-          `details.ilike.%${safeSearch}%`,
-          `ip_address.ilike.%${safeSearch}%`,
-        ].join(","),
-      );
+      const orFilters = [
+        `action_type.ilike.%${safeSearch}%`,
+        `target_id.ilike.%${safeSearch}%`,
+        `details.ilike.%${safeSearch}%`,
+        `ip_address.ilike.%${safeSearch}%`,
+      ];
+
+      if (isValidUuid(search)) {
+        orFilters.push(`admin_id.eq.${search}`);
+      }
+
+      for (const id of matchingAdminIds) {
+        orFilters.push(`admin_id.eq.${id}`);
+      }
+
+      query = query.or(orFilters.join(","));
     }
 
     const { data: logs, error: logsError, count } = await query;
