@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import SupportCaseActions from "@/components/SupportCaseActions";
+import type { SupportCase } from "@/lib/support";
 
-type TransactionStatus = "pending" | "completed" | "cancelled";
+type TransactionStatus = "pending" | "completed" | "cancelled" | "rejected";
 
 type OrderTransaction = {
+  support?: SupportCase | null;
   id: string;
   type: "order_payment";
   orderId: string;
@@ -24,6 +27,7 @@ type OrderTransaction = {
 };
 
 type WalletTransaction = {
+  support?: SupportCase | null;
   id: string;
   type: "wallet_transaction";
   transactionType: string;
@@ -53,6 +57,7 @@ const orderFilters = [
   { id: "pending", label: "Pending" },
   { id: "completed", label: "Completed" },
   { id: "cancelled", label: "Cancelled" },
+  { id: "rejected", label: "Rejected" },
 ] as const;
 
 // Pending অ্যাড করা হয়েছে
@@ -514,7 +519,8 @@ export default function TransactionsPage() {
                       </div>
                     </div>
 
-                    {transaction.status === "cancelled" && (
+                    <SupportCaseActions support={transaction.support} />
+                    {transaction.status === "cancelled" && !transaction.support && (
                       <div className="mx-5 mb-4 rounded-xl border border-red-400/25 bg-red-500/10 p-4">
                         <div className="text-[10px] font-black uppercase tracking-wider text-red-300">
                           ❌ Cancellation Notice
@@ -719,6 +725,7 @@ export default function TransactionsPage() {
                           </div>
                         </div>
 
+                        <SupportCaseActions support={transaction.support} />
                         {transaction.referenceId && (
                           <div className="rounded-xl bg-[#07182f] p-4">
                             <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">

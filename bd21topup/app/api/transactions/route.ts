@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { loadUserSupportCases } from "@/lib/support-cases";
 
 export async function GET(request: Request) {
   try {
@@ -188,7 +189,9 @@ export async function GET(request: Request) {
     // FORMAT ORDER TRANSACTIONS
     // =====================================================
 
+    const cases = await loadUserSupportCases(user.id);
     const transactions = (orders ?? []).map((order) => ({
+      support: cases.byOperation.get(`ORD:${order.id}`) ?? null,
       id: order.id,
       type: "order_payment" as const,
       orderId: order.id,
@@ -227,6 +230,7 @@ export async function GET(request: Request) {
     // =====================================================
 
     const formattedAddMoneyRequests = (addMoneyRows ?? []).map((req) => ({
+      support: cases.byOperation.get(`ADD:${req.id}`) ?? null,
       id: req.id,
       type: "wallet_transaction" as const,
       transactionType: `add_money_${req.status}`,
@@ -244,6 +248,7 @@ export async function GET(request: Request) {
     // =====================================================
 
     const formattedWithdrawals = (withdrawalRows ?? []).map((w) => ({
+      support: cases.byOperation.get(`WDR:${w.id}`) ?? null,
       id: w.id,
       type: "wallet_transaction" as const,
       transactionType: "withdrawal",
@@ -294,7 +299,7 @@ export async function GET(request: Request) {
       },
       transactions,
       walletTransactions,
-    });
+    }, { headers: { "Cache-Control": "private, no-store", Vary: "Authorization" } });
   } catch (error) {
     console.error("TRANSACTIONS API ERROR:", error);
 

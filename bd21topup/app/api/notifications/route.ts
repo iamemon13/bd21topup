@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { loadUserSupportCases } from "@/lib/support-cases";
 
 async function getUser(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
         message,
         type,
         is_read,
+        support_case_id,
         created_at
         `,
       )
@@ -67,11 +69,15 @@ export async function GET(request: Request) {
       );
     }
 
+    const cases = await loadUserSupportCases(user.id);
     return NextResponse.json({
       success: true,
 
-      notifications: data || [],
-    });
+      notifications: (data ?? []).map(({ support_case_id, ...notification }) => ({
+        ...notification,
+        support: cases.byId.get(support_case_id) ?? null,
+      })),
+    }, { headers: { "Cache-Control": "private, no-store", Vary: "Authorization" } });
   } catch (error) {
     console.error("NOTIFICATION API ERROR:", error);
 

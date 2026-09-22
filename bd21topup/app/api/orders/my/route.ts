@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { loadUserSupportCases } from "@/lib/support-cases";
 
 export async function GET(request: Request) {
   try {
@@ -60,10 +61,14 @@ export async function GET(request: Request) {
       );
     }
 
+    const cases = await loadUserSupportCases(user.id);
     return NextResponse.json({
       success: true,
-      orders: orders ?? [],
-    });
+      orders: (orders ?? []).map((order) => ({
+        ...order,
+        support: cases.byOperation.get(`ORD:${order.id}`) ?? null,
+      })),
+    }, { headers: { "Cache-Control": "private, no-store", Vary: "Authorization" } });
   } catch (error) {
     console.error("MY ORDERS API ERROR:", error);
 

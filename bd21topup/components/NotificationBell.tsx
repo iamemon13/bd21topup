@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import SupportCaseActions from "@/components/SupportCaseActions";
+import type { SupportCase } from "@/lib/support";
 
 type Notification = {
+  support?: SupportCase | null;
   id: string;
   title: string;
   message: string;
@@ -309,10 +312,8 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.slice(0, 10).map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => markAsRead(item.id)}
                   className={`
                     mb-2
                     block
@@ -329,7 +330,7 @@ export default function NotificationBell() {
                     }
                   `}
                 >
-                  <div className="flex items-start gap-2">
+                  <button type="button" onClick={() => markAsRead(item.id)} className="flex w-full items-start gap-2 text-left">
                     {!item.is_read && (
                       <span
                         className="
@@ -364,8 +365,9 @@ export default function NotificationBell() {
                         {formatDate(item.created_at)}
                       </p>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  <SupportCaseActions support={item.support} />
+                </div>
               ))
             )}
           </div>
