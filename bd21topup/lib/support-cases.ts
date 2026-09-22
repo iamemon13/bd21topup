@@ -7,6 +7,21 @@ type CaseRow = {
   reason: string;
 };
 
+type DatabaseError = { code?: string; message?: string };
+
+// Only a missing rollout schema is optional. Permission/network/query failures
+// must still fail closed rather than silently hiding security or data problems.
+export function isSupportTableMissing(error: DatabaseError) {
+  return ["42P01", "PGRST205"].includes(error.code ?? "") &&
+    /\bsupport_cases\b/.test(error.message ?? "");
+}
+
+export function isSupportNotificationColumnMissing(error: DatabaseError) {
+  return ["42703", "PGRST204"].includes(error.code ?? "") &&
+    /\bsupport_case_id\b/.test(error.message ?? "") &&
+    /\bnotifications\b/.test(error.message ?? "");
+}
+
 export function publicSupportCase(row: CaseRow): SupportCase {
   return {
     supportId: row.support_id,
@@ -28,7 +43,12 @@ export async function loadUserSupportCases(userId: string) {
     const { data, error } = await supabaseAdmin.from("support_cases")
       .select("id, case_type, order_id, add_money_request_id, withdrawal_id, support_id, status, reason")
       .eq("user_id", userId).order("id").range(offset, offset + pageSize - 1);
-    if (error) throw new Error("Support cases could not be loaded");
+    if (error) {
+      if (isSupportTableMissing(error)) {
+        return { byOperation: new Map<string, SupportCase>(), byId: new Map<string, SupportCase>(), available: false };
+      }
+      throw new Error("Support cases could not be loaded");
+    }
     for (const row of data ?? []) {
       const support = publicSupportCase(row);
       byOperation.set(`${row.case_type}:${row.order_id ?? row.add_money_request_id ?? row.withdrawal_id}`, support);
@@ -36,5 +56,5 @@ export async function loadUserSupportCases(userId: string) {
     }
     if (!data || data.length < pageSize) break;
   }
-  return { byOperation, byId };
+  return { byOperation, byId, available: true };
 }

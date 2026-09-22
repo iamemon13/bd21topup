@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { loadUserSupportCases } from "@/lib/support-cases";
+import { isSupportNotificationColumnMissing, loadUserSupportCases } from "@/lib/support-cases";
 
 async function getUser(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("notifications")
       .select(
         `
@@ -56,6 +56,17 @@ export async function GET(request: Request) {
         ascending: false,
       });
 
+    let supportColumnAvailable = true;
+    if (error && isSupportNotificationColumnMissing(error)) {
+      supportColumnAvailable = false;
+      const legacy = await supabaseAdmin.from("notifications")
+        .select("id, title, message, type, is_read, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      data = legacy.data?.map((item) => ({ ...item, support_case_id: null })) ?? null;
+      error = legacy.error;
+    }
+
     if (error) {
       console.error("NOTIFICATION LOAD ERROR:", error);
 
@@ -69,13 +80,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const cases = await loadUserSupportCases(user.id);
+    const cases = supportColumnAvailable ? await loadUserSupportCases(user.id) : null;
     return NextResponse.json({
       success: true,
+      supportCasesAvailable: cases?.available ?? false,
 
       notifications: (data ?? []).map(({ support_case_id, ...notification }) => ({
         ...notification,
-        support: cases.byId.get(support_case_id) ?? null,
+        support: cases?.byId.get(support_case_id) ?? null,
       })),
     }, { headers: { "Cache-Control": "private, no-store", Vary: "Authorization" } });
   } catch (error) {

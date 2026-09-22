@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkUserRole } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { publicSupportCase } from "@/lib/support-cases";
+import { isSupportTableMissing, publicSupportCase } from "@/lib/support-cases";
 import { supportPermission } from "@/lib/support";
 
 // Apply to successes and errors, including negative lookups for private cases.
@@ -23,6 +23,9 @@ export async function GET(request: Request) {
     const { data, error } = await supabaseAdmin.from("support_cases")
       .select("support_id, case_type, status, reason, created_at, updated_at, order_id, add_money_request_id, withdrawal_id")
       .eq("support_id", supportId).maybeSingle();
+    if (error && isSupportTableMissing(error)) {
+      return respond({ error: "Support Case এখনো চালু হয়নি। Database migration প্রয়োজন।" }, 503);
+    }
     if (error) throw new Error("Support lookup failed");
     if (!data) return respond({ error: "Support Case পাওয়া যায়নি।" }, 404);
     return respond({

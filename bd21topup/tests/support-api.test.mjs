@@ -20,7 +20,7 @@ const support = moduleFrom('lib/support.ts');
 const id = 'BD21-ORD-8A4B7C2D9E1F';
 const otherId = 'BD21-WDR-9A4B7C2D9E1F';
 
-function app({ token = 'valid', role = 'editor', permissions = ['manage_orders'], failure, extraCases = 0 } = {}) {
+function app({ token = 'valid', role = 'editor', permissions = ['manage_orders'], failure, extraCases = 0, schemaError, columnError } = {}) {
   const reads = [];
   const tables = {
     support_cases: [
@@ -43,8 +43,9 @@ function app({ token = 'valid', role = 'editor', permissions = ['manage_orders']
       const filters = [];
       let single = false;
       let range = [0, Infinity];
+      let selection = '';
       const query = {
-        select() { return query; },
+        select(columns) { selection = columns; return query; },
         eq(column, value) { filters.push((row) => row[column] === value); return query; },
         in(column, values) { filters.push((row) => values.includes(row[column])); return query; },
         order() { return query; },
@@ -53,7 +54,10 @@ function app({ token = 'valid', role = 'editor', permissions = ['manage_orders']
         then(resolve, reject) {
           reads.push(table);
           const rows = (tables[table] ?? []).filter((row) => filters.every((filter) => filter(row))).slice(...range);
-          return Promise.resolve({ data: single ? rows[0] ?? null : rows, error: failure === table ? { message: 'injected failure' } : null }).then(resolve, reject);
+          const error = failure === table ? { message: 'injected failure' } :
+            table === 'support_cases' ? schemaError :
+            table === 'notifications' && selection.includes('support_case_id') ? columnError : null;
+          return Promise.resolve({ data: single ? rows[0] ?? null : rows, error }).then(resolve, reject);
         },
       };
       return query;
@@ -197,4 +201,52 @@ test('case query failures return an error instead of incomplete or cross-user ca
     assert.ok(!body.includes(id));
     assert.ok(!body.includes('private'));
   }
+});
+
+test('pre-migration history remains available without fabricated support IDs', async () => {
+  for (const schemaError of [
+    {code:'42P01',message:'relation "public.support_cases" does not exist'},
+    {code:'PGRST205',message:"Could not find the table 'public.support_cases' in the schema cache"},
+  ]) {
+    for (const name of ['orders/my','transactions','notifications']) {
+      const response = await app({schemaError}).route(name).GET(request(`${name}?userId=other`));
+      assert.equal(response.status,200);
+      const body = await response.json();
+      assert.equal(body.supportCasesAvailable,false);
+      const items = body.orders ?? body.transactions ?? body.notifications;
+      assert.ok(items.length);
+      assert.ok(items.every(item=>item.support===null));
+      assert.ok(!JSON.stringify(body).includes(otherId));
+    }
+    assert.equal((await app({schemaError}).route('admin/support-cases').GET(request(`?supportId=${id}`))).status,503);
+  }
+});
+
+test('missing notification support column retries only the owner-scoped legacy projection', async () => {
+  for (const columnError of [
+    {code:'42703',message:'column notifications.support_case_id does not exist'},
+    {code:'PGRST204',message:"Could not find the 'support_case_id' column of 'notifications' in the schema cache"},
+  ]) {
+    const env = app({columnError});
+    const response = await env.route('notifications').GET(request('?userId=other'));
+    assert.equal(response.status,200);
+    const body = await response.json();
+    assert.equal(body.supportCasesAvailable,false);
+    assert.equal(body.notifications[0].id,'notification-own');
+    assert.ok(body.notifications.every(item=>item.support===null));
+    assert.ok(!JSON.stringify(body).includes('support_case_id'));
+    assert.deepEqual(env.reads,['notifications','notifications']);
+  }
+});
+
+test('schema compatibility never masks permission failures or unrelated missing schema', async (t) => {
+  t.mock.method(console,'error',()=>{});
+  for (const schemaError of [
+    {code:'42501',message:'permission denied for table support_cases'},
+    {code:'42P01',message:'relation "auth.users" does not exist'},
+    {code:'42703',message:'column support_cases.reason does not exist'},
+  ]) assert.equal((await app({schemaError}).route('orders/my').GET(request())).status,500);
+  const env=app({columnError:{code:'42501',message:'permission denied for notifications.support_case_id'}});
+  assert.equal((await env.route('notifications').GET(request())).status,500);
+  assert.deepEqual(env.reads,['notifications']);
 });

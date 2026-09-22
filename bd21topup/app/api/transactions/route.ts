@@ -299,6 +299,7 @@ export async function GET(request: Request) {
       },
       transactions,
       walletTransactions,
+      supportCasesAvailable: cases.available,
     }, { headers: { "Cache-Control": "private, no-store", Vary: "Authorization" } });
   } catch (error) {
     console.error("TRANSACTIONS API ERROR:", error);

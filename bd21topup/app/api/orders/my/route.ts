@@ -63,6 +63,7 @@ export async function GET(request: Request) {
 
     const cases = await loadUserSupportCases(user.id);
     return NextResponse.json({
+      supportCasesAvailable: cases.available,
       success: true,
       orders: (orders ?? []).map((order) => ({
         ...order,

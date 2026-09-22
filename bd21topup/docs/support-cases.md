@@ -61,7 +61,7 @@ The script intercepts all application APIs and remote Supabase HTTP requests, us
 
 Validation on 2026-09-22:
 
-- 19 database/API tests passed, including pagination beyond 1,000 cases, fail-closed query errors, private-response cache headers, strict end-of-input validation, and preservation of legitimate pending withdrawal inserts.
+- 22 database/API tests passed, including pagination beyond 1,000 cases, fail-closed query errors, private-response cache headers, strict end-of-input validation, preservation of legitimate pending withdrawal inserts and compatibility with the pre-migration schema.
 - Type-check and production build passed.
 - Browser checks cover 390px and 1280px: both histories (including the rejected-order filter), all three notification case types, successful clipboard action, Telegram ID links, admin lookup, no horizontal overflow or browser errors.
 - Full lint still reports the same 27 errors and 22 warnings as baseline `c8211c4`. The new files pass targeted lint; the feature adds no lint diagnostics. Existing unrelated lint problems were not suppressed or changed.
@@ -86,7 +86,7 @@ Follow-up review preserved the existing working tree and checked session verific
 `vercel.json` disables Git-triggered deployments only for `feature/secure-support-cases`, so publishing this review branch does not automatically deploy the un-migrated application. Other branches retain their existing deployment behavior. Remove or change this branch guard only when preview deployment is authorized and its database is ready.
 
 1. Review this migration and rehearse it against staging. Backfill creates new user notifications and can take locks while scanning historical operations; assess historical volume and schedule appropriately.
-2. After approval, apply the migration **before** deploying the application. The old application tolerates the additive schema; the new APIs require `support_cases` and the notification FK and fail closed if absent.
+2. After approval, apply the migration **before** enabling the support-case feature. If the migration is absent, existing owner-scoped history and notifications remain readable with `support: null` and `supportCasesAvailable: false`; authorized admin lookup returns 503 with a setup message. Only missing `support_cases` table / `notifications.support_case_id` column errors trigger compatibility behavior. Permission failures, unrelated schema errors and network failures still fail closed. No cases or fake IDs are created by this fallback. Once migrated, subsequent requests automatically include support data without a restart.
 3. Keep the default support account, or set the two public destination variables. No service credential change is required.
 4. After approved deployment, check all three rejection/cancellation flows, history and notification links, and an authorized/unauthorized admin lookup. Confirm RLS/privileges with Supabase advisors.
 
