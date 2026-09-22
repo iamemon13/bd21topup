@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import SupportCaseActions from "@/components/SupportCaseActions";
+import type { SupportCase } from "@/lib/support";
 
-type OrderStatus = "pending" | "completed" | "cancelled";
+type OrderStatus = "pending" | "completed" | "cancelled" | "rejected";
 
 type Order = {
+  support?: SupportCase | null;
   id: string;
   uid: string;
   player_name: string;
@@ -30,6 +33,7 @@ const filters = [
   { id: "pending", label: "Pending" },
   { id: "completed", label: "Completed" },
   { id: "cancelled", label: "Cancelled" },
+  { id: "rejected", label: "Rejected" },
 ] as const;
 
 function statusStyle(status: string) {
@@ -390,7 +394,8 @@ export default function MyOrdersPage() {
                     </div>
                   </div>
 
-                  {order.status === "cancelled" && order.admin_note && (
+                  <SupportCaseActions support={order.support} />
+                  {order.status === "cancelled" && order.admin_note && !order.support && (
                     <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3">
                       <div className="flex items-center gap-2">
                         <span className="text-base">❌</span>

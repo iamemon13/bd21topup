@@ -358,6 +358,9 @@ export default function AdminDashboard() {
         ===================================================== */}
         <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-[#0b294d] p-5">
           <h2 className="text-xl font-bold">Quick Actions</h2>
+          {(hasPerm("manage_orders") || hasPerm("manage_add_money") || hasPerm("manage_withdrawals")) && (
+            <Link href="/admin/support-cases" className="mt-4 inline-block rounded-xl border border-cyan-400/30 px-4 py-3 text-sm font-bold text-cyan-300">Support Case খুঁজুন</Link>
+          )}
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {hasPerm("manage_orders") && (
               <ActionLink href="/admin/orders" text="Manage Orders" />
