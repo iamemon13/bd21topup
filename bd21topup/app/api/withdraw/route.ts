@@ -1,3 +1,4 @@
+import { checkFinancialRateLimit } from "@/lib/financial-rate-limit";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { z } from "zod";
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
     if (authErr || !user) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
+
+    const limited = await checkFinancialRateLimit(request, user.id, "withdraw");
+    if (limited) return limited;
 
     const body = await request.json();
 

@@ -1,3 +1,4 @@
+import { checkFinancialRateLimit } from "@/lib/financial-rate-limit";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { paymentConfig } from "@/lib/payment-config";
@@ -142,6 +143,9 @@ export async function POST(request: Request) {
     /* -----------------------------------------------------
        2. Parse JSON safely
     ----------------------------------------------------- */
+
+    const limited = await checkFinancialRateLimit(request, auth.user.id, "add-money");
+    if (limited) return limited;
 
     let body: unknown;
 

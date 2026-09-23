@@ -1,5 +1,5 @@
+import { financialAction } from "@/lib/financial-audit";
 ﻿import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
@@ -49,15 +49,7 @@ export async function POST(request: Request) {
     }
 
     // Atomic RPC কল
-    const { data: newBalance, error } = await supabaseAdmin.rpc(
-      "admin_adjust_wallet",
-      {
-        p_user_id: userId,
-        p_amount: amount,
-        p_action: action,
-        p_note: note,
-      },
-    );
+    const { data: newBalance, error } = await financialAction({ adminId: adminUser.id, operation: "wallet", targetId: userId, action: action, amount: amount, note: note });
 
     if (error) {
       console.error("RPC Error:", error);
@@ -77,15 +69,7 @@ export async function POST(request: Request) {
     }
 
     // 🔒 AUDIT LOGGING: সফল ট্রানজেকশনের রেকর্ড রাখা
-    if (adminUser) {
-      await logAdminAction({
-        adminId: adminUser.id,
-        actionType:
-          action === "add" ? "ADD_MONEY_TO_WALLET" : "REMOVE_MONEY_FROM_WALLET",
-        targetId: userId,
-        details: `${action === "add" ? "Added" : "Removed"} ৳${amount}. Note: ${note || "None"}`,
-      });
-    }
+
 
     return NextResponse.json({
       success: true,

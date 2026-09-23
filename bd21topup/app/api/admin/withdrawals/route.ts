@@ -1,5 +1,6 @@
+import { financialAction } from "@/lib/financial-audit";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 ﻿import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -214,11 +215,7 @@ export async function PATCH(request: Request) {
        6. Atomic database review
     ----------------------------------------------------- */
 
-    const { data, error } = await supabaseAdmin.rpc("admin_review_withdrawal", {
-      p_withdrawal_id: withdrawalId,
-      p_action: normalizedStatus,
-      p_admin_note: normalizedReason || null,
-    });
+    const { data, error } = await financialAction({ adminId: authCheck.user.id, operation: "withdrawal", targetId: withdrawalId, action: normalizedStatus, note: normalizedReason || null });
 
     if (error) {
       console.error("ADMIN WITHDRAWAL RPC ERROR:", error);
@@ -276,23 +273,6 @@ export async function PATCH(request: Request) {
         { status: 500 },
       );
     }
-
-    /* -----------------------------------------------------
-       7. Audit log
-    ----------------------------------------------------- */
-
-    await logAdminAction({
-      adminId: authCheck.user.id,
-      actionType:
-        normalizedStatus === "approved"
-          ? "APPROVE_WITHDRAWAL"
-          : "REJECT_WITHDRAWAL",
-      targetId: withdrawalId,
-      details:
-        normalizedStatus === "approved"
-          ? "Withdrawal request approved."
-          : `Withdrawal request rejected. Reason: ${normalizedReason}`,
-    });
 
     /* -----------------------------------------------------
        8. Success response

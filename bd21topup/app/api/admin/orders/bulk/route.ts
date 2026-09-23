@@ -1,3 +1,4 @@
+import { financialAction } from "@/lib/financial-audit";
 import { NextResponse } from "next/server";
 import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
@@ -317,13 +318,7 @@ export async function POST(request: Request) {
     }> = [];
 
     for (const orderId of orderIds) {
-      const { data, error } = await supabaseAdmin.rpc(
-        "admin_cancel_order_with_refund",
-        {
-          p_order_id: orderId,
-          p_admin_note: cancelReason,
-        },
-      );
+      const { data, error } = await financialAction({ adminId: adminId, operation: "cancel_order", targetId: orderId, note: cancelReason, bulk: true, ip: ipAddress });
 
       if (error) {
         console.error(`BULK CANCEL RPC ERROR for order ${orderId}:`, error);
@@ -349,19 +344,6 @@ export async function POST(request: Request) {
       }
 
       cancelledOrderIds.push(orderId);
-
-      await logAdminAction({
-        adminId,
-        actionType: "BULK_CANCEL_ORDER",
-        targetId: orderId,
-        details: JSON.stringify({
-          new_status: "cancelled",
-          refund_created: Boolean(data.refund_created),
-          admin_note: cancelReason,
-          bulk_operation: true,
-        }),
-        ipAddress,
-      });
     }
 
     /* =====================================================

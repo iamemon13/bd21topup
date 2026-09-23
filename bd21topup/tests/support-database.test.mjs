@@ -12,7 +12,7 @@ before(async () => {
   await db.exec(await sqlFile('tests/fixtures/support-schema.sql'));
   await db.exec(await sqlFile('tests/fixtures/financial-rpcs.sql'));
   await db.exec(await sqlFile('supabase/migrations/20260921201839_harden_admin_cancel_order_refund.sql'));
-  await db.exec(await sqlFile('supabase/migrations/20260922135323_secure_support_cases.sql'));
+  await db.exec(await sqlFile('supabase/migrations/20260922163357_secure_support_cases.sql'));
 });
 after(async () => { await db?.close(); });
 const scalar = async (sql, params = []) => Object.values((await db.query(sql, params)).rows[0])[0];

@@ -1,5 +1,6 @@
+import { financialAction } from "@/lib/financial-audit";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 ﻿import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +82,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const requests = (data ?? []).map((item: any) => {
+    const requests = (data ?? []).map((item) => {
       const profile = Array.isArray(item.profiles)
         ? item.profiles[0]
         : item.profiles;
@@ -234,13 +235,7 @@ export async function PATCH(request: Request) {
        * status check as the security boundary.
        */
 
-      const { data: undoResult, error: undoError } = await supabaseAdmin.rpc(
-        "admin_undo_add_money",
-        {
-          p_request_id: requestId,
-          p_admin_note: adminNote || null,
-        },
-      );
+      const { data: undoResult, error: undoError } = await financialAction({ adminId: authCheck.user.id, operation: "undo_add_money", targetId: requestId, note: adminNote || null });
 
       if (undoError) {
         console.error("ADMIN ADD MONEY UNDO ERROR:", undoError);
@@ -307,19 +302,6 @@ export async function PATCH(request: Request) {
 
       const previousStatus =
         undoResultRecord.wallet_changed === true ? "approved" : "rejected";
-
-      /* ---------------------------------------------------
-         Audit log
-      --------------------------------------------------- */
-
-      await logAdminAction({
-        adminId: authCheck.user.id,
-        actionType: "UNDO_ADD_MONEY",
-        targetId: requestId,
-        details: `Add Money request restored from ${previousStatus} to pending.${
-          adminNote ? ` Note: ${adminNote}` : ""
-        }`,
-      });
 
       /*
        * Financial operation already succeeded.
@@ -415,14 +397,7 @@ export async function PATCH(request: Request) {
        Atomic approve / reject RPC
     ----------------------------------------------------- */
 
-    const { data: reviewResult, error: reviewError } = await supabaseAdmin.rpc(
-      "admin_review_add_money",
-      {
-        p_request_id: requestId,
-        p_action: action,
-        p_admin_note: adminNote || null,
-      },
-    );
+    const { data: reviewResult, error: reviewError } = await financialAction({ adminId: authCheck.user.id, operation: "add_money", targetId: requestId, action: action, note: adminNote || null });
 
     if (reviewError) {
       console.error("ADMIN ADD MONEY REVIEW ERROR:", reviewError);
@@ -463,25 +438,6 @@ export async function PATCH(request: Request) {
         { status: 500 },
       );
     }
-
-    /* -----------------------------------------------------
-       Admin audit log
-    ----------------------------------------------------- */
-
-    await logAdminAction({
-      adminId: authCheck.user.id,
-      actionType:
-        action === "approved" ? "APPROVE_ADD_MONEY" : "REJECT_ADD_MONEY",
-      targetId: requestId,
-      details:
-        action === "approved"
-          ? `Add Money request approved. Amount: ${Number(
-              requestInfo.amount ?? 0,
-            )}.`
-          : `Add Money request rejected. Amount: ${Number(
-              requestInfo.amount ?? 0,
-            )}.${adminNote ? ` Note: ${adminNote}` : ""}`,
-    });
 
     /* -----------------------------------------------------
        User notification

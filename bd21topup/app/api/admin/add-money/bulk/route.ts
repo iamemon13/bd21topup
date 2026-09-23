@@ -1,5 +1,5 @@
+import { financialAction } from "@/lib/financial-audit";
 import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -250,14 +250,7 @@ export async function POST(request: Request) {
     }> = [];
 
     for (const requestId of requestIds) {
-      const { data, error: rpcError } = await supabaseAdmin.rpc(
-        "admin_review_add_money",
-        {
-          p_request_id: requestId,
-          p_action: action,
-          p_admin_note: adminNote || null,
-        },
-      );
+      const { data, error: rpcError } = await financialAction({ adminId: adminId, operation: "add_money", targetId: requestId, action: action, note: adminNote || null, bulk: true, ip: ipAddress });
 
       if (rpcError) {
         console.error(`BULK ADD MONEY ERROR for ${requestId}:`, rpcError);
@@ -290,25 +283,6 @@ export async function POST(request: Request) {
       }
 
       successfulRequestIds.push(requestId);
-
-      /* ---------------------------------------------------
-         Audit logging
-      --------------------------------------------------- */
-
-      await logAdminAction({
-        adminId,
-        actionType:
-          action === "approved"
-            ? "BULK_APPROVE_ADD_MONEY"
-            : "BULK_REJECT_ADD_MONEY",
-        targetId: requestId,
-        details: JSON.stringify({
-          action,
-          admin_note: adminNote || null,
-          bulk_operation: true,
-        }),
-        ipAddress,
-      });
     }
 
     /* =====================================================

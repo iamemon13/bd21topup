@@ -1,3 +1,4 @@
+import { financialAction } from "@/lib/financial-audit";
 import { NextResponse } from "next/server";
 import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
@@ -292,10 +293,7 @@ export async function PATCH(request: Request) {
     ===================================================== */
 
     if (nextStatus === "cancelled") {
-      const { data, error } = await supabaseAdmin.rpc("admin_cancel_order", {
-        p_order_id: orderId,
-        p_admin_note: adminNote || null,
-      });
+      const { data, error } = await financialAction({ adminId: adminId, operation: "cancel_order", targetId: orderId, note: adminNote || null, ip: ipAddress });
 
       if (error) {
         console.error("ADMIN CANCEL ORDER ERROR:", error);
@@ -347,22 +345,6 @@ export async function PATCH(request: Request) {
           },
         );
       }
-
-      /* ---------------------------------------------------
-         Audit log
-      --------------------------------------------------- */
-
-      await logAdminAction({
-        adminId,
-        actionType: "CANCEL_ORDER",
-        targetId: orderId,
-        details: JSON.stringify({
-          status: "cancelled",
-          refund_created: Boolean(data.refund_created),
-          admin_note: adminNote || null,
-        }),
-        ipAddress,
-      });
 
       /* ---------------------------------------------------
          Load order metadata for notification
