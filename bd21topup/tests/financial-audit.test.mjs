@@ -26,11 +26,17 @@ before(async()=>{
  await db.exec(await read('tests/fixtures/audit-undo.sql'));
  await db.exec(await read('supabase/migrations/20260921201839_harden_admin_cancel_order_refund.sql'));
  await db.exec(await read('supabase/migrations/20260923191844_harden_financial_audit_and_access.sql'));
+ await db.exec(await read('supabase/migrations/20260921202738_harden_bulk_order_cancel_refund.sql'));
+ await db.exec(await read('supabase/migrations/20260923193817_close_legacy_admin_financial_rpc_entrypoints.sql'));
 });
 after(async()=>db?.close());
 const scalar=async(sql,params=[])=>Object.values((await db.query(sql,params)).rows[0])[0];
 async function rollback(fn){await db.exec('BEGIN');try{await fn();}finally{await db.exec('ROLLBACK');}}
 const act=(operation,action=null,id=target)=>db.query('SELECT admin_financial_action($1,$2,$3,$4,100,$5)',[admin,operation,id,action,'test reason']);
+test('service role uses audited wrapper while legacy direct RPC is denied',async()=>{
+ await rollback(async()=>{await db.exec('SET LOCAL ROLE service_role');await act('wallet','add',user);assert.equal(await scalar('SELECT count(*)::int FROM admin_audit_logs'),1);});
+ await rollback(async()=>{await db.exec('SET LOCAL ROLE service_role');await assert.rejects(db.query("SELECT admin_adjust_wallet($1,100,'add','test')",[user]),/permission denied/);});
+});
 test('wallet adjustment and audit commit together',()=>rollback(async()=>{
  await act('wallet','add',user);
  assert.equal(Number(await scalar('SELECT wallet_balance FROM profiles WHERE id=$1',[user])),1100);
