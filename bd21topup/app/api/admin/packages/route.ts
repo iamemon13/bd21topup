@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("packages")
-      .select("id, name, price, updated_at")
+      .select("id, name, price, category, sort_order, updated_at")
       .order("price", {
         ascending: true,
       });
@@ -270,7 +270,7 @@ export async function PUT(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", packageId)
-      .select("id, name, price, updated_at")
+      .select("id, name, price, category, sort_order, updated_at")
       .maybeSingle();
 
     if (updateError) {
