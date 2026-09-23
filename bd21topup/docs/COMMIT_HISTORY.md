@@ -1,4 +1,4 @@
-# BD21topup â€” Full Git Commit History
+# BD21topup - Full Git Commit History
 
 This file is generated directly from the repository Git history.
 
@@ -11,6 +11,7 @@ For the curated engineering story, see:
 
 | Date | Commit | Message |
 |---|---|---|
+| 2026-09-23 | `f5133db` | docs: document project journey and problem-solving history |
 | 2026-09-23 | `7cee0c8` | fix: load package categories in admin |
 | 2026-09-23 | `5b39caf` | chore: ignore Supabase CLI temp files |
 | 2026-09-23 | `13bad75` | fix: preserve transaction history encoding |
