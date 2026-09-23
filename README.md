@@ -52,11 +52,11 @@ The project includes API authorization, server-side validation, database privile
 
 ## Portfolio documentation
 
-- [Project Journey](docs/PROJECT_JOURNEY.md)
-- [Problem Solving Log](docs/PROBLEM_SOLVING_LOG.md)
-- [Security Engineering](docs/SECURITY_ENGINEERING.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Full Commit History](docs/COMMIT_HISTORY.md)
+- [Project Journey](bd21topup/docs/PROJECT_JOURNEY.md)
+- [Problem Solving Log](bd21topup/docs/PROBLEM_SOLVING_LOG.md)
+- [Security Engineering](bd21topup/docs/SECURITY_ENGINEERING.md)
+- [Architecture](bd21topup/docs/ARCHITECTURE.md)
+- [Full Commit History](bd21topup/docs/COMMIT_HISTORY.md)
 
 ## Selected solved problems
 
@@ -75,11 +75,12 @@ The project includes API authorization, server-side validation, database privile
 | Supabase `.temp` committed | Removed and ignored local CLI state |
 | Password reset flow | Recovery-session-only hardening |
 
-See [Problem Solving Log](docs/PROBLEM_SOLVING_LOG.md) for the detailed root-cause/fix notes.
+See [Problem Solving Log](bd21topup/docs/PROBLEM_SOLVING_LOG.md) for the detailed root-cause/fix notes.
 
 ## Local development
 
-```bash
+`ash
+cd bd21topup
 npm install
 cp .env.example .env.local
 npm run dev
@@ -114,10 +115,10 @@ npm run build
 
 ## Commit history
 
-The inspected `main` history contained **302 commits**, starting with `7cf8f2f` (Initial BD21 Top Up project backup, 2026-09-10).
+The `main` history contains **300+ commits**, starting with `7cf8f2f` (Initial BD21 Top Up project backup, 2026-09-10).
 
 Regenerate the exact full Markdown history with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/generate-commit-history.ps1
+powershell -ExecutionPolicy Bypass -File bd21topup/scripts/generate-commit-history.ps1
 ```
