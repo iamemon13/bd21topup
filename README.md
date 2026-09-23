@@ -36,18 +36,23 @@ This repository documents not only the final application, but also the engineeri
 ## Engineering highlights
 
 ### Server-side financial authority
+
 The server/database, not the browser, is the source of truth for package price and wallet state.
 
 ### Atomic wallet payments
+
 Wallet payment logic uses a PostgreSQL RPC and row locking (`FOR UPDATE`) to prevent concurrent requests from spending the same balance.
 
 ### RBAC
+
 Admin access evolved into `super_admin`, `admin`, and `editor` roles with permissions such as `manage_users`, `manage_orders`, `manage_add_money`, `manage_withdrawals`, and `manage_packages`.
 
 ### Financial reconciliation
+
 Historical ledger corrections were made only after matching production data against historical application behavior. Guarded migrations were used instead of blind balance edits.
 
 ### Security hardening
+
 The project includes API authorization, server-side validation, database privilege hardening, direct-write bypass protection, transaction-ID replay protection, safer recovery flows, public-data minimization, and audit logging.
 
 ## Portfolio documentation
@@ -60,26 +65,26 @@ The project includes API authorization, server-side validation, database privile
 
 ## Selected solved problems
 
-| Problem | Solution |
-|---|---|
-| Client-controlled financial amounts | Server/database-side package pricing |
-| Wallet race condition | Atomic PostgreSQL RPC + `FOR UPDATE` |
-| Coarse admin authorization | RBAC + fine-grained permissions |
-| Direct withdrawal insert bypass | Blocked direct authenticated insert path |
-| Reused payment Transaction IDs | Global DB-backed transaction-ID protection |
-| Legacy withdrawal inconsistencies | Git-history-assisted forensic reconciliation |
-| Duplicate withdrawal history | Canonical type filtering |
-| UID rate limiting on Vercel | Supabase-backed rate-limit state |
-| Public recent-order privacy | Response data minimization |
-| All admin packages under UID TopUp | API now returns real package category metadata |
-| Supabase `.temp` committed | Removed and ignored local CLI state |
-| Password reset flow | Recovery-session-only hardening |
+| Problem                             | Solution                                       |
+| ----------------------------------- | ---------------------------------------------- |
+| Client-controlled financial amounts | Server/database-side package pricing           |
+| Wallet race condition               | Atomic PostgreSQL RPC + `FOR UPDATE`           |
+| Coarse admin authorization          | RBAC + fine-grained permissions                |
+| Direct withdrawal insert bypass     | Blocked direct authenticated insert path       |
+| Reused payment Transaction IDs      | Global DB-backed transaction-ID protection     |
+| Legacy withdrawal inconsistencies   | Git-history-assisted forensic reconciliation   |
+| Duplicate withdrawal history        | Canonical type filtering                       |
+| UID rate limiting on Vercel         | Supabase-backed rate-limit state               |
+| Public recent-order privacy         | Response data minimization                     |
+| All admin packages under UID TopUp  | API now returns real package category metadata |
+| Supabase `.temp` committed          | Removed and ignored local CLI state            |
+| Password reset flow                 | Recovery-session-only hardening                |
 
 See [Problem Solving Log](bd21topup/docs/PROBLEM_SOLVING_LOG.md) for the detailed root-cause/fix notes.
 
 ## Local development
 
-`ash
+```bash
 cd bd21topup
 npm install
 cp .env.example .env.local
