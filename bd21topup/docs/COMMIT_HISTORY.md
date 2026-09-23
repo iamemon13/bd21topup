@@ -11,6 +11,8 @@ For the curated engineering story, see:
 
 | Date | Commit | Message |
 |---|---|---|
+| 2026-09-23 | `5b2a498` | docs: fix portfolio README paths |
+| 2026-09-23 | `d18cfb1` | docs: finalize GitHub portfolio and issue workflow |
 | 2026-09-23 | `f5133db` | docs: document project journey and problem-solving history |
 | 2026-09-23 | `7cee0c8` | fix: load package categories in admin |
 | 2026-09-23 | `5b39caf` | chore: ignore Supabase CLI temp files |
