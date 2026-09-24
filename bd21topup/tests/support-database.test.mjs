@@ -13,6 +13,7 @@ before(async () => {
   await db.exec(await sqlFile('tests/fixtures/financial-rpcs.sql'));
   await db.exec(await sqlFile('supabase/migrations/20260921201839_harden_admin_cancel_order_refund.sql'));
   await db.exec(await sqlFile('supabase/migrations/20260922163357_secure_support_cases.sql'));
+  await db.exec(await sqlFile('supabase/migrations/20260924221423_add_support_case_resolution.sql'));
 });
 after(async () => { await db?.close(); });
 const scalar = async (sql, params = []) => Object.values((await db.query(sql, params)).rows[0])[0];
@@ -44,13 +45,43 @@ test('RLS isolates owners; anonymous reads and client insert/update/delete are d
     ['authenticated', "UPDATE support_cases SET status='resolved'"],
     ['authenticated', 'DELETE FROM support_cases'],
     ['authenticated', "SELECT support_private.create_case('ORD',gen_random_uuid(),gen_random_uuid())"],
-    ['service_role', "UPDATE support_cases SET status='resolved'"],
   ]) {
     await rolledBack(async () => {
       await db.exec(`SET LOCAL ROLE ${role}`);
       await assert.rejects(db.exec(query), /permission denied/);
     });
   }
+});
+
+test('support resolution is metadata-only, permission-checked, audited, and idempotent', async () => {
+  await rolledBack(async () => {
+    await db.exec('SET LOCAL ROLE service_role');
+    const caseId = await scalar("SELECT id FROM support_cases WHERE case_type = 'ORD' LIMIT 1");
+    const { rows } = await db.query(
+      'SELECT * FROM public.admin_resolve_support_case($1,$2,$3,$4)',
+      [user, caseId, '  receipt verified and issue handled  ', '127.0.0.1'],
+    );
+    assert.equal(rows[0].status, 'resolved');
+    assert.equal(rows[0].resolution_note, 'receipt verified and issue handled');
+    assert.equal(rows[0].resolved_by, user);
+    assert.ok(rows[0].resolved_at);
+    assert.equal(await scalar('SELECT status FROM orders WHERE id = (SELECT order_id FROM support_cases WHERE id = $1)', [caseId]), 'cancelled');
+    assert.equal(await scalar('SELECT count(*)::int FROM wallet_transactions'), 0);
+    assert.equal(await scalar("SELECT count(*)::int FROM admin_audit_logs WHERE action_type = 'SUPPORT_CASE_RESOLVED'"), 1);
+    await assert.rejects(
+      db.query('SELECT * FROM public.admin_resolve_support_case($1,$2,$3)', [user, caseId, 'again']),
+      /already resolved or closed/,
+    );
+  });
+  await rolledBack(async () => {
+    await db.exec('SET LOCAL ROLE service_role');
+    await db.query("INSERT INTO admin_roles(user_id, role, permissions) VALUES ($1, 'editor', ARRAY['manage_add_money'])", [other]);
+    const caseId = await scalar("SELECT id FROM support_cases WHERE case_type = 'ORD' LIMIT 1");
+    await assert.rejects(
+      db.query('SELECT * FROM public.admin_resolve_support_case($1,$2,$3)', [other, caseId, 'not allowed']),
+      /Missing support case permission/,
+    );
+  });
 });
 
 test('client cannot manufacture a case using the existing withdrawal INSERT privilege', async () => {

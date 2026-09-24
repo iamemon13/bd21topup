@@ -10,14 +10,15 @@ Apply `supabase/migrations/20260922135323_secure_support_cases.sql` only after e
 - One unique FK per operation prevents duplicate cases. A check enforces exactly one source of the correct type. Source validation checks ownership and eligibility and derives the reason from the source's `admin_note`.
 - IDs such as `BD21-ORD-8A4B7C2D9E1F` use a random 12-character uppercase hexadecimal suffix. A unique constraint plus bounded retry handles collisions. They are references, never authorization tokens.
 - Authenticated clients have only SELECT with `auth.uid() = user_id` RLS. Anonymous users have no access. Clients cannot mutate cases or execute private helper functions. Helpers are security invokers with an empty search path; existing trusted financial RPCs execute them within their transaction.
-- Case identity and the original reason are immutable. Status has `open`, `resolved`, and `closed` values, with timestamps, but this release intentionally has no status mutation endpoint or service-role UPDATE grant.
+- Case identity and the original reason are immutable. Status has `open`, `resolved`, and `closed` values. The resolution migration adds `resolution_note`, `resolved_at`, and `resolved_by`; only the audited `open` to `resolved` workflow is supported.
+- `POST /api/admin/support-cases` trims and validates a required resolution note, verifies the existing case-type permission before lookup, and calls the service-only `admin_resolve_support_case` RPC. The RPC locks the row, derives `case_type` from the database, re-checks the admin role and permission, updates only support metadata, and writes `SUPPORT_CASE_RESOLVED` in the same transaction. Browser roles retain no `UPDATE` grant on `support_cases`.
 - Notification creation is atomic with case creation. A unique `support_case_id` allows exactly one linked support notification. Existing notification text is not parsed or guessed for ownership.
 - Historical eligible records are backfilled with new cases and notifications. Anonymous/deleted-user orders are skipped. The case creation timestamp records when the case was created, not the original operation timestamp. Existing notifications remain; users can see a separate support notification alongside an earlier rejection notification.
 - Reading a case, copying an ID, and opening Telegram cannot issue a refund. The withdrawal rejection's existing automatic refund remains inside its original RPC.
 
 User APIs use `auth.getUser(accessToken)` and filter by the returned user ID. Their support payload contains only public ID, case status, reason, and contact URL. Internal support row IDs are removed before returning notifications. Support queries page through PostgREST results so older references are not silently dropped. Successful history/notification responses explicitly use `Cache-Control: private, no-store` and `Vary: Authorization`; admin support lookup uses these headers on both success and error responses.
 
-`GET /api/admin/support-cases?supportId=...` uses the existing `checkUserRole` before lookup. ORD requires `manage_orders`, ADD requires `manage_add_money`, WDR requires `manage_withdrawals`; existing super-admin rules apply. There is no public lookup endpoint. `/admin/support-cases` is linked from the admin dashboard. Authorized staff receive the related operation ID to locate it in the existing admin list; users do not receive additional internal IDs.
+`GET /api/admin/support-cases?supportId=...` and the resolution endpoint use the existing `checkUserRole` before lookup. ORD requires `manage_orders`, ADD requires `manage_add_money`, WDR requires `manage_withdrawals`; existing super-admin rules apply. There is no public lookup endpoint. `/admin/support-cases` is linked from the admin dashboard. Authorized staff receive the related operation ID to locate it in the existing admin list; users do not receive additional internal IDs. Resolution metadata is returned only by the admin lookup and contains a safe resolver display from the existing profile record.
 
 ## Telegram support workflow
 
@@ -69,11 +70,27 @@ Validation on 2026-09-22:
 
 Follow-up review preserved the existing working tree and checked session verification, permission-before-lookup behavior, source ownership, client table/function privileges, RLS, all rejection paths, public Telegram URL construction and response data. No direct authorization/ownership bypass was found in these paths. The review added explicit private response cache headers, rejected-order types/filters and strict rejection of trailing newlines in reference IDs/Telegram usernames. No financial mutation endpoint was added. The review preserved financial RPCs and did not change production data.
 
+## Resolution migration blocker review — local only, 2026-09-25
+
+`20260924221423_add_support_case_resolution.sql` now preserves historical resolved rows whose three resolution metadata fields are all NULL. It does not fabricate notes, identities or timestamps. A validated CHECK permits this historical shape; the trigger still requires a valid note, timestamp and resolver for every new open-to-resolved transition. Inserts are normalized to open with NULL metadata. Existing case identity/reason/source evidence remains immutable.
+
+Resolver deletion keeps ON DELETE SET NULL. Clearing an existing resolver requires a nested trigger and the referenced auth user to be absent; direct clearing or an unrelated nested trigger while the user still exists is rejected. Notes/timestamps cannot be changed as part of deletion.
+
+Reruns use ADD COLUMN IF NOT EXISTS plus explicit type/nullability/default/generated-column checks. The migration deterministically drops/recreates its named CHECK and FK, validates existing data, rejects unexpected constraint types, and never uses CASCADE. Functions use CREATE OR REPLACE, the validation trigger is recreated, and function ACLs are reapplied. All changes are transactional under a support_cases ACCESS EXCLUSIVE lock with a five-second lock timeout. Incompatible existing data/columns or dependent objects fail closed instead of being rewritten. Unrelated/custom constraints remain untouched and require preflight review.
+
+Read-only preflight: `scripts/preflight-support-case-resolution.sql`. It reports total/count-by-status, existing resolved rows, presence/definitions of all three metadata columns, constraints and triggers. It works before, during partial column setup and after migration using JSON projection. Tested locally; **not executed against production**.
+
+Security review: RPC remains SECURITY INVOKER with empty search_path, server-only EXECUTE, stored-role/permission checks, actor/case row locks, and UPDATE plus audit INSERT in one transaction. Browser write permissions/RLS and financial/source records are unchanged. These guarantees do not protect against a database owner disabling triggers or altering constraints. Production lock contention, actual schema and deployment readiness still require the separate read-only preflight; this is not approval to apply.
+
+Validation: `npm run test:support` 39/39 passed; `npm run typecheck` passed; `npm run lint` passed with zero errors and three existing no-img-element warnings; `npm run build` passed; `git diff --check` passed. The new database suite covers historical evidence preservation, repeat/partial migration, conflicting definitions, malformed transitions, resolver deletion, browser RPC denial and exact source/financial row preservation. An injected admin_audit_logs INSERT failure proves status remains open and resolution_note/resolved_at/resolved_by all remain NULL, including unchanged case timestamps and source records.
+
+No production migration, commit, push, PR or deployment was performed for this blocker fix. Existing intended uncommitted UI/API/test work was preserved.
+
 ## Changed files
 
 | Area | Files |
 | --- | --- |
-| Database | `supabase/migrations/20260922135323_secure_support_cases.sql` |
+| Database | `supabase/migrations/20260922163357_secure_support_cases.sql`, `supabase/migrations/20260924221423_add_support_case_resolution.sql` |
 | Support model and server lookup | `lib/support.ts`, `lib/support-cases.ts`, `app/api/admin/support-cases/route.ts` |
 | User APIs | `app/api/orders/my/route.ts`, `app/api/transactions/route.ts`, `app/api/notifications/route.ts` |
 | User UI | `components/SupportCaseActions.tsx`, `components/NotificationBell.tsx`, `app/orders/page.tsx`, `app/transactions/page.tsx` |
@@ -91,3 +108,11 @@ Follow-up review preserved the existing working tree and checked session verific
 4. After approved deployment, check all three rejection/cancellation flows, history and notification links, and an authorized/unauthorized admin lookup. Confirm RLS/privileges with Supabase advisors.
 
 Feature-branch publication is for review only. Merge, deployment, production migration and financial-data changes require separate approval.
+
+## Production migration verification and history reconciliation — 2026-09-25
+
+The approved migration was applied to production project cnjkxbosjdahbyjtqbyj and recorded as 20260924221423_add_support_case_resolution. The local filename was reconciled to that version without changing SQL contents; it is the only resolution migration. Do not reapply it or repair production history.
+
+Read-only before/after verification confirmed 26 total/open cases and zero resolved/closed cases, unchanged original case evidence, unchanged financial/source row fingerprints, unchanged admin table structures and 24 unchanged audit rows. Columns, validated CHECK, resolver FK ON DELETE SET NULL, enabled validation/notification triggers, reviewed function bodies, service-only RPC execution, limited resolution-column UPDATE privileges and unchanged RLS/policies were verified.
+
+The earlier local-only review above records the state at that review, before the separately approved production preflight and migration. Authenticated Resolve-button/manual resolution acceptance remains pending for an admin handling a legitimate case; no production case was resolved for testing.

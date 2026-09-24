@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { SupportCase } from "@/lib/support";
 
-type Result = { support: SupportCase; caseType: "ORD" | "ADD" | "WDR"; operationId: string; createdAt: string };
+type Result = {
+  support: SupportCase;
+  caseType: "ORD" | "ADD" | "WDR";
+  operationId: string;
+  createdAt: string;
+  updatedAt: string;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  resolvedBy: { fullName: string | null; email: string | null } | null;
+};
 
 type SupportListItem = Result & {
   currentStatus: string;
@@ -21,6 +30,10 @@ export default function AdminSupportCasesPage() {
   const [cases, setCases] = useState<SupportListItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resolutionNote, setResolutionNote] = useState("");
+  const [resolutionError, setResolutionError] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const detailRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     async function loadCases() {
@@ -40,14 +53,30 @@ export default function AdminSupportCasesPage() {
     void loadCases();
   }, []);
 
+  useEffect(() => {
+    if (!result) return;
+    const frame = window.requestAnimationFrame(() => {
+      detailRef.current?.focus({ preventScroll: true });
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [result]);
+
   async function lookup(supportIdToLoad: string) {
+    const normalizedSupportId = supportIdToLoad.trim().toUpperCase();
+    if (!normalizedSupportId) {
+      setResult(null);
+      setError("Support ID দিন।");
+      return;
+    }
     setLoading(true);
     setResult(null);
     setError("");
+    setResolutionError("");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setError("প্রথমে admin account দিয়ে লগইন করুন।"); return; }
-      const response = await fetch(`/api/admin/support-cases?supportId=${encodeURIComponent(supportIdToLoad.trim().toUpperCase())}`, {
+      const response = await fetch(`/api/admin/support-cases?supportId=${encodeURIComponent(normalizedSupportId)}`, {
         headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
       });
       const data = await response.json();
@@ -57,11 +86,88 @@ export default function AdminSupportCasesPage() {
     finally { setLoading(false); }
   }
 
+  async function resolveCase() {
+    if (!result) return;
+    const selectedSupportId = result.support.supportId;
+    const trimmedNote = resolutionNote.trim();
+    setResolutionError("");
+    if (!trimmedNote) {
+      setResolutionError("Resolution Note আবশ্যক।");
+      return;
+    }
+    if (!window.confirm("এই Support Case-কে Resolved হিসেবে চিহ্নিত করবেন?")) return;
+
+    setResolving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setResolutionError("প্রথমে admin account দিয়ে লগইন করুন।");
+        return;
+      }
+      const response = await fetch("/api/admin/support-cases", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ supportId: selectedSupportId, resolutionNote: trimmedNote }),
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResolutionError(data.error || "Support Case resolve করা যায়নি।");
+        return;
+      }
+      setResolutionNote("");
+      await lookup(selectedSupportId);
+    } catch {
+      setResolutionError("Support Case resolve করা যায়নি। আবার চেষ্টা করুন।");
+    } finally {
+      setResolving(false);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-[#07182f] px-4 py-8 text-white">
+    <main className="min-h-screen bg-[#07182f] px-4 pb-24 pt-8 text-white sm:pb-8">
       <div className="mx-auto max-w-xl space-y-5">
         <Link href="/admin" className="text-sm text-cyan-300">← Admin Dashboard</Link>
         <h1 className="text-2xl font-black">Support Cases</h1>
+        <section className="space-y-3 rounded-xl border border-cyan-400/20 bg-[#0b2545] p-4">
+          <h2 className="text-lg font-black">Support Case খুঁজুন</h2>
+          <form onSubmit={(event) => { event.preventDefault(); void lookup(supportId); }} className="space-y-3">
+            <label htmlFor="support-id" className="block text-sm">Support ID</label>
+            <input id="support-id" value={supportId} onChange={(e) => setSupportId(e.target.value)} maxLength={21} required autoComplete="off" placeholder="BD21-ORD-8A4B7C2D9E1F" className="w-full min-w-0 rounded-xl border border-cyan-400/30 bg-[#0b2545] p-3 font-mono" />
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black disabled:opacity-50">{loading ? "খোঁজা হচ্ছে…" : "Case দেখুন"}</button>
+          </form>
+        </section>
+        {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+        {result && <section ref={detailRef} tabIndex={-1} aria-label="Support Case" className="scroll-mt-4 space-y-3 rounded-xl border border-cyan-400/25 p-4 text-sm outline-none">
+          <h2 className="break-all font-mono font-bold text-cyan-300">{result.support.supportId}</h2>
+          <p>অবস্থা: {result.support.status}</p>
+          <p className="break-words">কারণ: {result.support.reason}</p>
+          <p className="break-all">সংশ্লিষ্ট record: {result.operationId}</p>
+          {result.support.status === "resolved" && (
+            <div className="space-y-2 rounded-lg border border-emerald-400/25 bg-emerald-400/10 p-3 text-emerald-100">
+              <p className="font-bold text-emerald-300">✓ Resolved</p>
+              <p className="break-words">Resolution: {result.resolutionNote}</p>
+              <p className="break-words">Resolved by: {result.resolvedBy?.fullName || result.resolvedBy?.email || "Admin identity unavailable"}</p>
+              {result.resolvedAt && <p>Resolved at: {new Intl.DateTimeFormat("en-BD", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" }).format(new Date(result.resolvedAt))}</p>}
+            </div>
+          )}
+          {result.support.status === "open" && (
+            <div className="space-y-3 rounded-lg border border-amber-400/25 bg-amber-400/5 p-3">
+              <label htmlFor="resolution-note" className="block font-bold text-amber-200">Resolution Note</label>
+              <textarea id="resolution-note" value={resolutionNote} onChange={(event) => setResolutionNote(event.target.value)} maxLength={500} rows={3} className="w-full min-w-0 resize-y rounded-lg border border-amber-400/30 bg-[#0b2545] p-3 text-white" placeholder="কীভাবে Support Case-টি handled হয়েছে লিখুন" />
+              <button type="button" onClick={() => void resolveCase()} disabled={resolving} className="w-full rounded-lg bg-amber-300 px-3 py-2 font-black text-black disabled:opacity-50 sm:w-auto">
+                {resolving ? "Resolve করা হচ্ছে…" : "Mark as Resolved"}
+              </button>
+              {resolutionError && <p role="alert" className="break-words text-sm text-red-300">{resolutionError}</p>}
+            </div>
+          )}
+          <Link className="inline-block max-w-full break-words text-cyan-300 underline" href={{ ORD: "/admin/orders", ADD: "/admin/add-money", WDR: "/admin/withdrawals" }[result.caseType]}>সংশ্লিষ্ট admin তালিকা খুলুন</Link>
+          <p>ব্যবহারকারীর কাছে রসিদ বা স্ক্রিনশট চান এবং যাচাইকৃত account-এর সঙ্গে তথ্য মিলিয়ে দেখুন। শুধু Support ID বা Telegram পরিচয় ownership-এর প্রমাণ নয়।</p>
+          <p className="text-slate-400">এখান থেকে refund, approval বা wallet পরিবর্তন করা যায় না।</p>
+        </section>}
         <section className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -85,9 +191,12 @@ export default function AdminSupportCasesPage() {
                       </p>
                       <p className="mt-1 break-all font-mono text-sm text-white">{item.support.supportId}</p>
                     </div>
-                    <span className="rounded-full border border-red-400/25 bg-red-400/10 px-2 py-1 text-[10px] font-black uppercase text-red-300">
-                      {item.currentStatus}
-                    </span>
+                    <div className="flex max-w-full flex-wrap justify-end gap-2 text-[10px] font-black uppercase">
+                      <span className="rounded-full border border-red-400/25 bg-red-400/10 px-2 py-1 text-red-300">{item.currentStatus}</span>
+                      <span className={`rounded-full border px-2 py-1 ${item.support.status === "resolved" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300" : "border-amber-400/25 bg-amber-400/10 text-amber-300"}`}>
+                        {item.support.status}
+                      </span>
+                    </div>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
                     <p className="break-words">Customer: {item.customer.fullName}{item.customer.email ? ` (${item.customer.email})` : ""}</p>
@@ -97,7 +206,7 @@ export default function AdminSupportCasesPage() {
                     <p className="break-words sm:col-span-2">Reason: {item.support.reason}</p>
                     <p>Date: {new Intl.DateTimeFormat("en-BD", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" }).format(new Date(item.createdAt))}</p>
                   </div>
-                  <button type="button" onClick={() => { setSupportId(item.support.supportId); void lookup(item.support.supportId); }} className="mt-4 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-black text-black">
+                  <button type="button" onClick={() => { setSupportId(item.support.supportId); void lookup(item.support.supportId); }} className="mt-4 w-full rounded-lg bg-cyan-400 px-3 py-2 text-xs font-black text-black sm:w-auto">
                     Case দেখুন
                   </button>
                 </article>
@@ -105,24 +214,6 @@ export default function AdminSupportCasesPage() {
             </div>
           )}
         </section>
-        <section className="space-y-3 rounded-xl border border-cyan-400/20 bg-[#0b2545] p-4">
-          <h2 className="text-lg font-black">Support Case খুঁজুন</h2>
-        <form onSubmit={(event) => { event.preventDefault(); void lookup(supportId); }} className="space-y-3">
-          <label htmlFor="support-id" className="block text-sm">Support ID</label>
-          <input id="support-id" value={supportId} onChange={(e) => setSupportId(e.target.value)} maxLength={21} required autoComplete="off" placeholder="BD21-ORD-8A4B7C2D9E1F" className="w-full rounded-xl border border-cyan-400/30 bg-[#0b2545] p-3 font-mono" />
-          <button disabled={loading} className="rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black disabled:opacity-50">{loading ? "খোঁজা হচ্ছে…" : "Case দেখুন"}</button>
-        </form>
-        </section>
-        {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-        {result && <section aria-label="Support Case" className="space-y-3 rounded-xl border border-cyan-400/25 p-4 text-sm">
-          <h2 className="break-all font-mono font-bold text-cyan-300">{result.support.supportId}</h2>
-          <p>অবস্থা: {result.support.status}</p>
-          <p className="break-words">কারণ: {result.support.reason}</p>
-          <p className="break-all">সংশ্লিষ্ট record: {result.operationId}</p>
-          <Link className="inline-block text-cyan-300 underline" href={{ ORD: "/admin/orders", ADD: "/admin/add-money", WDR: "/admin/withdrawals" }[result.caseType]}>সংশ্লিষ্ট admin তালিকা খুলুন</Link>
-          <p>ব্যবহারকারীর কাছে রসিদ বা স্ক্রিনশট চান এবং যাচাইকৃত account-এর সঙ্গে তথ্য মিলিয়ে দেখুন। শুধু Support ID বা Telegram পরিচয় ownership-এর প্রমাণ নয়।</p>
-          <p className="text-slate-400">এখান থেকে refund, approval বা wallet পরিবর্তন করা যায় না।</p>
-        </section>}
       </div>
     </main>
   );
