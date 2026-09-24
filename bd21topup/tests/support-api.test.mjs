@@ -121,6 +121,11 @@ test('transaction mappings distinguish order/add-money/withdrawal sources', asyn
   assert.equal(body.transactions[0].support.supportId, id);
   assert.equal(body.walletTransactions.find((r) => r.id === 'add-own').support.supportId, 'BD21-ADD-8A4B7C2D9E1F');
   assert.equal(body.walletTransactions.find((r) => r.id === 'withdrawal-own').support.supportId, 'BD21-WDR-8A4B7C2D9E1F');
+  for (const [type, rowId] of [['ADD', 'add-own'], ['WDR', 'withdrawal-own']]) {
+    const supportCase = body.walletTransactions.find((r) => r.id === rowId).support;
+    assert.equal(supportCase.reason, type === 'ADD' ? 'অ্যাড মানি' : 'উত্তোলন');
+    assert.match(supportCase.contactUrl, new RegExp(`BD21-${type}-`));
+  }
 });
 
 test('admin case lookup rejects insufficient permission before touching cases', async () => {

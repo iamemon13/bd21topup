@@ -115,6 +115,12 @@ export default function AdminAddMoneyPage() {
     requestId: string,
     action: "approved" | "rejected",
   ) {
+    const adminNote = noteById[requestId]?.trim() || "";
+    if (action === "rejected" && !adminNote) {
+      setMessage("Reject করার কারণ দেওয়া বাধ্যতামূলক।");
+      return;
+    }
+
     setWorkingId(requestId);
     setMessage("");
     try {
@@ -130,7 +136,7 @@ export default function AdminAddMoneyPage() {
         body: JSON.stringify({
           requestId,
           action,
-          adminNote: noteById[requestId] || "",
+          adminNote,
         }),
       });
 
@@ -616,7 +622,7 @@ export default function AdminAddMoneyPage() {
                       <div className="border-t border-white/10 p-5">
                         <label className="block">
                           <span className="text-xs font-black text-slate-400">
-                            Admin Note (optional)
+                            Admin Note (required for rejection)
                           </span>
                           <input
                             type="text"
