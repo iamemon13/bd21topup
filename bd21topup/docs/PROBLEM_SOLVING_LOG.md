@@ -30,11 +30,26 @@ Format: **Problem → Root Cause → Solution → Verification / Evidence**.
 
 **Investigated, not financially repaired:** all-history secret scan found no real repository secrets; 28 wallet-order gaps, 13 withdrawal gaps and three completed/refunded orders were reviewed read-only. Historical deployment/approval/balance evidence remains insufficient for corrections. Detailed customer evidence is private/local, not published here.
 
-The user stopped further audit work and requested a handoff. See [audit report](REMAINING_SECURITY_AUDIT_2026-09-24.md) and [next-session handoff](NEXT_AUDIT_HANDOFF.md) for remaining work and exact limitations.
+The user stopped further audit work and requested a handoff. See [audit report](REMAINING_SECURITY_AUDIT_2026-09-24.md) and [next-session handoff](NEXT_AUDIT_HANDOFF.md) for remaining work and exact limitations. The nonfinancial audit-atomicity item those documents list as deferred was subsequently completed — see the 2026-09-25 entry below.
+
+---
+
+## 2026-09-25 — Nonfinancial admin audit atomicity
+
+**Commit:** `5704d60` — "security: make nonfinancial admin audits atomic"; merged to `main` as `a019186` (PR #6).
+
+**Problem:** Package price/name updates and single/bulk nonfinancial order status transitions wrote their state change and their audit record as two separate operations, leaving the same class of gap that the role endpoint had.
+
+**Root cause:** These routes performed a table mutation and then called the best-effort `logAdminAction` helper, which only logs an audit failure to the server console. A failed audit insert left the mutation committed with no accountability record.
+
+**Solution:** Migration `20260924180051_atomic_nonfinancial_admin_audit.sql` adds three `SECURITY INVOKER` functions with an empty `search_path` — `admin_update_package_audited`, `admin_update_order_status_audited` and `admin_bulk_complete_orders_audited`. Each re-reads the caller's `admin_roles` row inside the transaction and rejects a caller without the required role/permission, performs the mutation and its `admin_audit_logs` insert together, and is executable only by `service_role` (`PUBLIC`, `anon` and `authenticated` are revoked). The single-order function also takes an expected prior status and refuses to act if the stored status has already moved.
+
+**Verification:** `node --test tests/*.test.mjs` → 82 passed, 0 failed, including rollback-on-audit-failure, in-database permission recheck, stale-status rejection and one audit row per changed order. `npm run typecheck` clean. Production migration `20260924180051_atomic_nonfinancial_admin_audit` was subsequently applied and verified: the three RPCs are `SECURITY INVOKER` with empty `search_path`, owned by `postgres`; `service_role` has EXECUTE while `anon` and `authenticated` do not.
 
 ---
 
 ## 1. Admin Packages API / Vercel 500
+
 **Commit:** `32d140a`
 
 **Problem:** Admin package management failed in production/Vercel.
@@ -46,6 +61,7 @@ Related commits: `6c5dce5`, `dc035b3`.
 ---
 
 ## 2. Client-controlled package prices
+
 **Commits:** `dc035b3`, `78ad35f`, `be6c920`, `ef14430`
 
 **Problem:** A browser-submitted amount must not become the authoritative financial value.
@@ -57,6 +73,7 @@ Related commits: `6c5dce5`, `dc035b3`.
 ---
 
 ## 3. Wallet payment race condition
+
 **Commits:** `8b1b13c`, `0f9feff`, `ef14430`
 
 **Problem:** Concurrent wallet purchases could read the same balance before either write completed.
@@ -68,6 +85,7 @@ Related commits: `6c5dce5`, `dc035b3`.
 ---
 
 ## 4. Admin wallet-adjustment race condition
+
 **Commit:** `9005158`
 
 Manual wallet adjustment was hardened to avoid lost updates during concurrent balance changes.
@@ -75,16 +93,19 @@ Manual wallet adjustment was hardened to avoid lost updates during concurrent ba
 ---
 
 ## 5. Coarse admin authorization
+
 **Commits:** `8b572d9`, `6a6e2ef`, `8b1b13c`, `e0a6852`, `20ec72a`
 
 **Problem:** One generic admin role was too broad.
 
 **Solution:** Evolved to:
+
 - `super_admin`
 - `admin`
 - `editor`
 
 with permissions such as:
+
 - `manage_users`
 - `manage_orders`
 - `manage_add_money`
@@ -96,6 +117,7 @@ Authorization is enforced in server routes, not just hidden in the UI.
 ---
 
 ## 6. Admin withdrawal access problems
+
 **Commits:** `200668f`, `55114da`, `9e2c6db`, `4198310`
 
 Both admin page access and sensitive API authorization were tightened.
@@ -105,6 +127,7 @@ Both admin page access and sensitive API authorization were tightened.
 ---
 
 ## 7. Withdrawal behavior changed across versions
+
 **Commits:** `0f7b763`, `d6d9e42`, `9a59608`, `bafc4d8`, `13eda24`, `65c1287`, `37d9884`
 
 Historical versions deducted money at different stages or wrote different ledger records.
@@ -116,6 +139,7 @@ Historical versions deducted money at different stages or wrote different ledger
 ---
 
 ## 8. Direct withdrawal insert bypass
+
 **Commit:** `832fb94`  
 **Migration:** `20260922194814_block_direct_withdrawal_insert.sql`
 
@@ -126,6 +150,7 @@ Historical versions deducted money at different stages or wrote different ledger
 ---
 
 ## 9. Reused external payment Transaction IDs
+
 **Commit:** `9ce79b1`  
 **Migration:** `20260922200434_enforce_global_payment_transaction_id.sql`
 
@@ -138,6 +163,7 @@ Historical short IDs were preserved instead of rewriting old evidence.
 ---
 
 ## 10. Supabase migration-history drift
+
 **Commit:** `c9ec07d`
 
 Local migration versions and production migration history were synchronized before further production database changes.
@@ -145,6 +171,7 @@ Local migration versions and production migration history were synchronized befo
 ---
 
 ## 11. Legacy withdrawal ledger metadata mismatch
+
 **Commit:** `c64f3db`  
 **Migration:** `20260922204031_normalize_legacy_withdrawal_ledger.sql`
 
@@ -153,6 +180,7 @@ Six historical request-time withdrawal debits existed as generic adjustment reco
 They were proven by matching user, amount, timestamp, and historical source behavior.
 
 Only classification/reference metadata changed:
+
 - `type = withdrawal`
 - `reference_id = withdrawal.id`
 
@@ -161,12 +189,14 @@ Wallet balance and amount were not changed.
 ---
 
 ## 12. Rejected legacy withdrawals missing reversals
+
 **Commit:** `9d6a63e`  
 **Migration:** `20260922210811_reconcile_legacy_withdrawal_reversals.sql`
 
 Two rejected withdrawals had proven request-time debits but no matching reversal.
 
 Amounts:
+
 - ৳314
 - ৳100
 
@@ -179,6 +209,7 @@ Each target ended with exactly one debit and one reversal.
 ---
 
 ## 13. Duplicate withdrawal transaction-history entries
+
 **Commits:** `f4ab462`, `13bad75`
 
 **Problem:** Canonical withdrawal ledger rows and separately formatted withdrawal requests could both appear.
@@ -186,8 +217,9 @@ Each target ended with exactly one debit and one reversal.
 **Root cause:** The filter used `"Withdrawal"` while DB canonical type was lowercase `"withdrawal"`.
 
 **Fix:**
+
 ```ts
-transaction.type?.toLowerCase() !== "withdrawal"
+transaction.type?.toLowerCase() !== "withdrawal";
 ```
 
 A temporary encoding side effect from PowerShell editing was also detected and repaired by restoring the clean file and writing UTF-8 without BOM.
@@ -195,6 +227,7 @@ A temporary encoding side effect from PowerShell editing was also detected and r
 ---
 
 ## 14. Password recovery hardening
+
 **Commits:** `5f7b41d`, `694d50c`
 
 The reset flow was restricted to a real recovery session and strengthened with password-length validation, invalid-session handling, and safe redirect/sign-out behavior.
@@ -202,6 +235,7 @@ The reset flow was restricted to a real recovery session and strengthened with p
 ---
 
 ## 15. In-memory rate limiting on serverless
+
 **Commits:** `a3e1373`, `1fb5c4f`, `ae12579`
 
 **Problem:** Process memory is not reliable shared state on Vercel/serverless.
@@ -211,6 +245,7 @@ The reset flow was restricted to a real recovery session and strengthened with p
 ---
 
 ## 16. Public recent-order privacy
+
 **Commit:** `c36ac24`
 
 The public recent-order response was minimized so the trust feed does not unnecessarily expose customer data.
@@ -218,6 +253,7 @@ The public recent-order response was minimized so the trust feed does not unnece
 ---
 
 ## 17. Admin auditability
+
 **Commits:** `20ec72a`, `539663e`, `dce2897`, `6cbc0ca`, `4c1f419`, `bc9ec09`
 
 Sensitive admin operations gained audit logging and a super-admin activity interface with filtering/search.
@@ -225,6 +261,7 @@ Sensitive admin operations gained audit logging and a super-admin activity inter
 ---
 
 ## 18. Support context for rejected/cancelled operations
+
 **Commits:** `e509f38`, `4018cda`
 
 Secure support cases were linked to customer histories and admin support lookup so rejected/cancelled financial operations can be discussed with context.
@@ -232,6 +269,7 @@ Secure support cases were linked to customer histories and admin support lookup 
 ---
 
 ## 19. Database privilege hardening
+
 **Commits:** `a57b2ca`, `52217e2`, `772c664`, `c8211c4`
 
 Privileges for admin-role data, audit data, client tables, and privileged functions/triggers were reviewed and reduced.
@@ -241,6 +279,7 @@ Privileges for admin-role data, audit data, client tables, and privileged functi
 ---
 
 ## 20. All packages appeared under UID TopUp
+
 **Commit:** `7cee0c8`
 
 **Problem:** Admin UI placed every package under UID TopUp.
@@ -248,15 +287,18 @@ Privileges for admin-role data, audit data, client tables, and privileged functi
 **Root cause:** Frontend expected `pkg.category`, but `/api/admin/packages` did not return `category`.
 
 Fallback:
+
 ```ts
 const cat = pkg.category || "uid_bd";
 ```
 
 **Fix:** Admin package API now selects/returns:
+
 - `category`
 - `sort_order`
 
 **Verification:** Live DB already had correct category counts:
+
 - `uid_bd`: 17
 - `combo_offer`: 10
 - `weekly_lite`: 4
@@ -269,6 +311,7 @@ No DB rewrite was needed.
 ---
 
 ## 21. Supabase CLI local state committed
+
 **Commit:** `5b39caf`
 
 Tracked `supabase/.temp/` files were removed and `/supabase/.temp/` was added to `.gitignore`.
@@ -281,7 +324,7 @@ These are not represented as solved:
 
 - Remaining legacy wallet-order reconciliation
 - Remaining historical withdrawals without canonical debit rows
-- Additional audit-log hardening
+- Additional audit-log hardening (package and nonfinancial order mutations became atomic on 2026-09-25; any remaining mutation surfaces still need review)
 - Financial endpoint rate limiting
 - FK indexes and RLS performance
 - Production security headers/CSP
