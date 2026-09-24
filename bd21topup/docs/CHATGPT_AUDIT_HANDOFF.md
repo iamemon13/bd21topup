@@ -17,7 +17,18 @@ corrections still require strong evidence. Never blindly alter balances or histo
 - All 44 historical financial candidates reviewed read-only, no proven repair and no balance/history mutation. Private per-candidate evidence is outside public GitHub; location in new handoff.
 - [Full audit report](REMAINING_SECURITY_AUDIT_2026-09-24.md) records remaining items, exact deployment state, advisor notices and blocked authenticated browser checks.
 
+## Later continuation — 2026-09-25, nonfinancial audit atomicity
+
+The deferred "nonfinancial audit atomicity" item is now shipped; the corresponding note in "Security / operations remaining" below is updated accordingly.
+
+- Commit `5704d60` ("security: make nonfinancial admin audits atomic"), merged to `main` as `a019186` (PR #6). This was current `main` HEAD when the note was written.
+- Migration `20260924180051_atomic_nonfinancial_admin_audit.sql` adds service-only SECURITY INVOKER functions `admin_update_package_audited`, `admin_update_order_status_audited` and `admin_bulk_complete_orders_audited`. Each re-checks the stored role/permission inside the transaction and commits the mutation together with its audit row; the single-order function also takes an expected prior status. `PUBLIC`/`anon`/`authenticated` are revoked and `service_role` is granted.
+- Routes wired: `app/api/admin/packages/route.ts` (PUT), `app/api/admin/orders/route.ts`, `app/api/admin/orders/bulk/route.ts`.
+- `node --test tests/*.test.mjs` → 82/82 passed; `npm run typecheck` clean.
+- Production verified: migration `20260924180051_atomic_nonfinancial_admin_audit` was applied to Supabase. The three new RPCs were read back as `SECURITY INVOKER` with empty `search_path`, owned by `postgres`; `service_role` has EXECUTE and `anon`/`authenticated` do not.
+
 ## Project
+
 - Local application root: D:\Projects\bd21topup (do not prepend bd21topup to local paths).
 - Git repository has this app under the tracked bd21topup/ prefix; git show paths need that prefix.
 - GitHub: https://github.com/iamemon13/bd21topup
@@ -26,18 +37,21 @@ corrections still require strong evidence. Never blindly alter balances or histo
 - Vercel project prj_riOPtX7ShokApEVIHNT4tIIaSMJR, scope ekbotix.
 - Vercel connector list_teams returned empty; get_project tool has a schema mismatch.
   CLI is authenticated as iamemon13: npx --no-install vercel project ls --filter bd21 --json works.
-- Next.js 16.3.5. Read relevant node_modules/next/dist/docs before code changes.
+- Next.js 16.3.6. Read relevant node_modules/next/dist/docs before code changes.
 - Supabase/Next.js/Vercel skills were used. No subagents were used.
 
 ## State at creation of this handoff — READ THE FINAL STATUS BELOW TOO
+
 - main; f46a3bf commits the already applied seven-order repair plus its tests/report.
 - Additional urgent hardening changes are local and tested; initially not yet applied/deployed.
 - Do not mistake a migration file's presence for production application.
 - Recheck git status, git log, live migration history and Vercel deployment before continuing.
 
 ## Completed production financial repair
+
 Applied through Supabase migration tool:
 20260923190652_reconcile_proven_legacy_wallet_order_history
+
 - Exactly seven canonical order_payment/debit ledger entries inserted, total BDT 1509.
 - b5ffb675-4a9a-4bc6-8161-17eae9ddabfd: 2000 - 1109 = 891 unchanged.
 - c72627d1-e00a-49f2-bd3f-ab4aad852b0a: 1010 - 400 = 610 unchanged.
@@ -52,9 +66,11 @@ Applied through Supabase migration tool:
 - balance_after is reconstructed, created_at copied from order time; descriptions disclose this.
 
 ## Urgent hardening implemented locally
+
 Initial migration file:
 supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
 (May be renamed to actual remote timestamp after application; see final status.)
+
 1. service_role loses UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER on admin_audit_logs.
    SELECT/INSERT retained. Other code only reads/inserts audit logs.
 2. New service-only admin_financial_action RPC checks stored admin_roles permissions,
@@ -83,6 +99,7 @@ supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
 8. Removed pre-existing any annotation in touched admin add-money map (types infer now).
 
 ## Validation already completed
+
 - Typecheck passed.
 - Focused eslint passed after fixing touched-file issue.
 - 13 financial-audit DB tests passed: audit rollback, permissions, wallet adjustments,
@@ -97,6 +114,7 @@ supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
 - PGlite tests are isolated PostgreSQL fixtures, not concurrent live DB tests.
 
 ## Deployment sequence / crucial follow-up
+
 1. Finish production build, review git diff.
 2. Apply only hardening migration after checking live permissions/policies/index names.
 3. Rename local migration file to returned Supabase version, update DB test path.
@@ -118,7 +136,9 @@ supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
 6. Run Supabase advisors post-DDL; report informational unused indexes accurately.
 
 ## Deferred work — do not call the full audit complete
+
 ### Historical finance
+
 - 28 missing wallet-order ledger debits, all user ff05ca06-1160-4b59-bc22-32805a11dac6,
   total BDT 5830; current observed wallet 9944. Classified manual review, not auto-repair.
 - 19 withdrawals, 6 canonical debits, 13 gaps; historical logic changed between no
@@ -151,6 +171,7 @@ supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
   deployment activation dates are not proven from Git.
 
 ### Security / operations remaining
+
 - Secret scan of CURRENT TREE AND ALL GIT HISTORY not completed. Never print secret values.
   If active secret found: rotate/revoke first, update deployment env, then consider
   history cleanup; no destructive reset/rewrite without careful scope.
@@ -168,8 +189,11 @@ supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
   called server-side: siambhau69.eu.cc, goxtop.com, apis.ffbazar.com.
 - Rate counter cleanup/retention, IPv6 normalization and operational limit tuning
   merit review. Existing counters reused; no cleanup schedule added.
-- Nonfinancial status/role/package audit remains best-effort; critical financial
-  paths moved to wrapper. Review other mutations separately if expanding scope.
+- Nonfinancial status/role/package audit was best-effort when this file was written.
+  It became atomic on 2026-09-25 (commit 5704d60 / merge a019186, migration
+  20260924180051_atomic_nonfinancial_admin_audit.sql) for package updates and
+  single/bulk nonfinancial order transitions. Critical financial paths remain in the
+  audited wrapper. Review any other mutation surfaces separately if expanding scope.
 - Preserved historical 3-char external transaction IDs (ttt, gyy, 677, yuu) must not
   be rewritten. NOT VALID length constraint rejects short IDs on future row updates;
   investigate compatibility for admin operations without weakening new payment validation.
@@ -177,6 +201,7 @@ supabase/migrations/20260923191844_harden_financial_audit_and_access.sql
   creating financial traffic. Use staging/test accounts for further end-to-end tests.
 
 ## Rules for the next AI
+
 Read current files and live state. User authorization persists, but evidence still
 controls financial changes. Never expose service keys/tokens/passwords. Never db reset,
 delete history, rewrite transaction IDs, blindly adjust balances or bulk-fill gaps.
