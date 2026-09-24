@@ -222,6 +222,13 @@ export async function PATCH(request: Request) {
       );
     }
 
+    if (action === "rejected" && !adminNote) {
+      return NextResponse.json(
+        { error: "Reject করার কারণ দেওয়া বাধ্যতামূলক।" },
+        { status: 400 },
+      );
+    }
+
     /* =====================================================
        UNDO
     ===================================================== */

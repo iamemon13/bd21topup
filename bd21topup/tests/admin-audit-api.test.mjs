@@ -261,6 +261,171 @@ test("package update uses atomic audited RPC", async () => {
   );
 });
 
+test("single Add Money rejection requires a trimmed reason before the financial action", async () => {
+  const calls = [];
+  const requestId = target;
+  const admin = {
+    from: (table) => {
+      if (table === "notifications") {
+        return { insert: async () => ({ error: null }) };
+      }
+      if (table !== "add_money_requests") throw Error("Unexpected table " + table);
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: requestId, user_id: userId, amount: 25 },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    },
+  };
+
+  const api = load("app/api/admin/add-money/route.ts", {
+    ...next,
+    "@/lib/supabase-admin": { supabaseAdmin: admin },
+    "@/lib/admin-auth": {
+      checkUserRole: async () => ({ user: { id: actor }, role: "super_admin" }),
+    },
+    "@/lib/financial-audit": {
+      financialAction: (input) => {
+        calls.push(input);
+        throw Error("Unexpected financial write");
+      },
+    },
+  });
+
+  const response = await api.PATCH(new Request("https://example.test", {
+    method: "PATCH",
+    body: JSON.stringify({ requestId, action: "rejected", adminNote: "  " }),
+  }));
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "Reject করার কারণ দেওয়া বাধ্যতামূলক।");
+  assert.deepEqual(calls, []);
+});
+
+test("single Add Money rejection forwards the trimmed reason to the audited action", async () => {
+  const calls = [];
+  const requestId = target;
+  const admin = {
+    from: (table) => {
+      if (table === "notifications") {
+        return { insert: async () => ({ error: null }) };
+      }
+      if (table !== "add_money_requests") throw Error("Unexpected table " + table);
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: requestId, user_id: userId, amount: 25 },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    },
+  };
+
+  const api = load("app/api/admin/add-money/route.ts", {
+    ...next,
+    "@/lib/supabase-admin": { supabaseAdmin: admin },
+    "@/lib/admin-auth": {
+      checkUserRole: async () => ({ user: { id: actor }, role: "super_admin" }),
+    },
+    "@/lib/financial-audit": {
+      financialAction: async (input) => {
+        calls.push(input);
+        return { data: { success: true }, error: null };
+      },
+    },
+  });
+
+  const response = await api.PATCH(new Request("https://example.test", {
+    method: "PATCH",
+    body: JSON.stringify({ requestId, action: "rejected", adminNote: "  কারণ  " }),
+  }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [{
+    adminId: actor,
+    operation: "add_money",
+    targetId: requestId,
+    action: "rejected",
+    note: "কারণ",
+  }]);
+});
+
+test("withdrawal rejection requires a trimmed reason before the financial action", async () => {
+  const calls = [];
+  const api = load("app/api/admin/withdrawals/route.ts", {
+    ...next,
+    "@/lib/supabase-admin": { supabaseAdmin: {} },
+    "@/lib/admin-auth": {
+      checkUserRole: async () => ({ user: { id: actor }, role: "super_admin" }),
+    },
+    "@/lib/financial-audit": {
+      financialAction: (input) => {
+        calls.push(input);
+        throw Error("Unexpected financial write");
+      },
+    },
+  });
+
+  const response = await api.PATCH(new Request("https://example.test", {
+    method: "PATCH",
+    body: JSON.stringify({
+      withdrawalId: target,
+      status: "rejected",
+      reason: "  ",
+    }),
+  }));
+
+  assert.equal(response.status, 400);
+  assert.equal(
+    (await response.json()).error,
+    "বাতিল করার সঠিক কারণ (Reason) উল্লেখ করা বাধ্যতামূলক।",
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("withdrawal rejection forwards the trimmed reason to the audited action", async () => {
+  const calls = [];
+  const api = load("app/api/admin/withdrawals/route.ts", {
+    ...next,
+    "@/lib/supabase-admin": { supabaseAdmin: {} },
+    "@/lib/admin-auth": {
+      checkUserRole: async () => ({ user: { id: actor }, role: "super_admin" }),
+    },
+    "@/lib/financial-audit": {
+      financialAction: async (input) => {
+        calls.push(input);
+        return { data: { success: true }, error: null };
+      },
+    },
+  });
+
+  const response = await api.PATCH(new Request("https://example.test", {
+    method: "PATCH",
+    body: JSON.stringify({
+      withdrawalId: target,
+      status: "rejected",
+      reason: "  কারণ  ",
+    }),
+  }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [{
+    adminId: actor,
+    operation: "withdrawal",
+    targetId: target,
+    action: "rejected",
+    note: "কারণ",
+  }]);
+});
+
 test("single nonfinancial order transition uses atomic audited RPC", async () => {
   const calls = [];
 
