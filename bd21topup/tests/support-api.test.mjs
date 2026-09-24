@@ -22,12 +22,13 @@ const otherId = 'BD21-WDR-9A4B7C2D9E1F';
 
 function app({ token = 'valid', role = 'editor', permissions = ['manage_orders'], failure, extraCases = 0, schemaError, columnError } = {}) {
   const reads = [];
+  const rpcCalls = [];
   const tables = {
     support_cases: [
-      { id: 'case-own', user_id: 'owner', case_type: 'ORD', order_id: 'order-own', support_id: id, status: 'open', reason: 'কারণ' },
+      { id: 'case-own', user_id: 'owner', case_type: 'ORD', order_id: 'order-own', support_id: id, status: 'open', reason: 'কারণ', resolution_note: null, resolved_at: null, resolved_by: null },
       { id: 'case-other', user_id: 'other', case_type: 'WDR', withdrawal_id: 'withdrawal-other', support_id: otherId, status: 'open', reason: 'private' },
-      { id: 'case-add', user_id: 'owner', case_type: 'ADD', add_money_request_id: 'add-own', support_id: 'BD21-ADD-8A4B7C2D9E1F', status: 'open', reason: 'অ্যাড মানি' },
-      { id: 'case-wdr', user_id: 'owner', case_type: 'WDR', withdrawal_id: 'withdrawal-own', support_id: 'BD21-WDR-8A4B7C2D9E1F', status: 'open', reason: 'উত্তোলন' },
+      { id: 'case-add', user_id: 'owner', case_type: 'ADD', add_money_request_id: 'add-own', support_id: 'BD21-ADD-8A4B7C2D9E1F', status: 'open', reason: 'অ্যাড মানি', resolution_note: null, resolved_at: null, resolved_by: null },
+      { id: 'case-wdr', user_id: 'owner', case_type: 'WDR', withdrawal_id: 'withdrawal-own', support_id: 'BD21-WDR-8A4B7C2D9E1F', status: 'open', reason: 'উত্তোলন', resolution_note: null, resolved_at: null, resolved_by: null },
     ],
     orders: [{ id: 'order-own', user_id: 'owner', status: 'cancelled', amount: 10 }],
     admin_roles: role ? [{ user_id: 'owner', role, permissions }] : [],
@@ -37,9 +38,31 @@ function app({ token = 'valid', role = 'editor', permissions = ['manage_orders']
     wallet_transactions: [],
     notifications: [{ id: 'notification-own', user_id: 'owner', support_case_id: 'case-own' },
       { id: 'foreign-link', user_id: 'owner', support_case_id: 'case-other' }],
+    admin_audit_logs: [],
   };
   const supabaseAdmin = {
     auth: { getUser: async (received) => ({ data: { user: received === token && received === 'valid' ? { id: 'owner' } : null }, error: null }) },
+    rpc(name, params) {
+      rpcCalls.push({ name, params });
+      if (name !== 'admin_resolve_support_case') return Promise.resolve({ data: null, error: { code: 'unexpected' } });
+      const row = tables.support_cases.find((candidate) => candidate.id === params.p_support_case_id);
+      const admin = tables.admin_roles.find((candidate) => candidate.user_id === params.p_admin_id);
+      const permissionsByType = { ORD: 'manage_orders', ADD: 'manage_add_money', WDR: 'manage_withdrawals' };
+      const note = typeof params.p_resolution_note === 'string' ? params.p_resolution_note.trim() : '';
+      if (!admin || !['super_admin', 'admin', 'editor'].includes(admin.role) ||
+          (admin.role !== 'super_admin' && !admin.permissions.includes(row && permissionsByType[row.case_type]))) {
+        return Promise.resolve({ data: null, error: { code: '42501' } });
+      }
+      if (!note || note.length > 500) return Promise.resolve({ data: null, error: { code: '22023' } });
+      if (!row) return Promise.resolve({ data: null, error: { code: 'P0002' } });
+      if (row.status !== 'open') return Promise.resolve({ data: null, error: { code: '55000' } });
+      row.status = 'resolved';
+      row.resolution_note = note;
+      row.resolved_at = '2026-09-25T12:00:00.000Z';
+      row.resolved_by = params.p_admin_id;
+      tables.admin_audit_logs.push({ admin_id: params.p_admin_id, action_type: 'SUPPORT_CASE_RESOLVED', target_id: row.id });
+      return Promise.resolve({ data: [{ ...row, updated_at: row.resolved_at }], error: null });
+    },
     from(table) {
       const filters = [];
       let single = false;
@@ -76,11 +99,19 @@ function app({ token = 'valid', role = 'editor', permissions = ['manage_orders']
   };
   imports['@/lib/admin-auth'] = moduleFrom('lib/admin-auth.ts', imports);
   imports['@/lib/support-cases'] = moduleFrom('lib/support-cases.ts', imports);
-  return { reads, loadCases: imports['@/lib/support-cases'].loadUserSupportCases, route: (name) => moduleFrom(`app/api/${name}/route.ts`, imports) };
+  return { reads, rpcCalls, tables, loadCases: imports['@/lib/support-cases'].loadUserSupportCases, route: (name) => moduleFrom(`app/api/${name}/route.ts`, imports) };
 }
 
 function request(path = '', token = 'valid') {
   return new Request(`http://localhost/api/${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+}
+
+function jsonRequest(path, body, token = 'valid') {
+  return new Request(`http://localhost/api/${path}`, {
+    method: 'POST',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 test('Telegram contact includes only the reference and a receipt prompt; bot payload is valid', () => {
@@ -204,8 +235,52 @@ test('admin error responses cannot be cached across credentials', async (t) => {
   }
 });
 
-test('new support routes expose no mutation handler', () => {
-  assert.deepEqual(Object.keys(app().route('admin/support-cases')), ['GET']);
+test('support resolution route is the only support mutation handler', () => {
+  assert.deepEqual(Object.keys(app().route('admin/support-cases')).sort(), ['GET', 'POST']);
+});
+
+test('support resolution enforces auth, permissions, note validation, and idempotency', async () => {
+  for (const token of ['', 'expired']) {
+    const env = app();
+    assert.equal((await env.route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: id, resolutionNote: 'handled' }, token))).status, 401);
+    assert.deepEqual(env.rpcCalls, []);
+  }
+  assert.equal((await app({ role: 'user', permissions: [] }).route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: id, resolutionNote: 'handled' }))).status, 403);
+  assert.equal((await app({ permissions: ['manage_add_money'] }).route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: id, resolutionNote: 'handled' }))).status, 403);
+  for (const note of ['', '   ']) {
+    assert.equal((await app().route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: id, resolutionNote: note }))).status, 400);
+  }
+  assert.equal((await app().route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: id, resolutionNote: 'x'.repeat(501) }))).status, 400);
+  assert.equal((await app().route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: 'invalid', resolutionNote: 'handled' }))).status, 400);
+  assert.equal((await app().route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: 'BD21-ORD-AAAAAAAAAAAA', resolutionNote: 'handled' }))).status, 404);
+
+  for (const [caseSupportId, permission] of [
+    ['BD21-ADD-8A4B7C2D9E1F', 'manage_add_money'],
+    ['BD21-WDR-8A4B7C2D9E1F', 'manage_withdrawals'],
+  ]) {
+    const permitted = await app({ permissions: [permission] }).route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: caseSupportId, resolutionNote: 'handled' }));
+    assert.equal(permitted.status, 200);
+  }
+
+  const env = app();
+  const first = await env.route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: ` ${id.toLowerCase()} `, resolutionNote: '  handled with receipt  ' }));
+  assert.equal(first.status, 200);
+  const firstBody = await first.json();
+  assert.equal(firstBody.support.status, 'resolved');
+  assert.equal(firstBody.resolutionNote, 'handled with receipt');
+  assert.equal(firstBody.resolvedAt, '2026-09-25T12:00:00.000Z');
+  assert.equal(firstBody.resolvedBy.email, 'customer@example.invalid');
+  assert.equal(env.tables.orders[0].status, 'cancelled');
+  assert.equal(env.tables.wallet_transactions.length, 0);
+  assert.deepEqual(env.rpcCalls.map((call) => call.name), ['admin_resolve_support_case']);
+  assert.equal(env.tables.admin_audit_logs[0].action_type, 'SUPPORT_CASE_RESOLVED');
+
+  const second = await env.route('admin/support-cases').POST(jsonRequest('admin/support-cases', { supportId: id, resolutionNote: 'again' }));
+  assert.equal(second.status, 409);
+  const lookup = await env.route('admin/support-cases').GET(request(`admin/support-cases?supportId=${id}`));
+  const lookupBody = await lookup.json();
+  assert.equal(lookupBody.support.status, 'resolved');
+  assert.equal(lookupBody.resolutionNote, 'handled with receipt');
 });
 
 test('support lookup pages past the PostgREST row limit without losing old cases', async () => {

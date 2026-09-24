@@ -23,6 +23,14 @@ type SupportCaseRow = {
   order_id: string | null;
   add_money_request_id: string | null;
   withdrawal_id: string | null;
+  resolution_note?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+};
+
+type ResolverProfile = {
+  full_name: string | null;
+  email: string | null;
 };
 
 function canReadCaseType(
@@ -39,6 +47,20 @@ function respond(body: unknown, status = 200) {
     status,
     headers: { "Cache-Control": "private, no-store", Vary: "Authorization" },
   });
+}
+
+async function loadResolverProfile(resolvedBy: string | null | undefined) {
+  if (!resolvedBy) return null;
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", resolvedBy)
+    .maybeSingle();
+  if (error) throw new Error("Support resolver lookup failed");
+  const profile = data as ResolverProfile | null;
+  return profile
+    ? { fullName: profile.full_name || null, email: profile.email || null }
+    : null;
 }
 
 export async function GET(request: Request) {
@@ -127,20 +149,100 @@ export async function GET(request: Request) {
     const auth = await checkUserRole(request, ["super_admin", "admin", "editor"], permission);
     if ("error" in auth) return respond({ error: auth.error }, auth.status);
     const { data, error } = await supabaseAdmin.from("support_cases")
-      .select("support_id, case_type, status, reason, created_at, updated_at, order_id, add_money_request_id, withdrawal_id")
+      .select("id, support_id, case_type, status, reason, created_at, updated_at, order_id, add_money_request_id, withdrawal_id, resolution_note, resolved_at, resolved_by")
       .eq("support_id", supportId).maybeSingle();
     if (error && isSupportTableMissing(error)) {
       return respond({ error: "Support Case এখনো চালু হয়নি। Database migration প্রয়োজন।" }, 503);
     }
     if (error) throw new Error("Support lookup failed");
     if (!data) return respond({ error: "Support Case পাওয়া যায়নি।" }, 404);
+    const resolver = await loadResolverProfile(data.resolved_by);
     return respond({
       support: publicSupportCase(data), caseType: data.case_type,
       createdAt: data.created_at, updatedAt: data.updated_at,
+      resolutionNote: data.resolution_note ?? null,
+      resolvedAt: data.resolved_at ?? null,
+      resolvedBy: resolver,
       // The related ID is useful only to authorized staff inspecting the existing admin record.
       operationId: data.order_id ?? data.add_money_request_id ?? data.withdrawal_id,
     });
   } catch {
     return respond({ error: "Support Case লোড করা যায়নি।" }, 500);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return respond({ error: "সঠিক resolution note দিন।" }, 400);
+    }
+
+    const supportId = typeof body === "object" && body !== null && "supportId" in body &&
+      typeof body.supportId === "string"
+      ? body.supportId.trim().toUpperCase()
+      : "";
+    const resolutionNote = typeof body === "object" && body !== null && "resolutionNote" in body &&
+      typeof body.resolutionNote === "string"
+      ? body.resolutionNote.trim()
+      : "";
+    const permission = supportPermission(supportId);
+    if (!permission) return respond({ error: "সঠিক Support ID দিন।" }, 400);
+    if (!resolutionNote || resolutionNote.length > 500) {
+      return respond({ error: "Resolution Note আবশ্যক এবং ৫০০ অক্ষরের মধ্যে হতে হবে।" }, 400);
+    }
+
+    const auth = await checkUserRole(request, ["super_admin", "admin", "editor"], permission);
+    if ("error" in auth) return respond({ error: auth.error }, auth.status);
+
+    const { data: caseRow, error: lookupError } = await supabaseAdmin
+      .from("support_cases")
+      .select("id, support_id, case_type, status, reason, created_at, updated_at, order_id, add_money_request_id, withdrawal_id")
+      .eq("support_id", supportId)
+      .maybeSingle();
+    if (lookupError && isSupportTableMissing(lookupError)) {
+      return respond({ error: "Support Case এখনো চালু হয়নি। Database migration প্রয়োজন।" }, 503);
+    }
+    if (lookupError) throw new Error("Support case resolution lookup failed");
+    if (!caseRow) return respond({ error: "Support Case পাওয়া যায়নি।" }, 404);
+
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip")?.trim() || "unknown";
+    const { data: resolvedRows, error: resolveError } = await supabaseAdmin.rpc(
+      "admin_resolve_support_case",
+      {
+        p_admin_id: auth.user.id,
+        p_support_case_id: caseRow.id,
+        p_resolution_note: resolutionNote,
+        p_ip: ipAddress,
+      },
+    );
+    if (resolveError) {
+      if (resolveError.code === "42501") return respond({ error: "এই Support Case resolve করার permission নেই।" }, 403);
+      if (resolveError.code === "22023") return respond({ error: "Resolution Note সঠিক নয়।" }, 400);
+      if (resolveError.code === "P0002") return respond({ error: "Support Case পাওয়া যায়নি।" }, 404);
+      if (resolveError.code === "55000") return respond({ error: "Support Case ইতোমধ্যে resolve বা close করা হয়েছে।" }, 409);
+      console.error("SUPPORT CASE RESOLUTION ERROR:", resolveError);
+      return respond({ error: "Support Case resolve করা যায়নি।" }, 500);
+    }
+
+    const resolved = Array.isArray(resolvedRows) ? resolvedRows[0] : null;
+    if (!resolved) return respond({ error: "Support Case resolve করা যায়নি।" }, 500);
+    const resolver = await loadResolverProfile(resolved.resolved_by);
+    return respond({
+      success: true,
+      support: publicSupportCase(resolved),
+      caseType: resolved.case_type,
+      createdAt: caseRow.created_at,
+      updatedAt: resolved.updated_at,
+      resolutionNote: resolved.resolution_note,
+      resolvedAt: resolved.resolved_at,
+      resolvedBy: resolver,
+      operationId: caseRow.order_id ?? caseRow.add_money_request_id ?? caseRow.withdrawal_id,
+    });
+  } catch {
+    return respond({ error: "Support Case resolve করা যায়নি।" }, 500);
   }
 }
