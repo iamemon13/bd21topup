@@ -176,7 +176,7 @@ export default function AdminDashboard() {
                 )}
 
                 {showNotif && (
-                  <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-cyan-400/30 bg-[#0b294d] p-3 shadow-2xl">
+                  <div className="fixed right-4 top-20 z-50 w-[min(16rem,calc(100vw-2rem))] rounded-2xl border border-cyan-400/30 bg-[#0b294d] p-3 shadow-2xl sm:absolute sm:right-0 sm:top-12 sm:w-64">
                     <h3 className="mb-2 px-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">
                       Notifications
                     </h3>
