@@ -4,6 +4,36 @@ This document highlights engineering problems identified and solved during devel
 
 Format: **Problem → Root Cause → Solution → Verification / Evidence**.
 
+## 2026-09-24 — Remaining audit and targeted fixes
+
+**Commit:** `ed5fc89fa257c6fec0acaca559dc3405b10e24fd` — deployed to production; Vercel READY.
+
+**Problem:** Role or permission changes could succeed without an audit record.
+
+**Root cause:** The API performed an admin_roles upsert, then called best-effort logAdminAction separately.
+
+**Solution:** Applied `20260924165709_atomic_admin_role_audit`; the API calls a service-only SECURITY INVOKER RPC. It validates stored Super Admin authority and inputs, prevents self-demotion, serializes concurrent calls and commits the role write/audit together. No RLS or financial privilege relaxation.
+
+**Verification:** 11 new isolated database tests cover audit-failure rollback, authorization, ACLs, validation and missing targets; API tests cover verified actor derivation and forbidden roles. A live service-role execution was fully rolled back.
+
+**Problem:** Bulk completion attempted to update a column absent from production.
+
+**Root cause:** `orders.updated_at` was present in the update payload but absent from the live schema.
+
+**Solution:** Removed only that assignment; retained the pending/approved/processing state filter. Regression test passed; no real orders were completed for testing.
+
+**Problem:** npm audit reported zero despite a new upstream Next.js security advisory.
+
+**Solution:** Reviewed GHSA-vcvr-r3jv-pc5j and patched Next.js to 16.3.6, aligning eslint-config-next. This app has no affected ImageResponse usage; do not claim demonstrated RCE exposure.
+
+**Verification:** 71/71 total tests, typecheck, focused ESLint, production build and diff checks passed. npm audit remained zero; 369 registry signatures and 95 attestations verified. Preview and production-origin read-only APIs returned expected unauthenticated 401s; baseline headers verified.
+
+**Investigated, not financially repaired:** all-history secret scan found no real repository secrets; 28 wallet-order gaps, 13 withdrawal gaps and three completed/refunded orders were reviewed read-only. Historical deployment/approval/balance evidence remains insufficient for corrections. Detailed customer evidence is private/local, not published here.
+
+The user stopped further audit work and requested a handoff. See [audit report](REMAINING_SECURITY_AUDIT_2026-09-24.md) and [next-session handoff](NEXT_AUDIT_HANDOFF.md) for remaining work and exact limitations.
+
+---
+
 ## 1. Admin Packages API / Vercel 500
 **Commit:** `32d140a`
 

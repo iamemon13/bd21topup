@@ -2,6 +2,18 @@
 
 This file converts the raw Git history into a readable engineering timeline. The exact raw history is generated separately in `COMMIT_HISTORY.md`.
 
+## 2026-09-24 — Security audit continuation and handoff
+
+- `ed5fc89` — transactional role/permission audit, bulk completion schema correction, Next.js/eslint-config-next 16.3.6 security patch.
+- Applied and verified `20260924165709_atomic_admin_role_audit`, using SECURITY INVOKER with service-only execution. Existing financial wrapper/legacy ACLs preserved.
+- 71 tests passed; typecheck, ESLint, production build, npm audit and registry signature verification completed.
+- Gitleaks scanned Git history and all historical blobs with redacted output. No real repository secret found; local ignored credentials and fake fixtures documented separately.
+- Investigated all 44 historical financial candidates without modifying balances or history. Manual evidence still required.
+- Preview and production deployment READY; protected read-only origin APIs rejected unauthenticated requests; baseline headers verified.
+- User requested stopping remaining work and publishing a Markdown handoff plus this problem-solving/history record. Strict CSP, other audit atomicity, proxy/retention work and authenticated browser acceptance remain unfinished.
+
+See [full report](REMAINING_SECURITY_AUDIT_2026-09-24.md) and [handoff](NEXT_AUDIT_HANDOFF.md).
+
 ## 2026-09-10 — Initial production snapshot
 
 - `7cf8f2f` — Initial BD21 Top Up project backup

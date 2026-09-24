@@ -11,6 +11,14 @@ For the curated engineering story, see:
 
 | Date | Commit | Message |
 |---|---|---|
+| 2026-09-24 | `ed5fc89` | security: make role audits atomic and update Next.js security patch |
+| 2026-09-24 | `776cceb` | fix: improve admin activity log search |
+| 2026-09-24 | `97d5a37` | docs: finalize security audit handoff |
+| 2026-09-24 | `2550a2c` | security: close legacy admin financial RPC entrypoints |
+| 2026-09-24 | `0650bc0` | security: make financial audits atomic and throttle payment requests |
+| 2026-09-24 | `f46a3bf` | fix: reconcile seven proven legacy wallet history gaps |
+| 2026-09-24 | `a15d659` | Merge pull request #5 from iamemon13/docs/finalize-project-history |
+| 2026-09-24 | `d57dacf` | docs: finalize project history |
 | 2026-09-23 | `5b2a498` | docs: fix portfolio README paths |
 | 2026-09-23 | `d18cfb1` | docs: finalize GitHub portfolio and issue workflow |
 | 2026-09-23 | `f5133db` | docs: document project journey and problem-solving history |

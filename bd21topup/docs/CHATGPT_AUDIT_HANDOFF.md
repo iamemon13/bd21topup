@@ -5,6 +5,18 @@ User requested urgent work only due to low usage quota, then a Markdown handoff.
 User has authorized remaining audit work, commits/pushes and deployment, but financial
 corrections still require strong evidence. Never blindly alter balances or history.
 
+## Latest continuation — 2026-09-24, user-requested stop
+
+**Read [NEXT_AUDIT_HANDOFF.md](NEXT_AUDIT_HANDOFF.md) first.** It supersedes outdated TODOs below. The user stopped further audit work and requested committed changes, GitHub history/problem-solution notes and a new Markdown handoff.
+
+- Application commit `ed5fc89fa257c6fec0acaca559dc3405b10e24fd` merged/pushed to main and production READY (`bd21topup-2yv765qkk-ekbotix.vercel.app`).
+- Applied migration `20260924165709_atomic_admin_role_audit`: service-only SECURITY INVOKER RPC makes role/permission writes and audits atomic. Do not reapply.
+- Fixed bulk completion's nonexistent orders.updated_at assignment; upgraded Next.js/eslint-config-next to 16.3.6.
+- 71/71 tests; typecheck, focused ESLint, production build, npm audit/signatures passed.
+- History secret scan completed with Gitleaks plus all 546 baseline blobs and project-specific checks. No real repository leak found. See report for coverage and limitations.
+- All 44 historical financial candidates reviewed read-only, no proven repair and no balance/history mutation. Private per-candidate evidence is outside public GitHub; location in new handoff.
+- [Full audit report](REMAINING_SECURITY_AUDIT_2026-09-24.md) records remaining items, exact deployment state, advisor notices and blocked authenticated browser checks.
+
 ## Project
 - Local application root: D:\Projects\bd21topup (do not prepend bd21topup to local paths).
 - Git repository has this app under the tracked bd21topup/ prefix; git show paths need that prefix.
