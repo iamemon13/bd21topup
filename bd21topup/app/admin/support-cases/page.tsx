@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { SupportCase } from "@/lib/support";
+import AdminPageHeader, { adminPrimaryActionClass } from "@/components/AdminPageHeader";
+import AdminSearchInput from "@/components/AdminSearchInput";
 
 type Result = {
   support: SupportCase;
@@ -25,11 +28,13 @@ type SupportListItem = Result & {
 };
 
 export default function AdminSupportCasesPage() {
+  const router = useRouter();
   const [supportId, setSupportId] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [cases, setCases] = useState<SupportListItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [resolutionNote, setResolutionNote] = useState("");
   const [resolutionError, setResolutionError] = useState("");
   const [resolving, setResolving] = useState(false);
@@ -51,7 +56,7 @@ export default function AdminSupportCasesPage() {
       }
     }
     void loadCases();
-  }, []);
+  }, [refreshToken]);
 
   useEffect(() => {
     if (!result) return;
@@ -61,6 +66,16 @@ export default function AdminSupportCasesPage() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [result]);
+
+  async function logout() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
+  async function refreshSupportCases() {
+    setRefreshToken((value) => value + 1);
+    if (result) await lookup(result.support.supportId);
+  }
 
   async function lookup(supportIdToLoad: string) {
     const normalizedSupportId = supportIdToLoad.trim().toUpperCase();
@@ -130,14 +145,28 @@ export default function AdminSupportCasesPage() {
   return (
     <main className="min-h-screen bg-[#07182f] px-4 pb-24 pt-8 text-white sm:pb-8">
       <div className="mx-auto max-w-xl space-y-5">
-        <Link href="/admin" className="text-sm text-cyan-300">← Admin Dashboard</Link>
-        <h1 className="text-2xl font-black">Support Cases</h1>
+        <AdminPageHeader
+          title="Support Cases"
+          subtitle="Search, review, and resolve support workflow records."
+          onRefresh={refreshSupportCases}
+          refreshDisabled={loading || resolving}
+          onLogout={logout}
+        />
         <section className="space-y-3 rounded-xl border border-cyan-400/20 bg-[#0b2545] p-4">
           <h2 className="text-lg font-black">Support Case খুঁজুন</h2>
           <form onSubmit={(event) => { event.preventDefault(); void lookup(supportId); }} className="space-y-3">
             <label htmlFor="support-id" className="block text-sm">Support ID</label>
-            <input id="support-id" value={supportId} onChange={(e) => setSupportId(e.target.value)} maxLength={21} required autoComplete="off" placeholder="BD21-ORD-8A4B7C2D9E1F" className="w-full min-w-0 rounded-xl border border-cyan-400/30 bg-[#0b2545] p-3 font-mono" />
-            <button type="submit" disabled={loading} className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black disabled:opacity-50">{loading ? "খোঁজা হচ্ছে…" : "Case দেখুন"}</button>
+            <AdminSearchInput
+              value={supportId}
+              onChange={setSupportId}
+              maxLength={21}
+              type="text"
+              placeholder="BD21-ORD-8A4B7C2D9E1F"
+              ariaLabel="Support ID"
+            />
+            <button type="submit" disabled={loading} className={`${adminPrimaryActionClass} w-full disabled:opacity-50`}>
+              {loading ? "খোঁজা হচ্ছে…" : "Case দেখুন"}
+            </button>
           </form>
         </section>
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}

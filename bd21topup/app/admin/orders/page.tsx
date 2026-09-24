@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminSearchInput from "@/components/AdminSearchInput";
 
 type Order = {
   id: string;
@@ -354,39 +355,16 @@ export default function AdminOrdersPage() {
     <>
       <main className="min-h-screen bg-[#07182f] px-3 py-4 pb-24 text-white sm:px-5">
         <div className="mx-auto w-full max-w-6xl">
-          <header className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
-                  BD21 Admin
-                </p>
-                <h1 className="text-xl font-black sm:text-2xl">
-                  Orders Dashboard
-                </h1>
-                <p className="text-xs text-slate-400">
-                  Manage customer orders and payment status
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link
-                  href="/admin"
-                  className="rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300"
-                >
-                  Home
-                </Link>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    router.replace("/login");
-                  }}
-                  className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </header>
+          <AdminPageHeader
+            title="Orders Dashboard"
+            subtitle="Manage customer orders and payment status"
+            onRefresh={loadOrders}
+            refreshDisabled={isLoading}
+            onLogout={async () => {
+              await supabase.auth.signOut();
+              router.replace("/login");
+            }}
+          />
 
           <section className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatCard label="TOTAL" value={stats.total} />
@@ -404,37 +382,15 @@ export default function AdminOrdersPage() {
                   {filteredOrders.length !== 1 ? "s" : ""} found
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={loadOrders}
-                disabled={isLoading}
-                className="rounded-lg border border-cyan-400/30 px-3 py-2 text-xs font-bold text-cyan-300 disabled:opacity-50"
-              >
-                {isLoading ? "Loading..." : "Refresh"}
-              </button>
             </div>
 
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                🔍
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search Order ID, UID, Player, Transaction ID..."
-                className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <AdminSearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search Order ID, UID, Player, Transaction ID..."
+              clearable
+              ariaLabel="Search orders"
+            />
 
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
               {[

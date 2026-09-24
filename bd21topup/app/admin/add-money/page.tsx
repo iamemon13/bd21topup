@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminSearchInput from "@/components/AdminSearchInput";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 
@@ -335,53 +336,22 @@ export default function AdminAddMoneyPage() {
     <>
       <main className="min-h-screen w-full overflow-x-hidden bg-[#07182f] pb-24 text-white">
         <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-5">
-          {/* HEADER */}
-          <div className="rounded-2xl border border-cyan-400/15 bg-[#0b2545] p-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
-              BD21 Admin
-            </p>
-            <h1 className="mt-1 text-2xl font-black">Add Money Requests</h1>
-            <p className="mt-2 text-sm text-slate-400">
-              Customer wallet top-up claims review করুন।
-            </p>
-            <div className="mt-4 flex gap-2">
-              <Link
-                href="/admin"
-                className="rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300"
-              >
-                Home
-              </Link>
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]"
-              >
-                Logout
-              </button>
-            </div>
+          <AdminPageHeader
+            title="Add Money Requests"
+            subtitle="Customer wallet top-up claims review করুন।"
+            onRefresh={loadRequests}
+            refreshDisabled={loading}
+            onLogout={logout}
+          />
 
-            {/* SEARCH */}
-            <div className="relative mt-5">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                🔍
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, email, phone, transaction ID, request ID..."
-                className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+          <div className="mt-3 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-4">
+            <AdminSearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search name, email, phone, transaction ID, request ID..."
+              clearable
+              ariaLabel="Search add money requests"
+            />
             {!loading && (
               <p className="mt-2 text-[10px] text-slate-500">
                 Showing {filteredRequests.length} of {requests.length} requests
@@ -426,14 +396,6 @@ export default function AdminAddMoneyPage() {
                 {filteredRequests.length !== 1 ? "s" : ""}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={loadRequests}
-              disabled={loading}
-              className="rounded-xl border border-cyan-400/20 px-4 py-2 text-xs font-black text-cyan-300 disabled:opacity-50"
-            >
-              {loading ? "Loading..." : "Refresh"}
-            </button>
           </div>
 
           {/* STATUS FILTER */}

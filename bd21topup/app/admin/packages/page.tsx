@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import AdminPageHeader from "@/components/AdminPageHeader";
 
 type Package = {
   id: string;
@@ -143,30 +143,15 @@ export default function AdminPackages() {
     });
 
   return (
-    <main className="min-h-screen bg-[#07182f] p-5 text-white sm:p-10">
+    <main className="min-h-screen bg-[#07182f] p-5 pb-24 text-white sm:p-10 sm:pb-10">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-400/20 pb-5">
-          <div>
-            <h1 className="text-2xl font-black text-cyan-400">BD21 ADMIN</h1>
-            <p className="text-sm text-slate-400">
-              Manage Package Names & Prices
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/admin"
-              className="rounded-lg border border-cyan-400/20 bg-[#0b2545] px-4 py-2 text-sm font-bold transition hover:border-cyan-400"
-            >
-              Dashboard
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-400 transition hover:bg-rose-500 hover:text-white"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        <AdminPageHeader
+          title="Packages"
+          subtitle="Manage Package Names & Prices"
+          onRefresh={fetchPackages}
+          refreshDisabled={loading}
+          onLogout={handleLogout}
+        />
 
         {!selectedCategory ? (
           <div>
