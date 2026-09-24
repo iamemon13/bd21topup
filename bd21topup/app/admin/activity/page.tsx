@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminSearchInput, { adminInputClass } from "@/components/AdminSearchInput";
 
 type ActivityItem = {
   id: string;
@@ -32,6 +33,7 @@ export default function AdminActivityPage() {
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshToken, setRefreshToken] = useState(0);
 
   const [page, setPage] = useState(1);
 
@@ -191,7 +193,7 @@ export default function AdminActivityPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [page, searchFilter, actionFilter, adminFilter, router]);
+  }, [page, searchFilter, actionFilter, adminFilter, refreshToken, router]);
 
   function handleFilter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -244,34 +246,22 @@ export default function AdminActivityPage() {
     return role.replaceAll("_", " ").toUpperCase();
   }
 
+  async function logout() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
   return (
-    <main className="min-h-screen bg-[#061b35] p-4 text-white">
+    <main className="min-h-screen bg-[#061b35] p-4 pb-24 text-white sm:pb-6">
       <div className="mx-auto w-full max-w-6xl">
-        {/* HEADER */}
-        <div className="rounded-2xl border border-cyan-500/30 bg-[#0b294d] p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-cyan-300">
-                Super Admin Only
-              </p>
-
-              <h1 className="mt-1 text-2xl font-black sm:text-3xl">
-                Activity Log
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-300">
-                Admin ও Editor-দের গুরুত্বপূর্ণ কার্যক্রম দেখুন।
-              </p>
-            </div>
-
-            <Link
-              href="/admin"
-              className="rounded-xl border border-cyan-400/30 px-4 py-2.5 text-center text-sm font-bold text-cyan-300 transition hover:bg-cyan-400/10"
-            >
-              ← Dashboard
-            </Link>
-          </div>
-        </div>
+        <AdminPageHeader
+          title="Activity Log"
+          subtitle="Admin ও Editor-দের গুরুত্বপূর্ণ কার্যক্রম দেখুন।"
+          eyebrow="Super Admin Only"
+          onRefresh={() => setRefreshToken((value) => value + 1)}
+          refreshDisabled={loading}
+          onLogout={logout}
+        />
 
         {/* SEARCH + FILTERS */}
         <form
@@ -285,13 +275,12 @@ export default function AdminActivityPage() {
               Search
             </label>
 
-            <input
-              type="search"
+            <AdminSearchInput
               value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
+              onChange={setSearchInput}
               maxLength={100}
               placeholder="Email, Admin ID, Action, Target ID, Details or IP"
-              className="w-full rounded-xl border border-cyan-500/20 bg-[#07182f] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
+              ariaLabel="Search activity"
             />
 
             <p className="mt-2 text-xs text-slate-500">
@@ -311,7 +300,7 @@ export default function AdminActivityPage() {
                 onChange={(event) => setActionInput(event.target.value)}
                 maxLength={100}
                 placeholder="যেমন: CANCEL_ORDER"
-                className="w-full rounded-xl border border-cyan-500/20 bg-[#07182f] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
+                className={adminInputClass}
               />
             </div>
 
@@ -325,7 +314,7 @@ export default function AdminActivityPage() {
                 value={adminInput}
                 onChange={(event) => setAdminInput(event.target.value)}
                 placeholder="Admin UUID"
-                className="w-full rounded-xl border border-cyan-500/20 bg-[#07182f] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
+                className={adminInputClass}
               />
             </div>
           </div>

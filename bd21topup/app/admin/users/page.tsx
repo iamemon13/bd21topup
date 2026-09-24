@@ -1,9 +1,10 @@
 ﻿"use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminSearchInput from "@/components/AdminSearchInput";
 
 type User = {
   id: string;
@@ -255,60 +256,22 @@ export default function AdminUsersPage() {
   return (
     <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-[#07182f] p-4 text-white pb-24">
       <div className="mx-auto w-full max-w-5xl">
-        <div className="rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-black text-cyan-400">BD21 Users</h1>
-              <p className="mt-1 text-sm text-slate-400">
-                Manage users, roles, and wallets
-              </p>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={loadUsers}
-                disabled={loading}
-                className="flex-1 sm:flex-none rounded-xl border border-cyan-400/30 px-3 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/10"
-              >
-                {loading ? "Loading..." : "Refresh"}
-              </button>
-              <Link
-                href="/admin"
-                className="flex-1 sm:flex-none text-center rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/10"
-              >
-                Home
-              </Link>
-              <button
-                type="button"
-                onClick={logout}
-                className="flex-1 sm:flex-none rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e] transition hover:opacity-90"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+        <AdminPageHeader
+          title="BD21 Users"
+          subtitle="Manage users, roles, and wallets"
+          onRefresh={loadUsers}
+          refreshDisabled={loading}
+          onLogout={logout}
+        />
 
-          <div className="relative mt-5">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-              🔍
-            </span>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, email, phone, role..."
-              className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#07182f] pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+        <div className="mt-3 rounded-2xl border border-cyan-400/20 bg-[#0b2545] p-4">
+          <AdminSearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name, email, phone, role..."
+            clearable
+            ariaLabel="Search users"
+          />
           {!loading && (
             <p className="mt-2 text-[10px] text-slate-500">
               Showing {filteredUsers.length} of {users.length} users

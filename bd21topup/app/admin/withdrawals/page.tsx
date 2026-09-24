@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
+import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminSearchInput from "@/components/AdminSearchInput";
 
 type Withdrawal = {
   id: string;
@@ -214,57 +215,24 @@ export default function AdminWithdrawalsPage() {
   return (
     <main className="min-h-screen bg-[#061b35] p-4 pb-24 text-white sm:p-6">
       <div className="mx-auto max-w-4xl space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between rounded-2xl border border-cyan-500/30 bg-[#0b294d] p-4">
-          <div>
-            <h1 className="text-xl font-black text-cyan-400">
-              Withdrawal Requests
-            </h1>
-            <p className="text-xs text-slate-300">
-              ইউজারদের সকল উইথড্র রিকোয়েস্ট ম্যানেজ করুন
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/admin"
-              className="rounded-xl border border-cyan-400/20 bg-[#07182f] px-3 py-2 text-xs font-bold text-cyan-300 transition hover:border-cyan-400"
-            >
-              Home
-            </Link>
-            <button
-              type="button"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                router.replace("/login");
-              }}
-              className="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-black text-[#06172e]"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        <AdminPageHeader
+          title="Withdrawal Requests"
+          subtitle="ইউজারদের সকল উইথড্র রিকোয়েস্ট ম্যানেজ করুন"
+          onRefresh={loadWithdrawals}
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            router.replace("/login");
+          }}
+        />
 
         {/* Search & Refresh */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-              🔍
-            </span>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search account, method, amount..."
-              className="h-11 w-full rounded-xl border border-cyan-400/20 bg-[#0b294d] pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={loadWithdrawals}
-            className="rounded-xl border border-cyan-400/20 bg-[#0b294d] px-4 text-xs font-black text-cyan-300 transition hover:border-cyan-400"
-          >
-            Refresh
-          </button>
+        <div>
+          <AdminSearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search account, method, amount..."
+            ariaLabel="Search withdrawals"
+          />
         </div>
 
         {/* Stats Cards */}

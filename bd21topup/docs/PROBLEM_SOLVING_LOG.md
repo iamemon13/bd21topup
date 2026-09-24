@@ -4,6 +4,16 @@ This document highlights engineering problems identified and solved during devel
 
 Format: **Problem → Root Cause → Solution → Verification / Evidence**.
 
+## Admin Panel UI Consistency Improvement
+
+**Problem:** The seven admin pages used inconsistent Dashboard labels, action-button sizing and styling, Refresh availability, headers, search controls, and mobile spacing. Orders, Add Money, Withdrawals, Users, Packages, Support Cases, and Activity Log did not consistently present the same admin-panel navigation language. Some pages also needed additional clearance from the fixed customer bottom navigation.
+
+**Solution:** Added the shared `AdminPageHeader` and `AdminSearchInput` presentation components. All seven pages now use `Dashboard | Refresh | Logout`; Refresh reuses each page's existing loader or effect, including package loading, Support Case list/detail refresh, and Activity Log refresh with existing filters and pagination preserved. Search visuals are standardized on Orders, Add Money, Withdrawals, Users, Support Cases, and Activity Log while preserving page-specific semantics and Activity Log's Action Type/Admin User ID filters. Packages intentionally has no search because it has no real search behavior. Responsive action wrapping, shared input sizing, long-text wrapping, and bottom-navigation clearance were preserved or standardized.
+
+**Behavior preserved:** This is a UI-only change. API behavior, authentication, RBAC, permissions, database schema, migrations, RPCs, RLS, financial calculations, wallet behavior, order/add-money/withdrawal processing, Support Case resolution, Activity Log authorization, search semantics, filter semantics, pagination, and notifications are unchanged.
+
+**Verification:** `npm run test:support` → 39 passed, 0 failed. `npm run typecheck` passed. `npm run lint` passed with zero errors and three existing `no-img-element` warnings. `npm run build` passed. `git diff --check` passed. Authenticated mobile visual acceptance remains pending because the local admin route redirects to login without a shared admin session; no credentials or production data were used.
+
 ## 2026-09-24 — Remaining audit and targeted fixes
 
 **Commit:** `ed5fc89fa257c6fec0acaca559dc3405b10e24fd` — deployed to production; Vercel READY.
