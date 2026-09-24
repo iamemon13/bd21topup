@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -21,7 +21,7 @@ export default function IndonesiaServerTopUpPage() {
 
   const [selectedPayment, setSelectedPayment] = useState<string>("");
   const [showWalletPay, setShowWalletPay] = useState(false);
-  const [walletMessage, setWalletMessage] = useState("");
+  const [, setWalletMessage] = useState("");
 
   const [walletBalance, setWalletBalance] = useState(0);
   const [loadingWallet, setLoadingWallet] = useState(true);
@@ -32,12 +32,7 @@ export default function IndonesiaServerTopUpPage() {
   const [verifiedUid, setVerifiedUid] = useState("");
   const [uidError, setUidError] = useState("");
 
-  useEffect(() => {
-    loadWalletBalance();
-    loadPackages();
-  }, []);
-
-  async function loadPackages() {
+  const loadPackages = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("packages")
@@ -57,9 +52,9 @@ export default function IndonesiaServerTopUpPage() {
     } finally {
       setLoadingPackages(false);
     }
-  }
+  }, []);
 
-  async function loadWalletBalance() {
+  const loadWalletBalance = useCallback(async () => {
     try {
       const {
         data: { session },
@@ -80,7 +75,15 @@ export default function IndonesiaServerTopUpPage() {
     } finally {
       setLoadingWallet(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadWalletBalance();
+      void loadPackages();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadPackages, loadWalletBalance]);
 
   async function checkUid() {
     const cleanUid = uid.trim();

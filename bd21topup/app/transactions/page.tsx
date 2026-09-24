@@ -180,8 +180,16 @@ export default function TransactionsPage() {
     loadTransactions();
   }, [router]);
 
-  const transactions = data?.transactions ?? [];
-  const walletTransactions = data?.walletTransactions ?? [];
+  const transactionData = data?.transactions;
+  const walletTransactionData = data?.walletTransactions;
+  const transactions = useMemo(
+    () => transactionData ?? [],
+    [transactionData],
+  );
+  const walletTransactions = useMemo(
+    () => walletTransactionData ?? [],
+    [walletTransactionData],
+  );
 
   const filteredTransactions = useMemo(() => {
     const searchText = search.trim().toLowerCase();

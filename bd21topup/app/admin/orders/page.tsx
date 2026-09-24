@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -72,7 +72,7 @@ export default function AdminOrdersPage() {
   const [bulkCancelReason, setBulkCancelReason] = useState("");
   const [isBulkLoading, setIsBulkLoading] = useState(false);
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     setIsLoading(true);
     setActionMessage("");
     setSelectedIds([]);
@@ -111,11 +111,14 @@ export default function AdminOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void loadOrders();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadOrders]);
 
   const stats = useMemo(() => {
     return {
@@ -214,9 +217,12 @@ export default function AdminOrdersPage() {
         ),
       );
       setActionMessage("Order completed successfully ✅");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("ORDER STATUS ERROR", error);
-      setActionMessage("Update failed: " + (error.message || "Server error"));
+      setActionMessage(
+        "Update failed: " +
+          (error instanceof Error ? error.message : "Server error"),
+      );
     } finally {
       setActionOrderId(null);
     }
@@ -274,9 +280,12 @@ export default function AdminOrdersPage() {
       setCancelOrderId(null);
       setCancelNote("");
       setActionMessage("Order cancelled successfully ❌");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("CANCEL ERROR", error);
-      setActionMessage("Cancel failed: " + (error.message || "Server error"));
+      setActionMessage(
+        "Cancel failed: " +
+          (error instanceof Error ? error.message : "Server error"),
+      );
     } finally {
       setActionOrderId(null);
     }
@@ -330,10 +339,11 @@ export default function AdminOrdersPage() {
       setIsBulkCancelOpen(false);
       setBulkCancelReason("");
       await loadOrders();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("BULK ACTION ERROR", error);
       setActionMessage(
-        "Bulk action failed: " + (error.message || "সার্ভারে সমস্যা হয়েছে।"),
+        "Bulk action failed: " +
+          (error instanceof Error ? error.message : "সার্ভারে সমস্যা হয়েছে।"),
       );
     } finally {
       setIsBulkLoading(false);

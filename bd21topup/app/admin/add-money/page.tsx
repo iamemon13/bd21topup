@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -60,11 +60,7 @@ export default function AdminAddMoneyPage() {
     "all",
   );
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
-
-  async function getAdminSession() {
+  const getAdminSession = useCallback(async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -73,9 +69,9 @@ export default function AdminAddMoneyPage() {
       return null;
     }
     return session;
-  }
+  }, [router]);
 
-  async function loadRequests() {
+  const loadRequests = useCallback(async () => {
     try {
       setLoading(true);
       setSelectedIds([]);
@@ -106,7 +102,14 @@ export default function AdminAddMoneyPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [getAdminSession, router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadRequests();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRequests]);
 
   async function reviewRequest(
     requestId: string,
@@ -241,9 +244,12 @@ export default function AdminAddMoneyPage() {
       setIsBulkRejectOpen(false);
       setBulkRejectNote("");
       await loadRequests();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("ADD MONEY BULK ACTION ERROR:", error);
-      setMessage("সার্ভারে সমস্যা হয়েছে: " + (error.message || ""));
+      setMessage(
+        "সার্ভারে সমস্যা হয়েছে: " +
+          (error instanceof Error ? error.message : ""),
+      );
     } finally {
       setIsBulkLoading(false);
     }

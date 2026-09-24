@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -29,7 +29,7 @@ export default function AdminWithdrawalsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  async function loadWithdrawals() {
+  const loadWithdrawals = useCallback(async () => {
     setLoading(true);
     try {
       const {
@@ -74,11 +74,14 @@ export default function AdminWithdrawalsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
-    loadWithdrawals();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void loadWithdrawals();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadWithdrawals]);
 
   const stats = useMemo(() => {
     const total = withdrawals.length;
@@ -189,9 +192,12 @@ export default function AdminWithdrawalsPage() {
       );
       setTimeout(() => setMessage(""), 3000);
       loadWithdrawals();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert("সার্ভারে সমস্যা হয়েছে: " + (err.message || ""));
+      alert(
+        "সার্ভারে সমস্যা হয়েছে: " +
+          (err instanceof Error ? err.message : ""),
+      );
     }
   }
 

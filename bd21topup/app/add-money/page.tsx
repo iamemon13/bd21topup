@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { paymentConfig } from "@/lib/payment-config";
@@ -76,11 +76,7 @@ export default function AddMoneyPage() {
   const receiverNumber =
     paymentConfig?.[selectedMethod]?.number || "01700000000";
 
-  useEffect(() => {
-    loadHistory();
-  }, []);
-
-  async function getSessionOrRedirect() {
+  const getSessionOrRedirect = useCallback(async () => {
     try {
       const {
         data: { session },
@@ -99,9 +95,9 @@ export default function AddMoneyPage() {
     } catch {
       return null;
     }
-  }
+  }, [router]);
 
-  async function loadHistory() {
+  const loadHistory = useCallback(async () => {
     try {
       const session = await getSessionOrRedirect();
       if (!session) return;
@@ -133,7 +129,14 @@ export default function AddMoneyPage() {
     } finally {
       setLoadingHistory(false);
     }
-  }
+  }, [getSessionOrRedirect, router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadHistory();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadHistory]);
 
   async function submitRequest() {
     const numericAmount = Number(amount);

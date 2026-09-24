@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+﻿import { NextResponse } from "next/server";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export async function GET(request: Request) {

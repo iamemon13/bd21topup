@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const ranks = [
@@ -15,7 +15,6 @@ const ranks = [
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
 function getRank(totalSpend: number) {
   const index = ranks.findIndex((rank) => {
     if (rank.max === null) {
@@ -139,7 +138,7 @@ export async function GET(request: Request) {
 
     const authEmail = user.email ?? null;
 
-    let { data: profile, error: profileError } = await supabaseAdmin
+    const { data: initialProfile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select(
         `
@@ -153,6 +152,8 @@ export async function GET(request: Request) {
       )
       .eq("id", user.id)
       .maybeSingle();
+
+    let profile = initialProfile;
 
     if (profileError) {
       console.error("ACCOUNT PROFILE ERROR:", profileError);
@@ -312,7 +313,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
-
 export async function PATCH(request: Request) {
   try {
     const auth = await getAuthenticatedUser(request);

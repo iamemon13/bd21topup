@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -45,11 +45,7 @@ export default function AdminUsersPage() {
 
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -92,7 +88,14 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadUsers();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadUsers]);
 
   async function logout() {
     try {
@@ -223,12 +226,12 @@ export default function AdminUsersPage() {
       // 🔒 FIX: সরাসরি res.json() না করে আগে টেক্সট হিসেবে নিচ্ছি,
       // যাতে ব্ল্যাংক রেসপন্সে অ্যাপ ক্র্যাশ না করে।
       const responseText = await res.text();
-      let data: any = {};
+      let data: { success?: boolean; error?: string } = {};
 
       if (responseText) {
         try {
           data = JSON.parse(responseText);
-        } catch (e) {
+        } catch {
           console.error("Failed to parse response:", responseText);
         }
       }

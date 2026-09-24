@@ -7,9 +7,9 @@ const require=createRequire(import.meta.url);
 function load(path,imports){
  const source=readFileSync(new URL('../'+path,import.meta.url),'utf8');
  const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const module={exports:{}};
- new Function('require','module','exports',js)(name=>name in imports?imports[name]:require(name),module,module.exports);
- return module.exports;
+ const runtimeModule={exports:{}};
+ new Function('require','module','exports',js)(name=>name in imports?imports[name]:require(name),runtimeModule,runtimeModule.exports);
+ return runtimeModule.exports;
 }
 const response={NextResponse:{json:(body,options)=>Response.json(body,options)}};
 test('limiter namespaces user/IP/action, hashes identities and enforces Vercel IP bucket',async()=>{

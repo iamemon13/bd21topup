@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import SupportCaseActions from "@/components/SupportCaseActions";
 import type { SupportCase } from "@/lib/support";
@@ -23,7 +23,7 @@ export default function NotificationBell() {
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -53,11 +53,14 @@ export default function NotificationBell() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void loadNotifications();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadNotifications]);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
