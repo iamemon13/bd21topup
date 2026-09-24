@@ -205,7 +205,6 @@ export async function POST(request: Request) {
         .from("orders")
         .update({
           status: "completed",
-          updated_at: new Date().toISOString(),
         })
         .in("id", orderIds)
         .in("status", ["pending", "approved", "processing"])

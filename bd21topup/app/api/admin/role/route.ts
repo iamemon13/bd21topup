@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const ALLOWED_ROLES = ["super_admin", "admin", "editor", "user"] as const;
 
@@ -307,21 +307,19 @@ export async function PATCH(request: Request) {
        9. Update / insert role
     ----------------------------------------------------- */
 
-    const { error: updateError } = await supabaseAdmin
-      .from("admin_roles")
-      .upsert(
-        {
-          user_id: userId,
-          role,
-          permissions: normalizedPermissions,
-        },
-        {
-          onConflict: "user_id",
-        },
-      );
+    const { error: updateError } = await supabaseAdmin.rpc("admin_update_role", {
+      p_admin_id: user.id,
+      p_user_id: userId,
+      p_role: role,
+      p_permissions: normalizedPermissions,
+    });
 
     if (updateError) {
       console.error("ROLE UPDATE DB ERROR:", updateError);
+
+      if (updateError.code === "42501") {
+        return NextResponse.json({ error: "Administrator privileges changed. Please refresh." }, { status: 403 });
+      }
 
       /*
        * FK violation usually means target auth user
@@ -340,20 +338,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /* -----------------------------------------------------
-       10. Audit log
-    ----------------------------------------------------- */
-
-    await logAdminAction({
-      adminId: user.id,
-      actionType: "UPDATE_USER_ROLE",
-      targetId: userId,
-      details: `Role updated to ${role}. Permissions: ${
-        normalizedPermissions.length > 0
-          ? normalizedPermissions.join(", ")
-          : "none"
-      }`,
-    });
+    // The RPC commits the role change and audit entry together.
 
     /* -----------------------------------------------------
        11. Success
