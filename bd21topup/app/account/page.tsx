@@ -94,7 +94,7 @@ export default function AccountPage() {
   // Withdraw States
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawMethod, setWithdrawMethod] = useState("bKash");
+  const [withdrawMethod, setWithdrawMethod] = useState("bkash");
   const [withdrawAccountNumber, setWithdrawAccountNumber] = useState("");
   const [withdrawMessage, setWithdrawMessage] = useState("");
   const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
@@ -472,7 +472,7 @@ export default function AccountPage() {
                 onClick={() => {
                   setWithdrawMessage("");
                   setWithdrawAmount("");
-                  setWithdrawMethod("bKash");
+                  setWithdrawMethod("bkash");
                   setWithdrawAccountNumber("");
                   setShowWithdrawModal(true);
                 }}
@@ -900,8 +900,8 @@ export default function AccountPage() {
                   onChange={(e) => setWithdrawMethod(e.target.value)}
                   className="mt-2 w-full rounded-xl border border-white/10 bg-[#07182f] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
                 >
-                  <option value="bKash">bKash</option>
-                  <option value="Nagad">Nagad</option>
+                  <option value="bkash">bKash</option>
+                  <option value="nagad">Nagad</option>
                 </select>
               </label>
 
