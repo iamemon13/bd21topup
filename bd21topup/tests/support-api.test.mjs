@@ -33,6 +33,7 @@ function app({ token = 'valid', role = 'editor', permissions = ['manage_orders']
     admin_roles: role ? [{ user_id: 'owner', role, permissions }] : [],
     add_money_requests: [{ id: 'add-own', user_id: 'owner', status: 'rejected', amount: 10 }],
     withdrawals: [{ id: 'withdrawal-own', user_id: 'owner', status: 'rejected', amount: 100 }],
+    profiles: [{ id: 'owner', full_name: 'Test Customer', email: 'customer@example.invalid' }],
     wallet_transactions: [],
     notifications: [{ id: 'notification-own', user_id: 'owner', support_case_id: 'case-own' },
       { id: 'foreign-link', user_id: 'owner', support_case_id: 'case-other' }],
@@ -48,6 +49,7 @@ function app({ token = 'valid', role = 'editor', permissions = ['manage_orders']
         select(columns) { selection = columns; return query; },
         eq(column, value) { filters.push((row) => row[column] === value); return query; },
         in(column, values) { filters.push((row) => values.includes(row[column])); return query; },
+        limit(count) { range = [0, count]; return query; },
         order() { return query; },
         range(start, end) { range = [start, end + 1]; return query; },
         maybeSingle() { single = true; return query; },
@@ -126,6 +128,24 @@ test('transaction mappings distinguish order/add-money/withdrawal sources', asyn
     assert.equal(supportCase.reason, type === 'ADD' ? 'অ্যাড মানি' : 'উত্তোলন');
     assert.match(supportCase.contactUrl, new RegExp(`BD21-${type}-`));
   }
+});
+
+test('admin support case list returns existing cases with safe summaries and permission filtering', async () => {
+  const allCases = await (await app({ role: 'super_admin', permissions: [] }).route('admin/support-cases').GET(request('admin/support-cases'))).json();
+  assert.equal(allCases.success, true);
+  assert.deepEqual(allCases.cases.map((item) => item.caseType), ['ORD', 'WDR', 'ADD', 'WDR']);
+  assert.equal(allCases.cases[0].support.supportId, id);
+  assert.equal(allCases.cases[0].currentStatus, 'cancelled');
+  assert.equal(allCases.cases[0].customer.fullName, 'Test Customer');
+  assert.equal(allCases.cases[0].amount, 10);
+  assert.equal(allCases.cases[0].packageName, null);
+  assert.equal(allCases.cases[1].support.supportId, 'BD21-WDR-9A4B7C2D9E1F');
+  assert.equal(allCases.cases[1].method, null);
+  assert.equal(allCases.cases[2].support.supportId, 'BD21-ADD-8A4B7C2D9E1F');
+
+  const orderOnly = await (await app({ permissions: ['manage_orders'] }).route('admin/support-cases').GET(request('admin/support-cases'))).json();
+  assert.deepEqual(orderOnly.cases.map((item) => item.caseType), ['ORD']);
+  assert.equal((await app({ role: 'user', permissions: [] }).route('admin/support-cases').GET(request('admin/support-cases'))).status, 403);
 });
 
 test('admin case lookup rejects insufficient permission before touching cases', async () => {
