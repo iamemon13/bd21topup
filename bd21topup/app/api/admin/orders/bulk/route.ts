@@ -1,6 +1,6 @@
 import { financialAction } from "@/lib/financial-audit";
 import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -201,16 +201,29 @@ export async function POST(request: Request) {
        * completed/rejected/cancelled rows untouched থাকবে।
        */
 
-      const { data: updatedOrders, error: updateError } = await supabaseAdmin
-        .from("orders")
-        .update({
-          status: "completed",
-        })
-        .in("id", orderIds)
-        .in("status", ["pending", "approved", "processing"])
-        .select("id");
+      const { data: completedIdsData, error: updateError } =
+        await supabaseAdmin.rpc(
+          "admin_bulk_complete_orders_audited",
+          {
+            p_admin_id: adminId,
+            p_order_ids: orderIds,
+            p_ip: ipAddress,
+          },
+        );
 
       if (updateError) {
+        if (updateError.code === "42501") {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Administrator privileges changed. Please refresh.",
+            },
+            {
+              status: 403,
+            },
+          );
+        }
+
         console.error("BULK COMPLETE ERROR:", updateError);
 
         return NextResponse.json(
@@ -224,24 +237,11 @@ export async function POST(request: Request) {
         );
       }
 
-      const completedIds = (updatedOrders || []).map((order) => order.id);
-
-      /*
-       * Financial mutation এখানে নেই।
-       * Audit logging best-effort; mutation already committed হতে পারে।
-       */
-      for (const orderId of completedIds) {
-        await logAdminAction({
-          adminId,
-          actionType: "BULK_COMPLETE_ORDER",
-          targetId: orderId,
-          details: JSON.stringify({
-            new_status: "completed",
-            bulk_operation: true,
-          }),
-          ipAddress,
-        });
-      }
+      const completedIds = Array.isArray(completedIdsData)
+        ? completedIdsData.filter(
+            (id): id is string => typeof id === "string",
+          )
+        : [];
 
       return NextResponse.json({
         success: true,
