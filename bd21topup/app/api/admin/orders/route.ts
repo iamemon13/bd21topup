@@ -1,6 +1,6 @@
 import { financialAction } from "@/lib/financial-audit";
 import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -493,30 +493,33 @@ export async function PATCH(request: Request) {
        9. Optimistic-concurrency status update
     ===================================================== */
 
-    const { data: updatedOrder, error: updateError } = await supabaseAdmin
-      .from("orders")
-      .update({
-        status: nextStatus,
-        admin_note: adminNote || null,
-        cancelled_at: null,
-      })
-      .eq("id", orderId)
-      .eq("status", currentOrder.status)
-      .select(
-        `
-          id,
-          user_id,
-          uid,
-          player_name,
-          product_name,
-          package_name,
-          amount,
-          status
-        `,
-      )
-      .maybeSingle();
+    const { data: updatedOrders, error: updateError } =
+      await supabaseAdmin.rpc("admin_update_order_status_audited", {
+        p_admin_id: adminId,
+        p_order_id: orderId,
+        p_expected_status: currentOrder.status,
+        p_next_status: nextStatus,
+        p_admin_note: adminNote || null,
+        p_ip: ipAddress,
+      });
+
+    const updatedOrder = Array.isArray(updatedOrders)
+      ? updatedOrders[0]
+      : null;
 
     if (updateError) {
+      if (updateError.code === "42501") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Administrator privileges changed. Please refresh.",
+          },
+          {
+            status: 403,
+          },
+        );
+      }
+
       console.error("ORDER STATUS UPDATE ERROR:", updateError);
 
       return NextResponse.json(
@@ -544,33 +547,7 @@ export async function PATCH(request: Request) {
     }
 
     /* =====================================================
-       10. Audit log
-    ===================================================== */
-
-    let auditAction = "UPDATE_ORDER_STATUS";
-
-    if (nextStatus === "rejected") {
-      auditAction = "REJECT_ORDER";
-    } else if (nextStatus === "processing") {
-      auditAction = "PROCESS_ORDER";
-    } else if (nextStatus === "completed") {
-      auditAction = "COMPLETE_ORDER";
-    }
-
-    await logAdminAction({
-      adminId,
-      actionType: auditAction,
-      targetId: orderId,
-      details: JSON.stringify({
-        previous_status: currentOrder.status,
-        new_status: nextStatus,
-        admin_note: adminNote || null,
-      }),
-      ipAddress,
-    });
-
-    /* =====================================================
-       11. Customer notification
+       10. Customer notification
     ===================================================== */
 
     let notificationTitle = "Order Update";
@@ -605,7 +582,7 @@ export async function PATCH(request: Request) {
     }
 
     /* =====================================================
-       12. Response
+       11. Response
     ===================================================== */
 
     return NextResponse.json({

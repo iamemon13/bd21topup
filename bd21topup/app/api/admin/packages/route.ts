@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin, logAdminAction } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -262,18 +262,32 @@ export async function PUT(request: Request) {
        6. UPDATE + VERIFY ROW EXISTS
     ----------------------------------------------------- */
 
-    const { data: updatedPackage, error: updateError } = await supabaseAdmin
-      .from("packages")
-      .update({
-        name: packageName,
-        price,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", packageId)
-      .select("id, name, price, category, sort_order, updated_at")
-      .maybeSingle();
+    const { data: updatedPackages, error: updateError } =
+      await supabaseAdmin.rpc("admin_update_package_audited", {
+        p_admin_id: adminId,
+        p_package_id: packageId,
+        p_name: packageName,
+        p_price: price,
+        p_ip: ipAddress,
+      });
+
+    const updatedPackage = Array.isArray(updatedPackages)
+      ? updatedPackages[0]
+      : null;
 
     if (updateError) {
+      if (updateError.code === "42501") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Administrator privileges changed. Please refresh.",
+          },
+          {
+            status: 403,
+          },
+        );
+      }
+
       if (updateError.code === "23505") {
         return NextResponse.json(
           {
@@ -324,22 +338,7 @@ export async function PUT(request: Request) {
     }
 
     /* -----------------------------------------------------
-       7. AUDIT LOG
-    ----------------------------------------------------- */
-
-    await logAdminAction({
-      adminId,
-      actionType: "UPDATE_PACKAGE",
-      targetId: packageId,
-      details: JSON.stringify({
-        name: updatedPackage.name,
-        price: Number(updatedPackage.price),
-      }),
-      ipAddress,
-    });
-
-    /* -----------------------------------------------------
-       8. RESPONSE
+       7. RESPONSE
     ----------------------------------------------------- */
 
     return NextResponse.json({
