@@ -623,7 +623,7 @@ export default function AccountPage() {
 
       {/* Edit Profile Modal */}
       {showEditProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -725,7 +725,7 @@ export default function AccountPage() {
 
       {/* Change Password Modal */}
       {showChangePassword && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -856,7 +856,7 @@ export default function AccountPage() {
       )}
       {/* Withdraw Modal */}
       {showWithdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-cyan-400/20 bg-[#081c36] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
