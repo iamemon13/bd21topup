@@ -290,7 +290,7 @@ export default function AdminActivityPage() {
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               maxLength={100}
-              placeholder="Action, Target ID, Details বা IP দিয়ে খুঁজুন"
+              placeholder="Email, Admin ID, Action, Target ID, Details or IP"
               className="w-full rounded-xl border border-cyan-500/20 bg-[#07182f] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
             />
 

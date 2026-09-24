@@ -66,44 +66,62 @@ function sanitizeDetails(value: unknown): string | null {
 async function findAdminIdsByEmail(search: string): Promise<string[]> {
   const normalizedSearch = search.trim().toLowerCase();
 
-  if (!normalizedSearch.includes("@")) {
+  if (!normalizedSearch) {
     return [];
   }
 
   try {
-    const matchedIds: string[] = [];
-    let page = 1;
-    const perPage = 1000;
+    const { data: adminRows, error: adminRolesError } = await supabaseAdmin
+      .from("admin_roles")
+      .select("user_id");
 
-    while (page <= 10) {
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-        page,
-        perPage,
-      });
-
-      if (error) {
-        console.error("ADMIN ACTIVITY EMAIL SEARCH ERROR:", error);
-        break;
-      }
-
-      const users = data.users ?? [];
-
-      for (const user of users) {
-        const email = user.email?.toLowerCase();
-
-        if (email && email.includes(normalizedSearch)) {
-          matchedIds.push(user.id);
-        }
-      }
-
-      if (users.length < perPage) {
-        break;
-      }
-
-      page += 1;
+    if (adminRolesError) {
+      console.error(
+        "ADMIN ACTIVITY ADMIN ROLE LOOKUP ERROR:",
+        adminRolesError,
+      );
+      return [];
     }
 
-    return [...new Set(matchedIds)];
+    const adminIds = [
+      ...new Set(
+        (adminRows ?? [])
+          .map((row) => row.user_id)
+          .filter(
+            (id): id is string =>
+              typeof id === "string" && isValidUuid(id),
+          ),
+      ),
+    ];
+
+    const matches = await Promise.all(
+      adminIds.map(async (id) => {
+        try {
+          const { data, error } =
+            await supabaseAdmin.auth.admin.getUserById(id);
+
+          if (error) {
+            console.error(
+              "ADMIN ACTIVITY EMAIL SEARCH USER LOOKUP ERROR:",
+              error,
+            );
+            return null;
+          }
+
+          const email = data.user?.email?.trim().toLowerCase();
+
+          return email?.includes(normalizedSearch) ? id : null;
+        } catch (error) {
+          console.error(
+            "ADMIN ACTIVITY EMAIL SEARCH USER LOOKUP ERROR:",
+            error,
+          );
+          return null;
+        }
+      }),
+    );
+
+    return matches.filter((id): id is string => typeof id === "string");
   } catch (error) {
     console.error("ADMIN ACTIVITY EMAIL SEARCH ERROR:", error);
     return [];
