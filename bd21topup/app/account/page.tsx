@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import NotificationBell from "@/components/NotificationBell";
@@ -99,7 +99,7 @@ export default function AccountPage() {
   const [withdrawMessage, setWithdrawMessage] = useState("");
   const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
 
-  async function loadAccount() {
+  const loadAccount = useCallback(async () => {
     setIsLoading(true);
     setMessage("Loading account...");
 
@@ -143,12 +143,14 @@ export default function AccountPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
-    loadAccount();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const timer = window.setTimeout(() => {
+      void loadAccount();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadAccount]);
 
   const initials = useMemo(() => {
     const name = data?.account.fullName?.trim() || "BD21 User";

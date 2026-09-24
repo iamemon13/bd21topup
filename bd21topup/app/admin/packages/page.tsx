@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -32,11 +32,7 @@ export default function AdminPackages() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  async function fetchPackages() {
+  const fetchPackages = useCallback(async () => {
     try {
       const {
         data: { session },
@@ -61,7 +57,14 @@ export default function AdminPackages() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchPackages();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchPackages]);
 
   async function handleUpdatePackage(id: string) {
     if (!editName.trim()) {
@@ -100,7 +103,7 @@ export default function AdminPackages() {
       } else {
         alert(result.error || "আপডেট ফেইল হয়েছে");
       }
-    } catch (error) {
+    } catch {
       alert("সার্ভার এরর");
     }
   }

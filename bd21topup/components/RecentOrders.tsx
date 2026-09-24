@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Order = {
@@ -34,7 +34,7 @@ export default function RecentOrders() {
   const [refreshing, setRefreshing] = useState(false);
 
   // API থেকে লেটেস্ট অর্ডার ফেচ করার ফাংশন
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setRefreshing(true);
     try {
       const response = await fetch("/api/recent-orders", { cache: "no-store" });
@@ -49,10 +49,12 @@ export default function RecentOrders() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchOrders();
+    const timer = window.setTimeout(() => {
+      void fetchOrders();
+    }, 0);
 
     // রিয়েল-টাইম আপডেটের জন্য Supabase চ্যানেল
     const channel = supabase
@@ -61,15 +63,16 @@ export default function RecentOrders() {
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
         () => {
-          fetchOrders();
+          void fetchOrders();
         },
       )
       .subscribe();
 
     return () => {
+      window.clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchOrders]);
 
   const getStatusUI = (rawStatus: string) => {
     const s = rawStatus?.toLowerCase() || "";
