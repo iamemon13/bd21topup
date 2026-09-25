@@ -27,9 +27,10 @@ FF Likes, and Indonesia Server remain manual. No supplier credentials are used.
   the source snapshot before an API success can expose them. Errors return stable
   codes and never return commands. All preview responses are private/no-store.
 
-## Production migration approval — NOT APPLIED
+## Production deployment
 
-Exact migration: `supabase/migrations/20260925062427_add_topup_preview_audit.sql`.
+`supabase/migrations/20260925062427_add_topup_preview_audit.sql` was applied to
+production. The secure wallet-only preview RPC exists in production.
 
 It adds only `public.admin_audit_topup_preview`, a SECURITY INVOKER function with
 an empty search path and fully qualified table references. It creates no tables,
@@ -56,8 +57,9 @@ UIDs or supplier credentials are stored in audit details. Audit failure aborts t
 RPC and prevents an API success. A committed audit with a lost HTTP response means
 the preview was generated, not that it was received/copied/sent.
 
-Before approval, the API safely returns AUDIT_UNAVAILABLE for otherwise eligible
-orders because the RPC is absent. Do not bypass this check to enable previews.
+A production negative smoke test used an already-ineligible completed wallet
+order. It was rejected without an order, wallet, ledger, package, or audit
+mutation.
 
 Rollback: disable/remove the preview UI/API first, then drop only this exact function:
 
@@ -108,8 +110,13 @@ Validation results for this implementation:
   no-img-element warnings. `git diff --check` passed.
 - Built client chunks contain neither the mapping version constant nor an
   approved supplier package UUID; the manifest remains server-only.
-- No production migration or preview RPC was invoked. No Telegram/supplier
-  interaction, wallet/order mutation, commit, push, or PR occurred.
+- The Phase 1 migration and production negative smoke verification completed
+  without a financial or order mutation.
+- Phase 2 subsequently added and verified a dry-run dispatch workflow. It does
+  not send Telegram messages or contact a supplier.
+- Phase 3A subsequently added a personal Telegram MTProto foundation. It is not
+  wired to automatic dispatch or real supplier auto-send.
+- No real supplier top-up occurred.
 
 Files changed by this phase (pre-existing package.json/package-lock.json/tsconfig.json
 changes were left untouched):
