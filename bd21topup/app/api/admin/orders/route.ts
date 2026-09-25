@@ -2,6 +2,7 @@ import { financialAction } from "@/lib/financial-audit";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
+import { resolveTopupMapping } from "@/lib/topup-mappings";
 
 export const dynamic = "force-dynamic";
 
@@ -98,9 +99,13 @@ export async function GET(request: Request) {
       );
     }
 
+    const catalog = await supabaseAdmin.from("packages").select("id,name,category");
     return NextResponse.json({
       success: true,
-      orders: data || [],
+      orders: (data || []).map((order) => {
+        const matches = (catalog.data || []).filter((pkg) => pkg.name === order.package_name);
+        return { ...order, topupMappingState: catalog.error ? "unavailable" : matches.length === 1 && resolveTopupMapping(matches[0]) ? "mapped" : "unmapped" };
+      }),
     });
   } catch (error) {
     console.error("ADMIN ORDERS API ERROR:", error);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminSearchInput from "@/components/AdminSearchInput";
+import TopUpPreviewActions from "@/components/TopUpPreviewActions";
 
 type Order = {
   id: string;
@@ -21,6 +22,7 @@ type Order = {
   created_at: string;
   admin_note?: string | null;
   cancelled_at?: string | null;
+  topupMappingState?: "mapped" | "unmapped" | "unavailable";
 };
 
 function statusClasses(status: string) {
@@ -512,6 +514,8 @@ export default function AdminOrdersPage() {
                         </p>
                       </div>
                     )}
+
+                    <TopUpPreviewActions order={order} disabled={isActioning || isBulkLoading} />
 
                     {canComplete && (
                       <button

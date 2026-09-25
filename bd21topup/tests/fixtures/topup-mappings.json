@@ -1,0 +1,224 @@
+[
+  {
+    "id": "95223d39-1880-4128-a222-08180089a229",
+    "category": "uid_bd",
+    "name": "Weekly",
+    "commands": ["Ktp {uid} weekly"]
+  },
+  {
+    "id": "99721284-0b1b-416e-a5e2-14b661eadb32",
+    "category": "uid_bd",
+    "name": "Monthly",
+    "commands": ["Ktp {uid} monthly"]
+  },
+  {
+    "id": "ae01ba14-3234-4fef-a4c2-95a582ff9968",
+    "category": "uid_bd",
+    "name": "25 Diamond",
+    "commands": ["Ktp {uid} 25"]
+  },
+  {
+    "id": "bacd7950-2c99-4a19-8c66-14d86e18ff5b",
+    "category": "uid_bd",
+    "name": "50 Diamond",
+    "commands": ["Ktp {uid} 50"]
+  },
+  {
+    "id": "54e6a71f-5a32-4cbd-a5fd-7140bed5da2c",
+    "category": "uid_bd",
+    "name": "115 Diamond",
+    "commands": ["Ktp {uid} 115"]
+  },
+  {
+    "id": "c68e2176-f42b-4b1e-b714-c31e203fc721",
+    "category": "uid_bd",
+    "name": "240 Diamond",
+    "commands": ["Ktp {uid} 240"]
+  },
+  {
+    "id": "871e33b3-01b4-4f91-9c95-3d5cf03f45e6",
+    "category": "uid_bd",
+    "name": "355 Diamond",
+    "commands": ["Ktp {uid} 240", "Ktp {uid} 115"]
+  },
+  {
+    "id": "9b89a6ec-cf8d-4c8a-9dc0-a07becf405c4",
+    "category": "uid_bd",
+    "name": "480 Diamond",
+    "commands": ["Ktp {uid} 240 2"]
+  },
+  {
+    "id": "b0561547-3a49-46a9-9f0e-bbd455643534",
+    "category": "uid_bd",
+    "name": "505 Diamond",
+    "commands": ["Ktp {uid} 240 2", "Ktp {uid} 25"]
+  },
+  {
+    "id": "4e1cc660-4945-4693-a3e2-3290f107e30c",
+    "category": "uid_bd",
+    "name": "610 Diamond",
+    "commands": ["Ktp {uid} 610"]
+  },
+  {
+    "id": "f82df3fd-2da0-4028-8a32-37f6beaaf1dd",
+    "category": "uid_bd",
+    "name": "850 Diamond",
+    "commands": ["Ktp {uid} 610", "Ktp {uid} 240"]
+  },
+  {
+    "id": "2f59437c-8f6d-4c66-839f-ac6df83ebaf9",
+    "category": "uid_bd",
+    "name": "1090 Diamond",
+    "commands": ["Ktp {uid} 610", "Ktp {uid} 240 2"]
+  },
+  {
+    "id": "be4bae74-8dbf-4d9a-ae9a-849adb811c7b",
+    "category": "uid_bd",
+    "name": "1240 Diamond",
+    "commands": ["Ktp {uid} 1240"]
+  },
+  {
+    "id": "7ef8fadf-8197-43d4-845e-9f98c1462a1b",
+    "category": "uid_bd",
+    "name": "2090 Diamond",
+    "commands": ["Ktp {uid} 1240", "Ktp {uid} 610", "Ktp {uid} 240"]
+  },
+  {
+    "id": "b7235f00-8368-4558-a4b3-b6ffe3dc830c",
+    "category": "uid_bd",
+    "name": "2530 Diamond",
+    "commands": ["Ktp {uid} 2530"]
+  },
+  {
+    "id": "b6f1312a-6508-4f94-af05-a48d45dfeeef",
+    "category": "uid_bd",
+    "name": "5060 Diamond",
+    "commands": ["Ktp {uid} 2530 2"]
+  },
+  {
+    "id": "33102353-1d9a-4937-bb3a-7b797c2ded06",
+    "category": "uid_bd",
+    "name": "10120 Diamond",
+    "commands": ["Ktp {uid} 2530 4"]
+  },
+  {
+    "id": "04948e15-7bee-491d-8db6-dbc398861967",
+    "category": "combo_offer",
+    "name": "1x Weekly",
+    "commands": ["Ktp {uid} weekly"]
+  },
+  {
+    "id": "c32ca0f0-778d-40e3-a7da-83a2fc58e8b2",
+    "category": "combo_offer",
+    "name": "2x Weekly",
+    "commands": ["Ktp {uid} weekly 2"]
+  },
+  {
+    "id": "29140eb1-2d29-4b9b-a34b-f8d71f9b9955",
+    "category": "combo_offer",
+    "name": "3x Weekly",
+    "commands": ["Ktp {uid} weekly 3"]
+  },
+  {
+    "id": "993bab44-d1bf-4331-a20f-107405a279a4",
+    "category": "combo_offer",
+    "name": "4x Weekly",
+    "commands": ["Ktp {uid} weekly 4"]
+  },
+  {
+    "id": "01e81c8e-01ab-40d7-af36-352660b19f76",
+    "category": "combo_offer",
+    "name": "1x Monthly",
+    "commands": ["Ktp {uid} monthly"]
+  },
+  {
+    "id": "7906c87d-827b-4fdd-9b2f-8c45ac0c0cce",
+    "category": "combo_offer",
+    "name": "1 Monthly + 1 Weekly",
+    "commands": ["Ktp {uid} monthly", "Ktp {uid} weekly"]
+  },
+  {
+    "id": "222168ef-c8e2-4401-9997-62df9866ef8d",
+    "category": "combo_offer",
+    "name": "1 Monthly + 4 Weekly",
+    "commands": ["Ktp {uid} monthly", "Ktp {uid} weekly 4"]
+  },
+  {
+    "id": "b2bfec13-2553-4173-af1d-fe11ae184df9",
+    "category": "combo_offer",
+    "name": "2x Monthly",
+    "commands": ["Ktp {uid} monthly 2"]
+  },
+  {
+    "id": "3bbfcdbe-8ac2-42bb-be6d-cd065e24a35d",
+    "category": "combo_offer",
+    "name": "3x Monthly",
+    "commands": ["Ktp {uid} monthly 3"]
+  },
+  {
+    "id": "6c4bba03-9dbf-4843-80f6-4130e285a76a",
+    "category": "combo_offer",
+    "name": "4x Monthly",
+    "commands": ["Ktp {uid} monthly 4"]
+  },
+  {
+    "id": "fd8341a6-ba2b-4578-9780-6fe8eaeaad99",
+    "category": "weekly_lite",
+    "name": "1x Weekly Lite",
+    "commands": ["Ktp {uid} lite 1"]
+  },
+  {
+    "id": "0ccd017e-0cbe-4452-85e6-d1a6c8ad86e9",
+    "category": "weekly_lite",
+    "name": "2x Weekly Lite",
+    "commands": ["Ktp {uid} lite 2"]
+  },
+  {
+    "id": "a158e780-cc8b-44bf-986b-3a72e3edc4db",
+    "category": "weekly_lite",
+    "name": "3x Weekly Lite",
+    "commands": ["Ktp {uid} lite 3"]
+  },
+  {
+    "id": "a75690e6-3d0c-4d18-89a8-86c6b2ae0f77",
+    "category": "weekly_lite",
+    "name": "5x Weekly Lite",
+    "commands": ["Ktp {uid} lite 5"]
+  },
+  {
+    "id": "d2872f8f-cf42-471c-b473-b6736aba3758",
+    "category": "level_up",
+    "name": "Level Up Package - Level 6",
+    "commands": ["Ktp {uid} lvl6"]
+  },
+  {
+    "id": "f8ecbbba-6776-4c37-b064-b3213c543de1",
+    "category": "level_up",
+    "name": "Level Up Package - Level 10",
+    "commands": ["Ktp {uid} lvl10"]
+  },
+  {
+    "id": "5e845458-ed7c-4095-adaa-d6246105f9bb",
+    "category": "level_up",
+    "name": "Level Up Package - Level 15",
+    "commands": ["Ktp {uid} lvl15"]
+  },
+  {
+    "id": "58b1af77-6ebc-4542-a279-1ecd01e3d958",
+    "category": "level_up",
+    "name": "Level Up Package - Level 20",
+    "commands": ["Ktp {uid} lvl20"]
+  },
+  {
+    "id": "78cc62f6-a354-4519-8430-fa643af00fd0",
+    "category": "level_up",
+    "name": "Level Up Package - Level 25",
+    "commands": ["Ktp {uid} lvl25"]
+  },
+  {
+    "id": "ea31ea9d-301b-463c-9b0f-3bdcbfa63c8f",
+    "category": "level_up",
+    "name": "Level Up Package - Level 30",
+    "commands": ["Ktp {uid} lvl30"]
+  }
+]

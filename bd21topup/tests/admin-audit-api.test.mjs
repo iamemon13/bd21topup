@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
+import { mappings } from "./topup-test-helpers.mjs";
 
 const actor = "11111111-1111-4111-8111-111111111111";
 const target = "22222222-2222-4222-8222-222222222222";
@@ -29,6 +30,7 @@ function load(path, imports) {
     js,
   )(
     (name) => {
+      if (name === "@/lib/topup-mappings") return mappings;
       if (!(name in imports)) {
         throw Error("Unexpected import " + name);
       }
