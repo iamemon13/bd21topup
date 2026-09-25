@@ -34,6 +34,12 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Personal Telegram MTProto sessions
+/.telegram/
+*.telegram-session
+*.session
+*.session-journal
+
 # vercel
 .vercel
 

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:support": "node --test tests/support*.test.mjs"
+    "test:support": "node --test tests/support*.test.mjs",
+    "telegram:check": "node --experimental-transform-types worker/telegram-connectivity-cli.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -16,6 +17,7 @@
     "next": "^15.5.26",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "teleproto": "1.229.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
