@@ -446,17 +446,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { error: ordersUpdateError } = await supabaseAdmin
-      .from("orders")
-      .update({
-        account_name: fullName,
-      })
-      .eq("user_id", auth.user.id);
-
-    if (ordersUpdateError) {
-      console.error("ORDERS ACCOUNT NAME UPDATE ERROR:", ordersUpdateError);
-    }
-
     return NextResponse.json({
       success: true,
       message: "Profile updated successfully",
