@@ -2,8 +2,57 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { loadUserSupportCases } from "@/lib/support-cases";
 
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 100;
+
+type Cursor = { createdAt: string; id: string };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parsePagination(request: Request):
+  | { pageSize: number; cursor: Cursor | null }
+  | { error: string } {
+  const params = new URL(request.url).searchParams;
+  const rawLimit = params.get("limit");
+  const pageSize = rawLimit === null ? DEFAULT_PAGE_SIZE : Number(rawLimit);
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+    return { error: `limit must be an integer between 1 and ${MAX_PAGE_SIZE}.` };
+  }
+
+  const rawCursor = params.get("cursor");
+  if (!rawCursor) return { pageSize, cursor: null };
+
+  try {
+    const decoded = JSON.parse(Buffer.from(rawCursor, "base64url").toString("utf8"));
+    if (
+      typeof decoded?.createdAt !== "string" ||
+      !Number.isFinite(new Date(decoded.createdAt).getTime()) ||
+      typeof decoded?.id !== "string" ||
+      !UUID.test(decoded.id)
+    ) {
+      return { error: "Invalid cursor." };
+    }
+    return { pageSize, cursor: { createdAt: decoded.createdAt, id: decoded.id } };
+  } catch {
+    return { error: "Invalid cursor." };
+  }
+}
+
+function encodeCursor(row: { createdAt: string; id: string }) {
+  return Buffer.from(JSON.stringify({ createdAt: row.createdAt, id: row.id })).toString("base64url");
+}
+
+function applyCursor<T extends { or: (filter: string) => T }>(query: T, cursor: Cursor | null) {
+  return cursor
+    ? query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`)
+    : query;
+}
+
 export async function GET(request: Request) {
   try {
+    const pagination = parsePagination(request);
+    if ("error" in pagination) {
+      return NextResponse.json({ success: false, error: pagination.error }, { status: 400 });
+    }
     // =====================================================
     // AUTH
     // =====================================================
@@ -51,7 +100,7 @@ export async function GET(request: Request) {
     // ORDER TRANSACTIONS
     // =====================================================
 
-    const { data: orders, error: ordersError } = await supabaseAdmin
+    const { data: orders, error: ordersError } = await applyCursor(supabaseAdmin
       .from("orders")
       .select(
         `
@@ -70,7 +119,9 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .order("created_at", {
         ascending: false,
-      });
+      })
+      .order("id", { ascending: false })
+      .limit(pagination.pageSize + 1), pagination.cursor);
 
     if (ordersError) {
       console.error("TRANSACTIONS ORDERS ERROR:", ordersError);
@@ -88,7 +139,7 @@ export async function GET(request: Request) {
     // WALLET TRANSACTIONS (Approved / Deductions)
     // =====================================================
 
-    const { data: walletRows, error: walletError } = await supabaseAdmin
+    const { data: walletRows, error: walletError } = await applyCursor(supabaseAdmin
       .from("wallet_transactions")
       .select(
         `
@@ -105,7 +156,9 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .order("created_at", {
         ascending: false,
-      });
+      })
+      .order("id", { ascending: false })
+      .limit(pagination.pageSize + 1), pagination.cursor);
 
     if (walletError) {
       console.error("WALLET TRANSACTIONS ERROR:", walletError);
@@ -123,7 +176,7 @@ export async function GET(request: Request) {
     // ADD MONEY REQUESTS (Pending / Rejected)
     // =====================================================
 
-    const { data: addMoneyRows, error: addMoneyError } = await supabaseAdmin
+    const { data: addMoneyRows, error: addMoneyError } = await applyCursor(supabaseAdmin
       .from("add_money_requests")
       .select(
         `
@@ -139,7 +192,9 @@ export async function GET(request: Request) {
       .in("status", ["pending", "rejected"])
       .order("created_at", {
         ascending: false,
-      });
+      })
+      .order("id", { ascending: false })
+      .limit(pagination.pageSize + 1), pagination.cursor);
 
     if (addMoneyError) {
       console.error("ADD MONEY REQUESTS ERROR:", addMoneyError);
@@ -156,7 +211,7 @@ export async function GET(request: Request) {
     // WITHDRAWAL REQUESTS (All Statuses: Pending, Approved, etc.)
     // =====================================================
 
-    const { data: withdrawalRows, error: withdrawalError } = await supabaseAdmin
+    const { data: withdrawalRows, error: withdrawalError } = await applyCursor(supabaseAdmin
       .from("withdrawals")
       .select(
         `
@@ -172,7 +227,9 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .order("created_at", {
         ascending: false,
-      });
+      })
+      .order("id", { ascending: false })
+      .limit(pagination.pageSize + 1), pagination.cursor);
 
     if (withdrawalError) {
       console.error("WITHDRAWALS ERROR:", withdrawalError);
@@ -271,6 +328,18 @@ export async function GET(request: Request) {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
 
+    const candidateRows = [...transactions, ...walletTransactions]
+      .sort((a, b) => {
+        const createdAt = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return createdAt || b.id.localeCompare(a.id);
+      });
+    const pageRows = candidateRows.slice(0, pagination.pageSize);
+    const pagedTransactions = pageRows.filter((row) => row.type === "order_payment");
+    const pagedWalletTransactions = pageRows.filter((row) => row.type === "wallet_transaction");
+    const nextCursor = candidateRows.length > pagination.pageSize
+      ? encodeCursor(pageRows[pageRows.length - 1])
+      : null;
+
     // =====================================================
     // SUMMARY
     // =====================================================
@@ -292,13 +361,14 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       summary: {
-        totalTransactions: transactions.length,
+      totalTransactions: pagedTransactions.length,
         completedSpend,
         openClaims,
-        walletTransactions: walletTransactions.length,
+      walletTransactions: pagedWalletTransactions.length,
       },
-      transactions,
-      walletTransactions,
+      transactions: pagedTransactions,
+      walletTransactions: pagedWalletTransactions,
+      page: { limit: pagination.pageSize, nextCursor, hasMore: nextCursor !== null },
       supportCasesAvailable: cases.available,
     }, { headers: { "Cache-Control": "private, no-store", Vary: "Authorization" } });
   } catch (error) {

@@ -50,6 +50,7 @@ type TransactionsResponse = {
   };
   transactions: OrderTransaction[];
   walletTransactions: WalletTransaction[];
+  page?: { limit: number; nextCursor: string | null; hasMore: boolean };
 };
 
 const orderFilters = [
@@ -108,6 +109,7 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Loading transactions...");
   const [copied, setCopied] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
 
   async function copyText(value: string, id: string) {
     try {
@@ -179,6 +181,36 @@ export default function TransactionsPage() {
 
     loadTransactions();
   }, [router]);
+
+  async function loadMore() {
+    if (!data?.page?.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch(`/api/transactions?limit=${data.page.limit}&cursor=${encodeURIComponent(data.page.nextCursor)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      const result: TransactionsResponse = await response.json();
+      if (!response.ok) throw new Error("Transaction history load failed");
+      setData((current) => current ? {
+        ...result,
+        transactions: [...current.transactions, ...result.transactions],
+        walletTransactions: [...current.walletTransactions, ...result.walletTransactions],
+        summary: {
+          ...result.summary,
+          totalTransactions: current.transactions.length + result.transactions.length,
+          walletTransactions: current.walletTransactions.length + result.walletTransactions.length,
+        },
+      } : result);
+    } catch (error) {
+      console.error("TRANSACTIONS PAGE MORE ERROR:", error);
+      setMessage("More transactions load করা যায়নি।");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const transactionData = data?.transactions;
   const walletTransactionData = data?.walletTransactions;
@@ -781,6 +813,18 @@ export default function TransactionsPage() {
               </div>
             )}
           </>
+        )}
+        {!loading && !message && data?.page?.hasMore && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={loadMore}
+              className="rounded-xl border border-cyan-400/30 bg-[#0b2545] px-5 py-3 text-sm font-black text-cyan-300 transition hover:border-cyan-400 disabled:opacity-60"
+            >
+              {loadingMore ? "Loading..." : "Load more"}
+            </button>
+          </div>
         )}
       </section>
     </main>
