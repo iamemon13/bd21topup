@@ -3,13 +3,13 @@ import type { TelegramTransport } from "./telegram-transport";
 
 export type ClaimedOperation = { operation_id: string; dispatch_id: string; sequence_no: number; product_code: string; quantity: number; uid_snapshot: string; command_hash: string };
 export interface DispatchQueue {
-  claim(workerId: string): Promise<ClaimedOperation | null>;
+  claim(workerId: string, dispatchId?: string): Promise<ClaimedOperation | null>;
   startSendIntent(operationId: string, workerId: string, sendIntentId: string): Promise<void>;
   finish(operationId: string, workerId: string, sendIntentId: string, outcome: "dry_run_completed" | "failed" | "uncertain", resultHash: string, reason?: string): Promise<void>;
 }
 
-export async function runOneDryRun(queue: DispatchQueue, transport: TelegramTransport, workerId: string) {
-  const operation = await queue.claim(workerId);
+export async function runOneDryRun(queue: DispatchQueue, transport: TelegramTransport, workerId: string, dispatchId?: string) {
+  const operation = await queue.claim(workerId, dispatchId);
   if (!operation) return null;
   const sendIntentId = randomUUID();
   await queue.startSendIntent(operation.operation_id, workerId, sendIntentId);

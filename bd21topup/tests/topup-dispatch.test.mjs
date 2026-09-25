@@ -93,6 +93,27 @@ test("worker never calls transport when durable send intent is rejected", async 
   assert.equal(sends, 0);
 });
 
+test("worker forwards an explicit dispatch scope to the queue", async () => {
+  const runner = load("worker/runner.ts", { "node:crypto": crypto });
+  const dispatchId = "55555555-5555-4555-8555-555555555555";
+  let claimArgs;
+  const queue = { claim: async (...args) => { claimArgs=args; return null; }, startSendIntent: async () => {}, finish: async () => {} };
+  assert.equal(await runner.runOneDryRun(queue, { sendOperation: async () => { throw Error("must not send"); } }, "scoped-worker", dispatchId), null);
+  assert.deepEqual(claimArgs,["scoped-worker",dispatchId]);
+});
+
+test("Supabase queue sends nullable dispatch scope to the claim RPC", async () => {
+  const queueModule = load("worker/supabase-dispatch-queue.ts", { "@supabase/supabase-js": {}, "./runner": {} });
+  const calls=[]; const client={rpc:async (...args)=>{calls.push(args);return {data:[],error:null};}};
+  const queue=new queueModule.SupabaseDispatchQueue(client);
+  await queue.claim("global-worker");
+  await queue.claim("scoped-worker","55555555-5555-4555-8555-555555555555");
+  assert.deepEqual(calls,[
+    ["claim_topup_dispatch_operation_dry_run",{p_worker_id:"global-worker",p_dispatch_id:null}],
+    ["claim_topup_dispatch_operation_dry_run",{p_worker_id:"scoped-worker",p_dispatch_id:"55555555-5555-4555-8555-555555555555"}],
+  ]);
+});
+
 test("supplier correlation rejects generic success and ambiguous replies", () => {
   const correlation = load("worker/supplier-correlation.ts");
   const target = { sentMessageId: "42", uid: "123456789", supplierReference: "TX-9" };

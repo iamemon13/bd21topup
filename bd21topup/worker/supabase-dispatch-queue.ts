@@ -3,8 +3,11 @@ import type { ClaimedOperation, DispatchQueue } from "./runner";
 
 export class SupabaseDispatchQueue implements DispatchQueue {
   constructor(private readonly client: SupabaseClient) {}
-  async claim(workerId: string): Promise<ClaimedOperation | null> {
-    const { data, error } = await this.client.rpc("claim_topup_dispatch_operation_dry_run", { p_worker_id: workerId });
+  async claim(workerId: string, dispatchId?: string): Promise<ClaimedOperation | null> {
+    const { data, error } = await this.client.rpc("claim_topup_dispatch_operation_dry_run", {
+      p_worker_id: workerId,
+      p_dispatch_id: dispatchId ?? null,
+    });
     if (error) throw error;
     return (Array.isArray(data) ? data[0] : data) ?? null;
   }
