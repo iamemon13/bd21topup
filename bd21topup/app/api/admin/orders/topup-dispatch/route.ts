@@ -1,0 +1,77 @@
+import { NextResponse } from "next/server";
+import { checkUserRole } from "@/lib/admin-auth";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { buildDryRunDispatch } from "@/lib/topup-dispatch";
+import { assertPreviewOrder, PreviewError } from "@/lib/topup-preview";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+const responseHeaders = { "Cache-Control": "private, no-store", Vary: "Authorization" };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\s\S])/i;
+
+function failure(code: string, error: string, status: number) {
+  return NextResponse.json({ success: false, code, error }, { status, headers: responseHeaders });
+}
+
+export async function POST(request: Request) {
+  try {
+    const auth = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_orders");
+    if ("error" in auth) return failure("AUTHORIZATION_FAILED", auth.error || "Authorization failed.", auth.status || 403);
+    let body: unknown;
+    try { body = await request.json(); } catch { return failure("INVALID_INPUT", "Expected an orderId JSON object.", 400); }
+    if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length !== 1 ||
+      !("orderId" in body) || typeof body.orderId !== "string" || !UUID.test(body.orderId)) {
+      return failure("INVALID_INPUT", "Send only a valid orderId.", 400);
+    }
+    const { data: order, error: orderError } = await supabaseAdmin.from("orders")
+      .select("id,user_id,uid,package_name,amount,payment_method,status,cancelled_at")
+      .eq("id", body.orderId).maybeSingle();
+    if (orderError) return failure("READ_FAILED", "Order eligibility could not be checked.", 503);
+    assertPreviewOrder(order);
+    const [catalog, ledger] = await Promise.all([
+      supabaseAdmin.from("packages").select("id,name,category").eq("name", order.package_name).limit(2),
+      supabaseAdmin.from("wallet_transactions").select("id,reference_id,user_id,amount,type,direction").eq("reference_id", order.id).limit(2),
+    ]);
+    if (catalog.error || ledger.error || !catalog.data || !ledger.data)
+      return failure("READ_FAILED", "Package or payment evidence could not be checked.", 503);
+    const candidate = buildDryRunDispatch(order, catalog.data, ledger.data);
+    const { data: result, error: createError } = await supabaseAdmin.rpc("admin_create_topup_dispatch_dry_run", {
+      p_admin_id: auth.user.id,
+      p_order_id: order.id,
+      p_package_id: candidate.preview.packageId,
+      p_mapping_version: candidate.preview.mappingVersion,
+      p_operations: candidate.operations,
+      p_ip: (request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown").slice(0, 100),
+    });
+    if (createError) {
+      if (createError.code === "42501") return failure("PERMISSION_CHANGED", "Administrator permission changed.", 403);
+      if (["55000", "P0002"].includes(createError.code)) return failure("ELIGIBILITY_CHANGED", "Order, package, or wallet evidence is no longer eligible.", 409);
+      return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch could not be created.", 503);
+    }
+    const row = Array.isArray(result) ? result[0] : result;
+    if (!row?.dispatch_id) return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch was not confirmed.", 503);
+    const [dispatchResult, operationsResult, auditResult] = await Promise.all([
+      supabaseAdmin.from("topup_dispatches").select("id,order_id,status,dry_run,mapping_version,uid_snapshot,package_name_snapshot,amount_snapshot,manual_review_reason").eq("id", row.dispatch_id).single(),
+      supabaseAdmin.from("topup_dispatch_operations").select("id,sequence_no,product_code,quantity,command_hash,status,failure_reason").eq("dispatch_id", row.dispatch_id).order("sequence_no", { ascending: true }),
+      supabaseAdmin.from("admin_audit_logs").select("action_type,created_at").eq("target_id", row.dispatch_id).order("created_at", { ascending: true }),
+    ]);
+    if (dispatchResult.error || operationsResult.error || auditResult.error || !dispatchResult.data || !operationsResult.data || !auditResult.data)
+      return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch was created but could not be loaded.", 503);
+    const dispatch = dispatchResult.data;
+    return NextResponse.json({ success: true, dispatch: {
+      id: dispatch.id, orderId: dispatch.order_id, status: dispatch.status, dryRun: true,
+      mappingVersion: dispatch.mapping_version, uid: dispatch.uid_snapshot,
+      packageName: dispatch.package_name_snapshot, amount: dispatch.amount_snapshot,
+      manualReviewReason: dispatch.manual_review_reason,
+      failureReason: operationsResult.data.find((operation) => operation.status === "failed" || operation.status === "manual_review")?.failure_reason ?? null,
+      auditTrail: auditResult.data.map((entry) => ({ actionType: entry.action_type, createdAt: entry.created_at })),
+      created: Boolean(row.created), operations: operationsResult.data.map((operation) => ({
+        id: operation.id, sequence: operation.sequence_no, productCode: operation.product_code,
+        quantity: operation.quantity, commandHash: operation.command_hash, status: operation.status,
+      })),
+    } }, { headers: responseHeaders });
+  } catch (error) {
+    if (error instanceof PreviewError) return failure(error.code, error.message, error.status);
+    return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch is temporarily unavailable.", 503);
+  }
+}
