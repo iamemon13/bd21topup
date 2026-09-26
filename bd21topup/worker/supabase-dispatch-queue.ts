@@ -11,6 +11,23 @@ export class SupabaseDispatchQueue implements DispatchQueue {
     if (error) throw error;
     return (Array.isArray(data) ? data[0] : data) ?? null;
   }
+  async inspectDispatch(dispatchId: string) {
+    const dispatchResult = await this.client
+      .from("topup_dispatches")
+      .select("id,status,dry_run,uid_snapshot")
+      .eq("id", dispatchId)
+      .maybeSingle();
+    if (dispatchResult.error) throw dispatchResult.error;
+    if (!dispatchResult.data) throw new Error("Pilot dispatch was not found.");
+
+    const operationsResult = await this.client
+      .from("topup_dispatch_operations")
+      .select("id,sequence_no,product_code,quantity,command_hash,status")
+      .eq("dispatch_id", dispatchId)
+      .order("sequence_no", { ascending: true });
+    if (operationsResult.error) throw operationsResult.error;
+    return { dispatch: dispatchResult.data, operations: operationsResult.data ?? [] };
+  }
   async startSendIntent(operationId: string, workerId: string, sendIntentId: string) {
     const { data, error } = await this.client.rpc("start_topup_dispatch_send_intent_dry_run", {
       p_operation_id: operationId, p_worker_id: workerId, p_send_intent_id: sendIntentId,

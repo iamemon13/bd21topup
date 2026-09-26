@@ -4,6 +4,7 @@ import { checkTelegramConnectivity } from "./telegram-connectivity.ts";
 import { loadTelegramConfig, redactTelegramError } from "./telegram-config.ts";
 import { readTelegramSession, writeTelegramSession } from "./telegram-session-file.ts";
 import { TeleprotoGateway } from "./teleproto-gateway.ts";
+import { captureSensitiveInput } from "./telegram-auth-secrets.ts";
 
 async function question(label: string) {
   const terminal = createInterface({ input: stdin, output: stdout });
@@ -67,9 +68,18 @@ async function main() {
     config.supplierUsername,
     config.supplierEntityId,
     {
-    phoneNumber: () => question("Telegram phone number: "),
-    phoneCode: () => hiddenQuestion("Telegram login code (hidden): "),
-    password: () => hiddenQuestion("Telegram 2FA password (hidden): "),
+      phoneNumber: () => captureSensitiveInput(
+        () => question("Telegram phone number: "),
+        sensitiveValues,
+      ),
+      phoneCode: () => captureSensitiveInput(
+        () => hiddenQuestion("Telegram login code (hidden): "),
+        sensitiveValues,
+      ),
+      password: () => captureSensitiveInput(
+        () => hiddenQuestion("Telegram 2FA password (hidden): "),
+        sensitiveValues,
+      ),
     },
   );
   const savedSession = gateway.saveSession?.();

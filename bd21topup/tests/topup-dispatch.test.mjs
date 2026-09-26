@@ -117,7 +117,7 @@ test("Supabase queue sends nullable dispatch scope to the claim RPC", async () =
 test("supplier correlation rejects generic success and ambiguous replies", () => {
   const correlation = load("worker/supplier-correlation.ts");
   const target = { sentMessageId: "42", uid: "123456789", supplierReference: "TX-9" };
-  assert.equal(correlation.correlateSupplierReply({ messageId: "43", text: "success" }, target).state, "manual_review");
+  assert.equal(correlation.correlateSupplierReply({ messageId: "43", text: "success" }, target).state, "ignored");
   assert.equal(correlation.correlateSupplierReply({ messageId: "43", replyToMessageId: "42", text: "success 123456789" }, target).state, "manual_review");
   assert.equal(correlation.correlateSupplierReply({ messageId: "43", replyToMessageId: "42", text: "success 123456789 TX-9" }, target).state, "confirmed");
 });

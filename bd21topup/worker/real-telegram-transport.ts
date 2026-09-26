@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { DeliveryOperation, DeliveryResult, TelegramTransport } from "./telegram-transport";
 import type { MtprotoGateway } from "./mtproto-gateway";
-import { redactTelegramError, requireRealSend, type TelegramConfig } from "./telegram-config";
+import { redactTelegramError, requireRealSend, type TelegramConfig } from "./telegram-config.ts";
 
 function buildSupplierCommand(operation: DeliveryOperation) {
   if (!/^[0-9]{5,15}$/.test(operation.uid)) throw new Error("Validated operation UID is invalid.");

@@ -38,6 +38,7 @@ yarn-error.log*
 /.telegram/
 *.telegram-session
 *.session
+*.session.*.tmp
 *.session-journal
 
 # vercel

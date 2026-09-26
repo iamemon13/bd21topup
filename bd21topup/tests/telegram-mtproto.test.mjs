@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import * as fsPromises from "node:fs/promises";
+import * as pathModule from "node:path";
+import * as osModule from "node:os";
 import { load, order } from "./topup-test-helpers.mjs";
 
 const configModule = load("worker/telegram-config.ts");
@@ -11,7 +14,7 @@ const realModule = load("worker/real-telegram-transport.ts", {
   "node:crypto": crypto,
   "./telegram-transport": {},
   "./mtproto-gateway": {},
-  "./telegram-config": configModule,
+  "./telegram-config.ts": configModule,
 });
 const factoryModule = load("worker/telegram-transport-factory.ts", {
   "./dry-run-telegram-transport": dryModule,
@@ -21,6 +24,12 @@ const factoryModule = load("worker/telegram-transport-factory.ts", {
   "./telegram-transport": {},
 });
 const connectivityModule = load("worker/telegram-connectivity.ts", { "./mtproto-gateway": {} });
+const authSecretsModule = load("worker/telegram-auth-secrets.ts");
+const sessionModule = load("worker/telegram-session-file.ts", {
+  "node:crypto": crypto,
+  "node:fs/promises": fsPromises,
+  "node:path": pathModule,
+});
 const runnerModule = load("worker/runner.ts", {
   "node:crypto": crypto,
   "./telegram-transport": {},
@@ -190,6 +199,35 @@ test("credential-like values and phone numbers are redacted from transport error
     assert.match(error.message, /\[REDACTED\]/);
     return true;
   });
+});
+
+test("authentication inputs are captured for exact failure redaction", async () => {
+  const sensitive = [];
+  for (const value of ["+8801712345678", "12345", "test-2fa-password"]) {
+    assert.equal(await authSecretsModule.captureSensitiveInput(async () => value, sensitive), value);
+  }
+  const redacted = configModule.redactTelegramError(
+    new Error(sensitive.join(" ")),
+    sensitive,
+  );
+  for (const value of sensitive) assert.ok(!redacted.message.includes(value));
+});
+
+test("session storage uses private atomic files without exposing contents", async () => {
+  const directory = await fsPromises.mkdtemp(pathModule.join(osModule.tmpdir(), "bd21-telegram-session-"));
+  const sessionPath = pathModule.join(directory, "pilot.session");
+  const session = "fixture-session-secret";
+  try {
+    await sessionModule.writeTelegramSession(sessionPath, session);
+    assert.equal(await sessionModule.readTelegramSession(sessionPath), session);
+    const entries = await fsPromises.readdir(directory);
+    assert.deepEqual(entries, ["pilot.session"]);
+    if (process.platform !== "win32") {
+      assert.equal((await fsPromises.stat(sessionPath)).mode & 0o777, 0o600);
+    }
+  } finally {
+    await fsPromises.rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("invalid customer-controlled operation fragments fail before MTProto connection", async () => {

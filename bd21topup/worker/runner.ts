@@ -8,7 +8,12 @@ export interface DispatchQueue {
   finish(operationId: string, workerId: string, sendIntentId: string, outcome: "dry_run_completed" | "failed" | "uncertain", resultHash: string, reason?: string): Promise<void>;
 }
 
-export async function runOneDryRun(queue: DispatchQueue, transport: TelegramTransport, workerId: string, dispatchId?: string) {
+export async function runOneDispatchOperation(
+  queue: DispatchQueue,
+  transport: TelegramTransport,
+  workerId: string,
+  dispatchId?: string,
+) {
   const operation = await queue.claim(workerId, dispatchId);
   if (!operation) return null;
   const sendIntentId = randomUUID();
@@ -25,4 +30,25 @@ export async function runOneDryRun(queue: DispatchQueue, transport: TelegramTran
     await queue.finish(operation.operation_id, workerId, sendIntentId, "uncertain", fallbackHash, "Transport outcome unknown; manual review required.");
     return { kind: "uncertain" as const, dryRun: true as const, resultHash: fallbackHash, summary: "MANUAL_REVIEW" };
   }
+}
+
+export function runOneDryRun(
+  queue: DispatchQueue,
+  transport: TelegramTransport,
+  workerId: string,
+  dispatchId?: string,
+) {
+  return runOneDispatchOperation(queue, transport, workerId, dispatchId);
+}
+
+export function runOneScopedDispatch(
+  queue: DispatchQueue,
+  transport: TelegramTransport,
+  workerId: string,
+  dispatchId: string,
+) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(dispatchId)) {
+    throw new Error("A valid explicit dispatch ID is required.");
+  }
+  return runOneDispatchOperation(queue, transport, workerId, dispatchId);
 }
