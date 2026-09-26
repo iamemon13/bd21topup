@@ -15,11 +15,13 @@ const pilotModule = load("worker/telegram-pilot.ts", {
   "./runner.ts": runnerModule,
   "./telegram-config.ts": configModule,
 });
+const correlationModule = load("worker/supplier-correlation.ts");
 const realModule = load("worker/real-telegram-transport.ts", {
   "node:crypto": crypto,
   "./telegram-transport": {},
   "./mtproto-gateway": {},
   "./telegram-config.ts": configModule,
+  "./supplier-correlation.ts": correlationModule,
 });
 
 const dispatchId = "55555555-5555-4555-8555-555555555555";

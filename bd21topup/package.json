@@ -12,7 +12,8 @@
     "telegram:check": "node --experimental-transform-types worker/telegram-connectivity-cli.ts",
     "telegram:identity": "node --experimental-transform-types worker/telegram-connectivity-cli.ts --identity-bootstrap",
     "telegram:pilot:preflight": "node --experimental-transform-types worker/telegram-pilot-cli.ts --preflight",
-    "telegram:pilot": "node --experimental-transform-types worker/telegram-pilot-cli.ts"
+    "telegram:pilot": "node --experimental-transform-types worker/telegram-pilot-cli.ts",
+    "telegram:worker": "node --experimental-transform-types worker/telegram-auto-worker-cli.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -40,6 +40,14 @@ TELEGRAM_SUPPLIER_ENTITY_ID=<verified stable entity id>
 
 The controlled pilot additionally needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY`. Keep those variables out of connectivity-only environments when possible. Store all real values in the host secret manager or an ignored, access-controlled environment file. Never store them in Git or command history.
 
+The automatic worker has an additional independent gate that defaults to disabled:
+
+```text
+TELEGRAM_AUTO_WORKER_ENABLED=false
+```
+
+The example `deploy/telegram-worker/bd21topup-telegram-worker.service` processes one operation at a time and performs a zero-send pinned-identity check before claiming work. Do not enable or start it until the reviewed release, migration, staffed manual-review process, and all three real-send configuration gates have been explicitly approved.
+
 ## Zero-send operator sequence
 
 1. Configure API credentials, persistent session path, and reviewed supplier username. Leave both activation flags `false`.

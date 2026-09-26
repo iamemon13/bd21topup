@@ -1,0 +1,25 @@
+[Unit]
+Description=BD21topup guarded automatic Telegram top-up worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bd21telegram
+Group=bd21telegram
+WorkingDirectory=/opt/bd21topup/current/bd21topup
+EnvironmentFile=/etc/bd21topup/telegram-worker.env
+ExecStart=/usr/bin/flock -n /var/lib/bd21topup-telegram/bd21topup-telegram.lock /usr/bin/npm run telegram:worker
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bd21topup-telegram
+
+[Install]
+WantedBy=multi-user.target
