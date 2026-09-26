@@ -123,7 +123,6 @@ test("pilot requires one explicit dispatch ID before any preflight or transport"
 
 for (const [label, changedEnv, pattern] of [
   ["dry-run mode", { ...env, TELEGRAM_TRANSPORT_MODE: "dry-run" }, /disabled/],
-  ["missing acknowledgement", { ...env, TELEGRAM_PILOT_ACKNOWLEDGED: "false" }, /ACKNOWLEDGED/],
   ["real send disabled", { ...env, TELEGRAM_REAL_SEND_ENABLED: "false" }, /disabled/],
   ["missing entity ID", { ...env, TELEGRAM_SUPPLIER_ENTITY_ID: "" }, /ENTITY_ID/],
 ]) test(`pilot refuses ${label} before inspection or transport`, async () => {
@@ -131,6 +130,33 @@ for (const [label, changedEnv, pattern] of [
   await assert.rejects(pilotModule.runControlledTelegramPilot(h.options), pattern);
   assert.deepEqual(h.calls, []);
   assert.equal(h.transports(), 0);
+});
+
+for (const [label, acknowledgement] of [
+  ["an omitted acknowledgement", undefined],
+  ["an empty acknowledgement", ""],
+  ["false", "false"],
+  ["uppercase false", "FALSE"],
+  ["title-case true", "True"],
+  ["uppercase true", "TRUE"],
+  ["numeric truthy text", "1"],
+  ["yes", "yes"],
+  ["on", "on"],
+  ["arbitrary approval text", "approved"],
+]) test(`pilot refuses ${label} before inspection, claim, transport, or network`, async () => {
+  const changedEnv = { ...env };
+  if (acknowledgement === undefined) delete changedEnv.TELEGRAM_PILOT_ACKNOWLEDGED;
+  else changedEnv.TELEGRAM_PILOT_ACKNOWLEDGED = acknowledgement;
+  const h = harness({ env: changedEnv });
+  await assert.rejects(pilotModule.runControlledTelegramPilot(h.options), /ACKNOWLEDGED/);
+  assert.deepEqual(h.calls, []);
+  assert.equal(h.transports(), 0);
+});
+
+test("pilot accepts the exact lowercase acknowledgement true", () => {
+  const config = pilotModule.loadPilotTelegramConfig(env);
+  assert.equal(config.mode, "real");
+  assert.equal(config.realSendEnabled, true);
 });
 
 test("ineligible preflight does not initialize Telegram transport", async () => {
