@@ -64,3 +64,5 @@ The controlled pilot additionally needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE
 ## Controlled pilot prerequisites
 
 Before one pilot, separately approve and verify the deployed commit, persistent host, secure session, pinned identity, exactly one eligible dispatch UUID, staffed manual review, monitoring, and production secret configuration. Enable real-send and pilot acknowledgement only for the explicitly scoped command. Never run the pilot as a global queue consumer and never retry an uncertain send.
+
+The hosting comparison, authoritative read-only preflight, guard order, emergency stop, and manual-review procedure are in `docs/telegram-pilot-runbook.md`.

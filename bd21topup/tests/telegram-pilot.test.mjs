@@ -34,6 +34,11 @@ const env = {
   TELEGRAM_REAL_SEND_ENABLED: "true",
   TELEGRAM_PILOT_ACKNOWLEDGED: "true",
 };
+const preflightEnv = {
+  ...env,
+  TELEGRAM_REAL_SEND_ENABLED: "false",
+  TELEGRAM_PILOT_ACKNOWLEDGED: "false",
+};
 const snapshot = {
   dispatch: { id: dispatchId, status: "queued", dry_run: true, uid_snapshot: "123456789" },
   operations: [{
@@ -121,6 +126,44 @@ test("pilot requires one explicit dispatch ID before any preflight or transport"
   }
 });
 
+test("read-only preflight requires one explicit dispatch and never claims or initializes Telegram", async () => {
+  const calls = [];
+  const options = {
+    args: ["--preflight", "--dispatch", dispatchId],
+    env: preflightEnv,
+    preflightDispatch: async (id) => {
+      calls.push(["read", id]);
+      return snapshot;
+    },
+    showPreflight: (summary) => calls.push(["show", summary]),
+  };
+  const result = await pilotModule.runControlledTelegramPreflight(options);
+  assert.equal(result.dispatchId, dispatchId);
+  assert.deepEqual(calls.map((call) => call[0]), ["read", "show"]);
+  for (const args of [[], ["--preflight"], ["--preflight", "--dispatch", "bad"], ["--dispatch", dispatchId]]) {
+    await assert.rejects(
+      pilotModule.runControlledTelegramPreflight({ ...options, args }),
+      /preflight requires exactly/,
+    );
+  }
+});
+
+test("read-only preflight refuses active send controls before database inspection", async () => {
+  for (const changedEnv of [
+    { ...preflightEnv, TELEGRAM_REAL_SEND_ENABLED: "true" },
+    { ...preflightEnv, TELEGRAM_PILOT_ACKNOWLEDGED: "true" },
+  ]) {
+    let reads = 0;
+    await assert.rejects(pilotModule.runControlledTelegramPreflight({
+      args: ["--preflight", "--dispatch", dispatchId],
+      env: changedEnv,
+      preflightDispatch: async () => { reads += 1; return snapshot; },
+      showPreflight: () => undefined,
+    }), /remain false or unset/);
+    assert.equal(reads, 0);
+  }
+});
+
 for (const [label, changedEnv, pattern] of [
   ["dry-run mode", { ...env, TELEGRAM_TRANSPORT_MODE: "dry-run" }, /disabled/],
   ["real send disabled", { ...env, TELEGRAM_REAL_SEND_ENABLED: "false" }, /disabled/],
@@ -166,6 +209,16 @@ test("ineligible preflight does not initialize Telegram transport", async () => 
   await assert.rejects(pilotModule.runControlledTelegramPilot(h.options), /not eligible/);
   assert.equal(h.transports(), 0);
   assert.ok(!h.calls.some((call) => call[0] === "claim"));
+});
+
+test("missing or corrupt session fails before claim or transport execution", async () => {
+  for (const message of ["Telegram authentication session is missing", "Invalid session encoding"]) {
+    const h = harness({ createTransport: async () => { throw new Error(message); } });
+    await assert.rejects(pilotModule.runControlledTelegramPilot(h.options), new RegExp(message));
+    assert.ok(h.calls.some((call) => call[0] === "inspect"));
+    assert.ok(!h.calls.some((call) => call[0] === "claim"));
+    assert.ok(!h.calls.some((call) => call[0] === "intent"));
+  }
 });
 
 test("pilot prints only safe preflight fields and claims only the explicit dispatch", async () => {

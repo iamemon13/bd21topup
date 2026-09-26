@@ -2,6 +2,7 @@ import type { TelegramTransport } from "./telegram-transport";
 import type { DispatchQueue } from "./runner";
 import { runOneScopedDispatch } from "./runner.ts";
 import {
+  loadTelegramConnectivityConfig,
   loadTelegramConfig,
   requireRealSend,
   type TelegramConfig,
@@ -40,6 +41,13 @@ export function parsePilotDispatchId(args: string[]) {
   return args[1].toLowerCase();
 }
 
+export function parsePilotPreflightDispatchId(args: string[]) {
+  if (args.length !== 3 || args[0] !== "--preflight" || args[1] !== "--dispatch" || !UUID.test(args[2])) {
+    throw new Error("Pilot preflight requires exactly --preflight --dispatch <uuid>.");
+  }
+  return args[2].toLowerCase();
+}
+
 export function loadPilotTelegramConfig(env: TelegramEnvironment): TelegramConfig & {
   mode: "real";
   apiId: number;
@@ -58,7 +66,7 @@ export function loadPilotTelegramConfig(env: TelegramEnvironment): TelegramConfi
 export function validatePilotSnapshot(
   dispatchId: string,
   snapshot: PilotSnapshot,
-  config: ReturnType<typeof loadPilotTelegramConfig>,
+  config: { supplierUsername: string; supplierEntityId: string },
 ): PilotPreflight {
   if (
     snapshot.dispatch.id !== dispatchId ||
@@ -97,6 +105,26 @@ export function validatePilotSnapshot(
       uid: snapshot.dispatch.uid_snapshot,
     })),
   };
+}
+
+export async function runControlledTelegramPreflight(options: {
+  args: string[];
+  env: TelegramEnvironment;
+  preflightDispatch(dispatchId: string): Promise<PilotSnapshot>;
+  showPreflight(summary: PilotPreflight): void;
+}) {
+  const dispatchId = parsePilotPreflightDispatchId(options.args);
+  const config = loadTelegramConnectivityConfig(options.env);
+  if (!config.supplierUsername || !config.supplierEntityId) {
+    throw new Error("Pilot preflight requires the pinned supplier identity.");
+  }
+  const snapshot = await options.preflightDispatch(dispatchId);
+  const preflight = validatePilotSnapshot(dispatchId, snapshot, {
+    supplierUsername: config.supplierUsername,
+    supplierEntityId: config.supplierEntityId,
+  });
+  options.showPreflight(preflight);
+  return preflight;
 }
 
 export async function runControlledTelegramPilot(options: {

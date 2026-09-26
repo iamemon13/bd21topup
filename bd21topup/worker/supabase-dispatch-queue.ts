@@ -28,6 +28,14 @@ export class SupabaseDispatchQueue implements DispatchQueue {
     if (operationsResult.error) throw operationsResult.error;
     return { dispatch: dispatchResult.data, operations: operationsResult.data ?? [] };
   }
+  async preflightDispatch(dispatchId: string) {
+    const { data, error } = await this.client.rpc("preflight_topup_dispatch_dry_run", {
+      p_dispatch_id: dispatchId,
+    });
+    if (error) throw error;
+    if (!data) throw new Error("Dispatch is not eligible and fresh for a controlled pilot.");
+    return data;
+  }
   async startSendIntent(operationId: string, workerId: string, sendIntentId: string) {
     const { data, error } = await this.client.rpc("start_topup_dispatch_send_intent_dry_run", {
       p_operation_id: operationId, p_worker_id: workerId, p_send_intent_id: sendIntentId,

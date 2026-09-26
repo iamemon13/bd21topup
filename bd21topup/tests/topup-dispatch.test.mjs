@@ -114,6 +114,16 @@ test("Supabase queue sends nullable dispatch scope to the claim RPC", async () =
   ]);
 });
 
+test("Supabase queue preflight uses only the read-only authoritative RPC", async () => {
+  const queueModule = load("worker/supabase-dispatch-queue.ts", { "@supabase/supabase-js": {}, "./runner": {} });
+  const calls=[];
+  const snapshot={dispatch:{id:"55555555-5555-4555-8555-555555555555",status:"queued",dry_run:true,uid_snapshot:"123456789"},operations:[]};
+  const client={rpc:async (...args)=>{calls.push(args);return {data:snapshot,error:null};}};
+  const queue=new queueModule.SupabaseDispatchQueue(client);
+  assert.equal(await queue.preflightDispatch("55555555-5555-4555-8555-555555555555"),snapshot);
+  assert.deepEqual(calls,[["preflight_topup_dispatch_dry_run",{p_dispatch_id:"55555555-5555-4555-8555-555555555555"}]]);
+});
+
 test("supplier correlation rejects generic success and ambiguous replies", () => {
   const correlation = load("worker/supplier-correlation.ts");
   const target = { sentMessageId: "42", uid: "123456789", supplierReference: "TX-9" };

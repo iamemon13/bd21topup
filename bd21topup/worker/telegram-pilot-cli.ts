@@ -3,7 +3,12 @@ import { readTelegramSession } from "./telegram-session-file.ts";
 import { TeleprotoGateway } from "./teleproto-gateway.ts";
 import { RealTelegramTransport } from "./real-telegram-transport.ts";
 import { redactTelegramError } from "./telegram-config.ts";
-import { parsePilotDispatchId, runControlledTelegramPilot } from "./telegram-pilot.ts";
+import {
+  parsePilotDispatchId,
+  parsePilotPreflightDispatchId,
+  runControlledTelegramPilot,
+  runControlledTelegramPreflight,
+} from "./telegram-pilot.ts";
 import { SupabaseDispatchQueue } from "./supabase-dispatch-queue.ts";
 
 const sensitiveValues: string[] = [];
@@ -15,7 +20,10 @@ function required(name: string) {
 }
 
 async function main() {
-  parsePilotDispatchId(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  const preflightOnly = args[0] === "--preflight";
+  if (preflightOnly) parsePilotPreflightDispatchId(args);
+  else parsePilotDispatchId(args);
   const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
   const supabaseSecret = required("SUPABASE_SECRET_KEY");
   sensitiveValues.push(supabaseSecret);
@@ -24,8 +32,20 @@ async function main() {
   });
   const queue = new SupabaseDispatchQueue(client);
 
+  if (preflightOnly) {
+    await runControlledTelegramPreflight({
+      args,
+      env: process.env,
+      preflightDispatch: (dispatchId) => queue.preflightDispatch(dispatchId),
+      showPreflight: (summary) => {
+        process.stdout.write(`${JSON.stringify({ pilotPreflight: summary, mutation: false, telegramInitialized: false })}\n`);
+      },
+    });
+    return;
+  }
+
   const result = await runControlledTelegramPilot({
-    args: process.argv.slice(2),
+    args,
     env: process.env,
     workerId: `telegram-pilot-${process.pid}`,
     queue,

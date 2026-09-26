@@ -7,6 +7,7 @@ import { actor, order, pkg, debit } from "./topup-test-helpers.mjs";
 let db;
 const migration = readFileSync(new URL("../supabase/migrations/20260925113000_add_topup_dispatch_dry_run.sql", import.meta.url), "utf8");
 const scopedClaimMigration = readFileSync(new URL("../supabase/migrations/20260925190000_add_scoped_topup_dispatch_claim.sql", import.meta.url), "utf8");
+const preflightMigration = readFileSync(new URL("../supabase/migrations/20260926061451_add_topup_dispatch_read_only_preflight.sql", import.meta.url), "utf8");
 const hash = (version="bd21-kaium-v1",uid=order.uid,sequence=1,product="weekly",quantity=1) => crypto.createHash("sha256").update(`bd21-topup-op-v1|${version}|${uid}|${sequence}|${product}|${quantity}`).digest("hex");
 const operations = [{ productCode: "weekly", quantity: 1, commandHash: hash() }];
 before(async () => {
@@ -27,6 +28,7 @@ before(async () => {
     INSERT INTO profiles VALUES ('${order.user_id}',1000);`);
   await db.exec(migration);
   await db.exec(scopedClaimMigration);
+  await db.exec(preflightMigration);
 });
 after(async () => db?.close());
 const call = () => db.query("SELECT * FROM admin_create_topup_dispatch_dry_run($1,$2,$3,$4,$5::jsonb,$6)", [actor,order.id,pkg.id,"bd21-kaium-v1",JSON.stringify(operations),"test"]);
@@ -45,6 +47,34 @@ test("eligible order creates once; duplicate request reuses dispatch", async () 
   assert.equal((await db.query("SELECT count(*)::int n FROM topup_dispatches")).rows[0].n,1);
   assert.equal((await db.query("SELECT count(*)::int n FROM topup_dispatch_operations")).rows[0].n,1);
   assert.equal((await db.query("SELECT count(*)::int n FROM admin_audit_logs WHERE action_type='TOPUP_DISPATCH_CREATED'")).rows[0].n,1);
+});
+
+test("read-only preflight proves current evidence without mutating dispatch or business state", async () => {
+  await reset();
+  const dispatchId=(await call()).rows[0].dispatch_id;
+  const before=(await db.query("SELECT (SELECT status FROM orders LIMIT 1) order_status,(SELECT count(*)::int FROM wallet_transactions) wallet_count,(SELECT status FROM topup_dispatches WHERE id=$1) dispatch_status,(SELECT status FROM topup_dispatch_operations WHERE dispatch_id=$1) operation_status",[dispatchId])).rows[0];
+  await db.exec("SET ROLE service_role");
+  const result=(await db.query("SELECT preflight_topup_dispatch_dry_run($1) snapshot",[dispatchId])).rows[0].snapshot;
+  await db.exec("RESET ROLE");
+  const after=(await db.query("SELECT (SELECT status FROM orders LIMIT 1) order_status,(SELECT count(*)::int FROM wallet_transactions) wallet_count,(SELECT status FROM topup_dispatches WHERE id=$1) dispatch_status,(SELECT status FROM topup_dispatch_operations WHERE dispatch_id=$1) operation_status",[dispatchId])).rows[0];
+  assert.equal(result.dispatch.id,dispatchId);
+  assert.equal(result.operations.length,1);
+  assert.deepEqual(after,before);
+});
+
+test("read-only preflight returns no candidate when authoritative evidence is stale", async () => {
+  await reset();
+  const dispatchId=(await call()).rows[0].dispatch_id;
+  await db.exec("UPDATE orders SET uid='987654321'");
+  assert.equal((await db.query("SELECT preflight_topup_dispatch_dry_run($1) snapshot",[dispatchId])).rows[0].snapshot,null);
+  assert.equal((await db.query("SELECT status FROM topup_dispatches WHERE id=$1",[dispatchId])).rows[0].status,"queued");
+});
+
+test("preflight migration is fixed-path, service-role-only, and contains no table mutation", () => {
+  assert.match(preflightMigration,/SECURITY DEFINER\s+SET search_path = ''/);
+  assert.match(preflightMigration,/REVOKE ALL ON FUNCTION public\.preflight_topup_dispatch_dry_run\(uuid\)[\s\S]*FROM PUBLIC, anon, authenticated/);
+  assert.match(preflightMigration,/GRANT EXECUTE ON FUNCTION public\.preflight_topup_dispatch_dry_run\(uuid\)[\s\S]*TO service_role/);
+  assert.ok(!/\b(?:INSERT|UPDATE|DELETE)\b\s+(?:INTO\s+|FROM\s+)?public\./i.test(preflightMigration));
 });
 test("creation does not mutate order, wallet balance, or ledger", async () => {
   await reset(); const before=(await db.query("SELECT (SELECT row_to_json(o) FROM orders o),(SELECT row_to_json(p) FROM profiles p),(SELECT jsonb_agg(w) FROM wallet_transactions w)")).rows[0]; await call(); const afterState=(await db.query("SELECT (SELECT row_to_json(o) FROM orders o),(SELECT row_to_json(p) FROM profiles p),(SELECT jsonb_agg(w) FROM wallet_transactions w)")).rows[0]; assert.deepEqual(afterState,before);
