@@ -22,6 +22,7 @@ ALTER TABLE public.orders
       AND payment_verification_source IS NOT NULL
       AND payment_verification_source IN ('admin', 'sms_parser', 'gateway_api')
       AND lower(btrim(payment_method)) IN ('bkash', 'nagad', 'rocket', 'upay')
+      AND (payment_verification_source <> 'admin' OR payment_verified_by IS NOT NULL)
     )
   );
 
@@ -180,7 +181,9 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM public.admin_roles
-    WHERE user_id = p_admin_id AND 'manage_orders' = ANY(permissions)
+    WHERE user_id = p_admin_id
+      AND role IN ('super_admin', 'admin', 'editor')
+      AND (role = 'super_admin' OR 'manage_orders' = ANY(permissions))
   ) THEN
     RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
   END IF;
@@ -390,7 +393,9 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM public.admin_roles
-    WHERE user_id = p_admin_id AND 'manage_orders' = ANY(permissions)
+    WHERE user_id = p_admin_id
+      AND role IN ('super_admin', 'admin', 'editor')
+      AND (role = 'super_admin' OR 'manage_orders' = ANY(permissions))
   ) THEN
     RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
   END IF;

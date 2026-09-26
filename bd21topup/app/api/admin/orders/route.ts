@@ -106,14 +106,31 @@ export async function GET(request: Request) {
       );
     }
 
-    const catalog = await supabaseAdmin.from("packages").select("id,name,category");
+    const catalog = await supabaseAdmin
+      .from("packages")
+      .select("id,name,category");
     return NextResponse.json({
       success: true,
-      autoTopupDispatchEnabled: typeof autoTopupDispatchEnabled === "function" ? autoTopupDispatchEnabled() : false,
-      autoExternalTopupDispatchEnabled: typeof autoExternalTopupDispatchEnabled === "function" ? autoExternalTopupDispatchEnabled() : false,
+      autoTopupDispatchEnabled:
+        typeof autoTopupDispatchEnabled === "function"
+          ? autoTopupDispatchEnabled()
+          : false,
+      autoExternalTopupDispatchEnabled:
+        typeof autoExternalTopupDispatchEnabled === "function"
+          ? autoExternalTopupDispatchEnabled()
+          : false,
       orders: (data || []).map((order) => {
-        const matches = (catalog.data || []).filter((pkg) => pkg.name === order.package_name);
-        return { ...order, topupMappingState: catalog.error ? "unavailable" : matches.length === 1 && resolveTopupMapping(matches[0]) ? "mapped" : "unmapped" };
+        const matches = (catalog.data || []).filter(
+          (pkg) => pkg.name === order.package_name,
+        );
+        return {
+          ...order,
+          topupMappingState: catalog.error
+            ? "unavailable"
+            : matches.length === 1 && resolveTopupMapping(matches[0])
+              ? "mapped"
+              : "unmapped",
+        };
       }),
     });
   } catch (error) {
@@ -307,7 +324,13 @@ export async function PATCH(request: Request) {
     ===================================================== */
 
     if (nextStatus === "cancelled") {
-      const { data, error } = await financialAction({ adminId: adminId, operation: "cancel_order", targetId: orderId, note: adminNote || null, ip: ipAddress });
+      const { data, error } = await financialAction({
+        adminId: adminId,
+        operation: "cancel_order",
+        targetId: orderId,
+        note: adminNote || null,
+        ip: ipAddress,
+      });
 
       if (error) {
         console.error("ADMIN CANCEL ORDER ERROR:", error);
@@ -507,19 +530,19 @@ export async function PATCH(request: Request) {
        9. Optimistic-concurrency status update
     ===================================================== */
 
-    const { data: updatedOrders, error: updateError } =
-      await supabaseAdmin.rpc("admin_update_order_status_audited", {
+    const { data: updatedOrders, error: updateError } = await supabaseAdmin.rpc(
+      "admin_update_order_status_audited",
+      {
         p_admin_id: adminId,
         p_order_id: orderId,
         p_expected_status: currentOrder.status,
         p_next_status: nextStatus,
         p_admin_note: adminNote || null,
         p_ip: ipAddress,
-      });
+      },
+    );
 
-    const updatedOrder = Array.isArray(updatedOrders)
-      ? updatedOrders[0]
-      : null;
+    const updatedOrder = Array.isArray(updatedOrders) ? updatedOrders[0] : null;
 
     if (updateError) {
       if (updateError.code === "42501") {

@@ -7,9 +7,7 @@ import {
   loadDispatch,
 } from "@/lib/topup-dispatch";
 import { resolveTopupMapping } from "@/lib/topup-mappings";
-import {
-  isExternalPaymentMethod,
-} from "@/lib/topup-preview";
+import { isExternalPaymentMethod } from "@/lib/topup-preview";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -97,7 +95,11 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (orderError) {
-      return failure("READ_FAILED", "Order eligibility could not be checked.", 503);
+      return failure(
+        "READ_FAILED",
+        "Order eligibility could not be checked.",
+        503,
+      );
     }
     if (!order) {
       return failure("ORDER_NOT_FOUND", "Order was not found.", 404);
@@ -121,7 +123,11 @@ export async function POST(request: Request) {
       );
     }
     if (order.cancelled_at !== null) {
-      return failure("ORDER_CANCELLED", "Order has cancellation evidence.", 409);
+      return failure(
+        "ORDER_CANCELLED",
+        "Order has cancellation evidence.",
+        409,
+      );
     }
     if (!isExternalPaymentMethod(order.payment_method)) {
       return failure(
@@ -150,7 +156,11 @@ export async function POST(request: Request) {
       .limit(2);
 
     if (catalogError || !catalog) {
-      return failure("READ_FAILED", "Package catalog could not be loaded.", 503);
+      return failure(
+        "READ_FAILED",
+        "Package catalog could not be loaded.",
+        503,
+      );
     }
     if (catalog.length !== 1 || catalog[0].name !== order.package_name) {
       return failure(
@@ -177,40 +187,30 @@ export async function POST(request: Request) {
     let verificationSource = order.payment_verification_source;
 
     if (!order.payment_verified_at) {
-      verifiedAt = new Date().toISOString();
-      verifiedBy = adminId;
-      verificationSource = "admin";
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+        "admin_verify_external_order_payment",
+        {
+          p_admin_id: adminId,
+          p_order_id: order.id,
+          p_source: "admin",
+          p_ip: ip,
+        },
+      );
 
-      const { error: updateError } = await supabaseAdmin
-        .from("orders")
-        .update({
-          payment_verified_at: verifiedAt,
-          payment_verified_by: verifiedBy,
-          payment_verification_source: verificationSource,
-        })
-        .eq("id", order.id);
-
-      if (updateError) {
-        return failure(
-          "VERIFICATION_FAILED",
-          "Payment verification evidence could not be recorded.",
-          500,
-        );
+      if (rpcError) {
+        if (rpcError.code === "42501") return failure("PERMISSION_CHANGED", "Administrator permission changed.", 403);
+        if (["55000", "P0002"].includes(rpcError.code)) return failure("VERIFICATION_REJECTED", "Order is not eligible for verification.", 409);
+        return failure("VERIFICATION_FAILED", "Payment verification could not be recorded securely.", 500);
       }
 
-      await supabaseAdmin.from("admin_audit_logs").insert({
-        admin_id: adminId,
-        action_type: "EXTERNAL_PAYMENT_VERIFIED",
-        target_id: order.id,
-        details: JSON.stringify({
-          order_id: order.id,
-          payment_method: order.payment_method,
-          transaction_id: order.transaction_id,
-          amount: order.amount,
-          source: verificationSource,
-        }),
-        ip_address: ip,
-      });
+      const row = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+      if (!row || !row.verified) {
+        return failure("VERIFICATION_FAILED", "Verification failed.", 500);
+      }
+
+      verifiedAt = row.verified_at;
+      verifiedBy = adminId;
+      verificationSource = "admin";
     }
 
     /* -----------------------------------------------------
@@ -241,7 +241,8 @@ export async function POST(request: Request) {
           dispatchError = dispatchResult.error;
         }
       } catch (err) {
-        dispatchError = err instanceof Error ? err.message : "dispatch_create_failed";
+        dispatchError =
+          err instanceof Error ? err.message : "dispatch_create_failed";
       }
     }
 

@@ -41,11 +41,20 @@ export class PreviewError extends Error {
   }
 }
 
-export const EXTERNAL_PAYMENT_METHODS = ["bkash", "nagad", "rocket", "upay"] as const;
+export const EXTERNAL_PAYMENT_METHODS = [
+  "bkash",
+  "nagad",
+  "rocket",
+  "upay",
+] as const;
 export type ExternalPaymentMethod = (typeof EXTERNAL_PAYMENT_METHODS)[number];
 
-export function isExternalPaymentMethod(method: string): method is ExternalPaymentMethod {
-  return (EXTERNAL_PAYMENT_METHODS as readonly string[]).includes(method.trim().toLowerCase());
+export function isExternalPaymentMethod(
+  method: string,
+): method is ExternalPaymentMethod {
+  return (EXTERNAL_PAYMENT_METHODS as readonly string[]).includes(
+    method.trim().toLowerCase(),
+  );
 }
 
 export function assertExternalPreviewOrder(

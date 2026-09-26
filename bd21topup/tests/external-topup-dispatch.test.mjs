@@ -119,6 +119,21 @@ function setupVerifyRoute({
     },
     async rpc(name, args) {
       calls.push(["rpc", name, args]);
+      if (name === "admin_verify_external_order_payment") {
+        if (updateError) {
+          return { data: null, error: updateError };
+        }
+        orderState = {
+          ...orderState,
+          payment_verified_at: "2026-09-27T02:00:00Z",
+          payment_verified_by: actor,
+          payment_verification_source: args.p_source,
+        };
+        return {
+          data: [{ verified: true, order_id: args.p_order_id, verified_at: "2026-09-27T02:00:00Z" }],
+          error: null,
+        };
+      }
       if (createError) {
         return { data: null, error: createError };
       }
@@ -264,10 +279,16 @@ test("A. customer external order submit creates zero dispatch and is unverified"
   const json = await response.json();
   assert.equal(json.success, true);
   // Zero dispatch calls
-  assert.ok(!calls.some(([act, table]) => act === "from" && table === "topup_dispatches"));
+  assert.ok(
+    !calls.some(
+      ([act, table]) => act === "from" && table === "topup_dispatches",
+    ),
+  );
   assert.ok(!calls.some(([act]) => act === "rpc"));
   // Order inserted with status pending and no verified evidence
-  const insertCall = calls.find(([act, table]) => act === "insert" && table === "orders");
+  const insertCall = calls.find(
+    ([act, table]) => act === "insert" && table === "orders",
+  );
   assert.ok(insertCall);
   assert.equal(insertCall[2].status, "pending");
   assert.equal(insertCall[2].payment_verified_at, undefined);
@@ -326,18 +347,20 @@ test("C. admin verifies eligible mapped external order and creates dispatch", as
   assert.equal(body.order.paymentVerificationSource, "admin");
   assert.equal(body.dispatch.id, dispatchId);
 
-  // Check audit log
-  const auditCall = s.calls.find(
-    (c) => c[0] === "insert" && c[1] === "admin_audit_logs",
-  );
-  assert.ok(auditCall);
-  assert.equal(auditCall[2].action_type, "EXTERNAL_PAYMENT_VERIFIED");
+  // Ensure no direct updates or inserts for verification
+  assert.ok(!s.calls.some((c) => c[0] === "update" && c[1] === "orders"));
+  assert.ok(!s.calls.some((c) => c[0] === "insert" && c[1] === "admin_audit_logs"));
 
-  // Check exactly one dispatch RPC
+  // Check RPC calls: one for verification, one for dispatch
   const rpcCalls = s.calls.filter((c) => c[0] === "rpc");
-  assert.equal(rpcCalls.length, 1);
-  assert.equal(rpcCalls[0][1], "admin_create_topup_dispatch_dry_run");
+  assert.equal(rpcCalls.length, 2);
+
+  assert.equal(rpcCalls[0][1], "admin_verify_external_order_payment");
   assert.equal(rpcCalls[0][2].p_admin_id, actor);
+  assert.equal(rpcCalls[0][2].p_source, "admin");
+
+  assert.equal(rpcCalls[1][1], "admin_create_topup_dispatch_dry_run");
+  assert.equal(rpcCalls[1][2].p_admin_id, actor);
 });
 
 // ============================================================================
@@ -373,7 +396,9 @@ test("D. repeated verification does not duplicate verification or dispatch", asy
   // Did not update orders table with new timestamp
   assert.ok(!s.calls.some((c) => c[0] === "update" && c[1] === "orders"));
   // Did not insert new audit log
-  assert.ok(!s.calls.some((c) => c[0] === "insert" && c[1] === "admin_audit_logs"));
+  assert.ok(
+    !s.calls.some((c) => c[0] === "insert" && c[1] === "admin_audit_logs"),
+  );
 });
 
 // ============================================================================
@@ -424,8 +449,8 @@ test("F. dispatch creation failure keeps verification recorded and returns recov
   // Dispatch is null but dispatchError is reported
   assert.equal(body.dispatch, null);
   assert.equal(body.dispatchError, "55000");
-  // Order update was executed
-  assert.ok(s.calls.some((c) => c[0] === "update" && c[1] === "orders"));
+  // Order verify RPC was executed
+  assert.ok(s.calls.some((c) => c[0] === "rpc" && c[1] === "admin_verify_external_order_payment"));
 });
 
 // ============================================================================
@@ -540,7 +565,10 @@ test("J. existing wallet auto-topup dispatch remains unchanged", async () => {
     },
     rpc: async (name, args) => {
       calls.push(["rpc", name, args]);
-      return { data: [{ dispatch_id: dispatchId, created: true }], error: null };
+      return {
+        data: [{ dispatch_id: dispatchId, created: true }],
+        error: null,
+      };
     },
   };
 
@@ -568,7 +596,9 @@ test("K. feature gate false records verification but does not create dispatch", 
   assert.equal(body.verified, true);
   assert.equal(body.dispatch, null);
   // Zero dispatch RPC calls
-  assert.ok(!s.calls.some((c) => c[0] === "rpc"));
+  assert.ok(!s.calls.some((c) => c[0] === "rpc" && c[1] === "admin_create_topup_dispatch_dry_run"));
+  // Verification RPC was called
+  assert.ok(s.calls.some((c) => c[0] === "rpc" && c[1] === "admin_verify_external_order_payment"));
 });
 
 test("K. feature gate true creates dispatch for admin verified order", async () => {
@@ -594,7 +624,11 @@ test("UI modes for external payment orders", async () => {
       useState: (init) => [init, () => {}],
     },
     "react/jsx-runtime": { jsx() {}, jsxs() {}, Fragment: Symbol("Fragment") },
-    "@/lib/supabase": { supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } },
+    "@/lib/supabase": {
+      supabase: {
+        auth: { getSession: async () => ({ data: { session: null } }) },
+      },
+    },
     "@/components/TopUpPreviewDialog": () => null,
   });
 
@@ -625,25 +659,49 @@ test("UI modes for external payment orders", async () => {
 
   // 4. Verified external order with dispatch loaded
   assert.equal(
-    ui.getTopupDispatchUiMode(verifiedOrder, false, { id: dispatchId, status: "queued", operations: [] }, true, true),
+    ui.getTopupDispatchUiMode(
+      verifiedOrder,
+      false,
+      { id: dispatchId, status: "queued", operations: [] },
+      true,
+      true,
+    ),
     "external-loaded",
   );
 
   // 5. Unmapped external order shows unmapped
   assert.equal(
-    ui.getTopupDispatchUiMode({ ...externalOrder, topupMappingState: "unmapped" }, false, null, false, true),
+    ui.getTopupDispatchUiMode(
+      { ...externalOrder, topupMappingState: "unmapped" },
+      false,
+      null,
+      false,
+      true,
+    ),
     "unmapped",
   );
 
   // 6. Completed external order shows none
   assert.equal(
-    ui.getTopupDispatchUiMode({ ...externalOrder, status: "completed" }, false, null, false, true),
+    ui.getTopupDispatchUiMode(
+      { ...externalOrder, status: "completed" },
+      false,
+      null,
+      false,
+      true,
+    ),
     "none",
   );
 
   // 7. Cancelled external order shows none
   assert.equal(
-    ui.getTopupDispatchUiMode({ ...externalOrder, cancelled_at: "2026-09-27T00:00:00Z" }, false, null, false, true),
+    ui.getTopupDispatchUiMode(
+      { ...externalOrder, cancelled_at: "2026-09-27T00:00:00Z" },
+      false,
+      null,
+      false,
+      true,
+    ),
     "none",
   );
 });
@@ -656,7 +714,11 @@ test("UI verifyExternalPayment client helper posts to correct endpoint", async (
       useState: (init) => [init, () => {}],
     },
     "react/jsx-runtime": { jsx() {}, jsxs() {}, Fragment: Symbol("Fragment") },
-    "@/lib/supabase": { supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } },
+    "@/lib/supabase": {
+      supabase: {
+        auth: { getSession: async () => ({ data: { session: null } }) },
+      },
+    },
     "@/components/TopUpPreviewDialog": () => null,
   });
 
@@ -668,13 +730,20 @@ test("UI verifyExternalPayment client helper posts to correct endpoint", async (
       json: async () => ({
         success: true,
         verified: true,
-        order: { id: externalOrder.id, paymentVerifiedAt: "2026-09-27T01:00:00Z" },
+        order: {
+          id: externalOrder.id,
+          paymentVerifiedAt: "2026-09-27T01:00:00Z",
+        },
         dispatch: { id: dispatchId },
       }),
     };
   };
 
-  const result = await ui.verifyExternalPayment("token-123", externalOrder.id, fakeFetch);
+  const result = await ui.verifyExternalPayment(
+    "token-123",
+    externalOrder.id,
+    fakeFetch,
+  );
   assert.equal(result.success, true);
   assert.equal(result.verified, true);
   assert.equal(calls.length, 1);
