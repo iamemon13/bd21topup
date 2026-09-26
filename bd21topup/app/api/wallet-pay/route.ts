@@ -4,6 +4,7 @@ import { z } from "zod";
 import crypto from "crypto";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createOrReuseAutoTopupDispatchForWalletOrder } from "@/lib/topup-dispatch";
 
 const walletOrderSchema = z.object({
   uid: z.coerce
@@ -219,6 +220,17 @@ export async function POST(request: Request) {
           status: 400,
         },
       );
+    }
+
+    const autoDispatch = await createOrReuseAutoTopupDispatchForWalletOrder(
+      supabaseAdmin,
+      String(rpcData.order_id),
+    );
+    if (autoDispatch.attempted && "error" in autoDispatch) {
+      console.error("AUTO TOPUP DISPATCH ERROR:", {
+        orderId: rpcData.order_id,
+        error: autoDispatch.error,
+      });
     }
 
     /* =====================================================
