@@ -42,6 +42,7 @@ for(const route of ['orders','wallet-pay','add-money','withdraw'])test(route+' b
  const api=load('app/api/'+route+'/route.ts',{
  'next/server':response,'@/lib/supabase-admin':{supabaseAdmin},'@/lib/payment-config':config,
  '@/lib/financial-rate-limit':{checkFinancialRateLimit:async(req,userId,action)=>{seen.push({userId,action});return Response.json({error:'limited'},{status:429});}},
+ '@/lib/topup-dispatch':{createOrReuseAutoTopupDispatchForWalletOrder:async()=>{}},
  });
  const blocked=await api.POST(new Request('https://example.test',{method:'POST',headers:{authorization:'Bearer valid'},body:'{"userId":"attacker"}'}));
  assert.equal(blocked.status,429);assert.deepEqual(seen,[{userId:'verified-user',action:route}]);

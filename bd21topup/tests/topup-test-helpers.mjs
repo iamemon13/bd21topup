@@ -43,6 +43,7 @@ export const order = {
   status: "pending",
   payment_method: "wallet",
   cancelled_at: null,
+  topupMappingState: "mapped",
 };
 export const pkg = { id: fixtures[0].id, name: "Weekly", category: "uid_bd" };
 export const debit = {
