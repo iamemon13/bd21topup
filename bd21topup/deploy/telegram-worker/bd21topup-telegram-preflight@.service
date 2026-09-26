@@ -1,0 +1,24 @@
+[Unit]
+Description=BD21topup zero-send Telegram pilot preflight for dispatch %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bd21telegram
+Group=bd21telegram
+WorkingDirectory=/opt/bd21topup/current
+EnvironmentFile=/etc/bd21topup/telegram-worker.env
+Environment=TELEGRAM_REAL_SEND_ENABLED=false
+Environment=TELEGRAM_PILOT_ACKNOWLEDGED=false
+ExecStart=/usr/bin/flock -n /run/lock/bd21topup-telegram.lock /usr/bin/npm run telegram:pilot:preflight -- --dispatch %i
+Restart=no
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bd21topup-telegram
+
+# Intentionally no [Install] section: this zero-send unit must be started
+# manually with one operator-selected dispatch UUID and cannot be enabled.
