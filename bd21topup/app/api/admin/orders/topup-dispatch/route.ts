@@ -13,6 +13,61 @@ function failure(code: string, error: string, status: number) {
   return NextResponse.json({ success: false, code, error }, { status, headers: responseHeaders });
 }
 
+async function loadDispatch(dispatchId: string, created: boolean) {
+  const [dispatchResult, operationsResult, auditResult] = await Promise.all([
+    supabaseAdmin.from("topup_dispatches").select("id,order_id,status,dry_run,mapping_version,uid_snapshot,package_name_snapshot,amount_snapshot,manual_review_reason").eq("id", dispatchId).single(),
+    supabaseAdmin.from("topup_dispatch_operations").select("id,sequence_no,product_code,quantity,command_hash,status,failure_reason").eq("dispatch_id", dispatchId).order("sequence_no", { ascending: true }),
+    supabaseAdmin.from("admin_audit_logs").select("action_type,created_at").eq("target_id", dispatchId).order("created_at", { ascending: true }),
+  ]);
+  if (dispatchResult.error || operationsResult.error || auditResult.error || !dispatchResult.data || !operationsResult.data || !auditResult.data)
+    return null;
+  const dispatch = dispatchResult.data;
+  return {
+    id: dispatch.id, orderId: dispatch.order_id, status: dispatch.status, dryRun: true as const,
+    mappingVersion: dispatch.mapping_version, uid: dispatch.uid_snapshot,
+    packageName: dispatch.package_name_snapshot, amount: dispatch.amount_snapshot,
+    manualReviewReason: dispatch.manual_review_reason,
+    failureReason: operationsResult.data.find((operation) => operation.status === "failed" || operation.status === "manual_review")?.failure_reason ?? null,
+    auditTrail: auditResult.data.map((entry) => ({ actionType: entry.action_type, createdAt: entry.created_at })),
+    created, operations: operationsResult.data.map((operation) => ({
+      id: operation.id, sequence: operation.sequence_no, productCode: operation.product_code,
+      quantity: operation.quantity, commandHash: operation.command_hash, status: operation.status,
+      failureReason: operation.failure_reason,
+    })),
+  };
+}
+
+export async function GET(request: Request) {
+  try {
+    const auth = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_orders");
+    if ("error" in auth) return failure("AUTHORIZATION_FAILED", auth.error || "Authorization failed.", auth.status || 403);
+    const params = new URL(request.url).searchParams;
+    const dispatchIds = params.getAll("dispatchId");
+    const orderIds = params.getAll("orderId");
+    const validKeys = [...params.keys()].every((key) => key === "dispatchId" || key === "orderId");
+    if (!validKeys || dispatchIds.length + orderIds.length !== 1) {
+      return failure("INVALID_INPUT", "Send exactly one dispatchId or orderId.", 400);
+    }
+    const dispatchId = dispatchIds[0];
+    const orderId = orderIds[0];
+    const identifier = dispatchId ?? orderId;
+    if (!identifier || !UUID.test(identifier)) return failure("INVALID_INPUT", "Send a valid dispatchId or orderId.", 400);
+
+    let lookup = supabaseAdmin.from("topup_dispatches").select("id");
+    lookup = dispatchId ? lookup.eq("id", dispatchId) : lookup.eq("order_id", orderId!);
+    const lookupResult = dispatchId
+      ? await lookup.maybeSingle()
+      : await lookup.order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (lookupResult.error) return failure("READ_FAILED", "Dispatch status could not be loaded.", 503);
+    if (!lookupResult.data) return failure("NOT_FOUND", "Dispatch was not found.", 404);
+    const dispatch = await loadDispatch(lookupResult.data.id, false);
+    if (!dispatch) return failure("READ_FAILED", "Dispatch status could not be loaded.", 503);
+    return NextResponse.json({ success: true, dispatch }, { headers: responseHeaders });
+  } catch {
+    return failure("READ_FAILED", "Dispatch status is temporarily unavailable.", 503);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_orders");
@@ -50,26 +105,10 @@ export async function POST(request: Request) {
     }
     const row = Array.isArray(result) ? result[0] : result;
     if (!row?.dispatch_id) return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch was not confirmed.", 503);
-    const [dispatchResult, operationsResult, auditResult] = await Promise.all([
-      supabaseAdmin.from("topup_dispatches").select("id,order_id,status,dry_run,mapping_version,uid_snapshot,package_name_snapshot,amount_snapshot,manual_review_reason").eq("id", row.dispatch_id).single(),
-      supabaseAdmin.from("topup_dispatch_operations").select("id,sequence_no,product_code,quantity,command_hash,status,failure_reason").eq("dispatch_id", row.dispatch_id).order("sequence_no", { ascending: true }),
-      supabaseAdmin.from("admin_audit_logs").select("action_type,created_at").eq("target_id", row.dispatch_id).order("created_at", { ascending: true }),
-    ]);
-    if (dispatchResult.error || operationsResult.error || auditResult.error || !dispatchResult.data || !operationsResult.data || !auditResult.data)
+    const dispatch = await loadDispatch(row.dispatch_id, Boolean(row.created));
+    if (!dispatch)
       return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch was created but could not be loaded.", 503);
-    const dispatch = dispatchResult.data;
-    return NextResponse.json({ success: true, dispatch: {
-      id: dispatch.id, orderId: dispatch.order_id, status: dispatch.status, dryRun: true,
-      mappingVersion: dispatch.mapping_version, uid: dispatch.uid_snapshot,
-      packageName: dispatch.package_name_snapshot, amount: dispatch.amount_snapshot,
-      manualReviewReason: dispatch.manual_review_reason,
-      failureReason: operationsResult.data.find((operation) => operation.status === "failed" || operation.status === "manual_review")?.failure_reason ?? null,
-      auditTrail: auditResult.data.map((entry) => ({ actionType: entry.action_type, createdAt: entry.created_at })),
-      created: Boolean(row.created), operations: operationsResult.data.map((operation) => ({
-        id: operation.id, sequence: operation.sequence_no, productCode: operation.product_code,
-        quantity: operation.quantity, commandHash: operation.command_hash, status: operation.status,
-      })),
-    } }, { headers: responseHeaders });
+    return NextResponse.json({ success: true, dispatch }, { headers: responseHeaders });
   } catch (error) {
     if (error instanceof PreviewError) return failure(error.code, error.message, error.status);
     return failure("DISPATCH_UNAVAILABLE", "Dry-run dispatch is temporarily unavailable.", 503);

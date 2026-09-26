@@ -18,5 +18,6 @@ export type DryRunDispatch = {
     quantity: number;
     commandHash: string;
     status: string;
+    failureReason: string | null;
   }>;
 };
