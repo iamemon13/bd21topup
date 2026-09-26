@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 User=bd21telegram
 Group=bd21telegram
-WorkingDirectory=/opt/bd21topup/current
+WorkingDirectory=/opt/bd21topup/current/bd21topup
 EnvironmentFile=/etc/bd21topup/telegram-worker.env
 Environment=TELEGRAM_REAL_SEND_ENABLED=false
 Environment=TELEGRAM_PILOT_ACKNOWLEDGED=false
