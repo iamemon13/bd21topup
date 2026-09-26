@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:support": "node --test tests/support*.test.mjs",
+    "test:auto-topup-no-cost": "node tests/auto-topup-no-cost.mjs",
     "telegram:check": "node --experimental-transform-types worker/telegram-connectivity-cli.ts",
     "telegram:identity": "node --experimental-transform-types worker/telegram-connectivity-cli.ts --identity-bootstrap",
     "telegram:pilot:preflight": "node --experimental-transform-types worker/telegram-pilot-cli.ts --preflight",

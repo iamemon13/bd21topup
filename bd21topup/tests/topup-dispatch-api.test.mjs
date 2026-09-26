@@ -64,7 +64,7 @@ test("dispatch read supports dispatch id without caching",async()=>{
 
 test("admin UI status refresh replaces the stale dispatch snapshot",async()=>{
   const ui=load("components/TopUpPreviewActions.tsx",{
-    react:{useRef(){},useState(){}},
+    react:{useEffect(){},useRef(){},useState(){}},
     "react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
     "@/lib/supabase":{supabase:{}},
     "@/components/TopUpPreviewDialog":{default(){}},
@@ -80,6 +80,42 @@ test("admin UI status refresh replaces the stale dispatch snapshot",async()=>{
   assert.equal(calls[0][1].method,"GET");
   assert.equal(calls[0][1].cache,"no-store");
   assert.equal(calls[0][1].headers.Authorization,"Bearer secret-token");
+});
+
+test("admin UI auto mode loads existing dispatch by order id without creating",async()=>{
+  const ui=load("components/TopUpPreviewActions.tsx",{
+    react:{useEffect(){},useRef(){},useState(){}},
+    "react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
+    "@/lib/supabase":{supabase:{}},
+    "@/components/TopUpPreviewDialog":{default(){}},
+  });
+  const calls=[];
+  const fresh=await ui.fetchOrderDispatch("secret-token",order.id,async(url,init)=>{
+    calls.push([url,init]);
+    return Response.json({success:true,dispatch:{id:"55555555-5555-4555-8555-555555555555",status:"queued",operations:[],auditTrail:[]}});
+  });
+  assert.equal(fresh.status,"queued");
+  assert.match(calls[0][0],new RegExp(`orderId=${order.id}`));
+  assert.equal(calls[0][1].method,"GET");
+  assert.equal(calls[0][1].cache,"no-store");
+  assert.ok(!calls.some((call)=>call[1].method==="POST"));
+});
+
+test("admin UI auto mode treats missing dispatch as manual fallback",async()=>{
+  const ui=load("components/TopUpPreviewActions.tsx",{
+    react:{useEffect(){},useRef(){},useState(){}},
+    "react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
+    "@/lib/supabase":{supabase:{}},
+    "@/components/TopUpPreviewDialog":{default(){}},
+  });
+  const missing=await ui.fetchOrderDispatch("secret-token",order.id,async()=>Response.json({success:false,error:"Dispatch was not found."},{status:404}));
+  assert.equal(missing,null);
+  assert.equal(ui.isAutoTopupOrderEligible(order),true);
+  assert.equal(ui.getTopupDispatchUiMode(order,true,null,false),"automatic-loading");
+  assert.equal(ui.getTopupDispatchUiMode(order,true,null,true),"automatic-fallback");
+  assert.equal(ui.getTopupDispatchUiMode(order,true,{status:"queued",operations:[]},true),"automatic-loaded");
+  assert.equal(ui.getTopupDispatchUiMode(order,false,null,true),"manual");
+  assert.equal(ui.getTopupDispatchUiMode({...order,topupMappingState:"unmapped"},true,null,true),"unmapped");
 });
 
 test("dispatch retry requires authentication and manage_orders permission",async()=>{
@@ -110,7 +146,7 @@ test("ineligible or double-click retry is safely rejected",async()=>{
 });
 test("admin UI retry helper prepares only and never invokes Telegram",async()=>{
   const ui=load("components/TopUpPreviewActions.tsx",{
-    react:{useRef(){},useState(){}},"react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
+    react:{useEffect(){},useRef(){},useState(){}},"react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
     "@/lib/supabase":{supabase:{}},"@/components/TopUpPreviewDialog":{default(){}},
   });
   const calls=[]; const input={dispatchId:"55555555-5555-4555-8555-555555555555",retryReason:"Supplier hard failure was verified",confirmedFailureReason:"Topup failed - Limit Over",supplierFailureConfirmed:true};
@@ -120,7 +156,7 @@ test("admin UI retry helper prepares only and never invokes Telegram",async()=>{
 });
 test("admin UI shows retry eligibility only for the guarded manual-review state",()=>{
   const ui=load("components/TopUpPreviewActions.tsx",{
-    react:{useRef(){},useState(){}},"react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
+    react:{useEffect(){},useRef(){},useState(){}},"react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
     "@/lib/supabase":{supabase:{}},"@/components/TopUpPreviewDialog":{default(){}},
   });
   const pending={id:order.id,status:"pending",payment_method:"wallet"};

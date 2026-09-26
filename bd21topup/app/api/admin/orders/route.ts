@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkUserRole } from "@/lib/admin-auth";
 import { resolveTopupMapping } from "@/lib/topup-mappings";
+import { autoTopupDispatchEnabled } from "@/lib/topup-dispatch";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,7 @@ export async function GET(request: Request) {
     const catalog = await supabaseAdmin.from("packages").select("id,name,category");
     return NextResponse.json({
       success: true,
+      autoTopupDispatchEnabled: autoTopupDispatchEnabled(),
       orders: (data || []).map((order) => {
         const matches = (catalog.data || []).filter((pkg) => pkg.name === order.package_name);
         return { ...order, topupMappingState: catalog.error ? "unavailable" : matches.length === 1 && resolveTopupMapping(matches[0]) ? "mapped" : "unmapped" };

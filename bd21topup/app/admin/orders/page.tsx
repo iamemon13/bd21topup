@@ -65,6 +65,8 @@ export default function AdminOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState("");
+  const [autoTopupDispatchEnabled, setAutoTopupDispatchEnabled] = useState(false);
+  const [orderDataVersion, setOrderDataVersion] = useState(0);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [cancelNote, setCancelNote] = useState("");
   const [search, setSearch] = useState("");
@@ -107,6 +109,8 @@ export default function AdminOrdersPage() {
       }
 
       setOrders(result.orders || []);
+      setAutoTopupDispatchEnabled(Boolean(result.autoTopupDispatchEnabled));
+      setOrderDataVersion((version) => version + 1);
       setMessage("");
     } catch (error) {
       console.error("ORDER LOAD ERROR", error);
@@ -515,7 +519,12 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
 
-                    <TopUpPreviewActions order={order} disabled={isActioning || isBulkLoading} />
+                    <TopUpPreviewActions
+                      order={order}
+                      disabled={isActioning || isBulkLoading}
+                      autoTopupDispatchEnabled={autoTopupDispatchEnabled}
+                      orderDataVersion={orderDataVersion}
+                    />
 
                     {canComplete && (
                       <button

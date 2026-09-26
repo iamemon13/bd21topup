@@ -251,6 +251,7 @@ for (const [name, catalog, error, expected] of [
       },
       "@/lib/supabase-admin": { supabaseAdmin: admin },
       "@/lib/topup-mappings": mappings,
+      "@/lib/topup-dispatch": { autoTopupDispatchEnabled: () => false },
       "@/lib/financial-audit": {
         financialAction: () => {
           throw Error("Unexpected financial action");
@@ -261,5 +262,40 @@ for (const [name, catalog, error, expected] of [
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.orders[0].topupMappingState, expected);
+    assert.equal(body.autoTopupDispatchEnabled, false);
     assert.ok(!JSON.stringify(body).includes("Ktp"));
+    assert.ok(!JSON.stringify(body).includes("AUTO_TOPUP_DISPATCH_ADMIN_ID"));
   });
+
+test("admin list exposes only auto dispatch boolean, never server admin id", async () => {
+  const admin = {
+    from(table) {
+      if (table === "orders")
+        return { select: () => ({ order: async () => ({ data: [order], error: null }) }) };
+      assert.equal(table, "packages");
+      return { select: async () => ({ data: [pkg], error: null }) };
+    },
+  };
+  const route = load("app/api/admin/orders/route.ts", {
+    "next/server": {
+      NextResponse: { json: (body, options) => Response.json(body, options) },
+    },
+    "@/lib/admin-auth": {
+      checkUserRole: async () => ({ user: { id: actor } }),
+    },
+    "@/lib/supabase-admin": { supabaseAdmin: admin },
+    "@/lib/topup-mappings": mappings,
+    "@/lib/topup-dispatch": { autoTopupDispatchEnabled: () => true },
+    "@/lib/financial-audit": {
+      financialAction: () => {
+        throw Error("Unexpected financial action");
+      },
+    },
+  });
+  const response = await route.GET(new Request("https://example.test"));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.autoTopupDispatchEnabled, true);
+  assert.ok(!("autoTopupDispatchAdminId" in body));
+  assert.ok(!JSON.stringify(body).includes(actor));
+});
