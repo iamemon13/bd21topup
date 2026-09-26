@@ -6,23 +6,23 @@ import { load } from "./topup-test-helpers.mjs";
 const correlation = load("worker/supplier-correlation.ts");
 const target = { supplierEntityId: "99", sentMessageId: "42", uid: "12976955986", productCode: "25", quantity: 1 };
 const valid = { senderEntityId: "99", messageId: "43", replyToMessageId: "42",
-  text: "TOPUP DONE\nKtp 12976955986 25 1\nStatus: Success\nOrder ID: ORD-123\nUPRID: UPR-456" };
+  text: "TOPUP DONE\nOrder ID : #3326\nUID : 12976955986\nUPRID-0-S-02886434 12:30 PM\nSuccess\nDiamonds : 25 💎 (25x1)" };
 
 test("valid pinned supplier success is exactly correlated", () => {
   assert.deepEqual(correlation.correlateSupplierReply(valid, target), {
-    state: "confirmed", supplierOrderId: "ORD-123", supplierReference: "UPR-456",
+    state: "confirmed", supplierOrderId: "3326", supplierReference: "UPRID-0-S-02886434",
   });
 });
 
 test("wrong UID and wrong product or quantity stay manual review", () => {
-  for (const text of [valid.text.replace(target.uid, "12976955987"), valid.text.replace(" 25 1", " 50 1"), valid.text.replace(" 25 1", " 25 2")])
+  for (const text of [valid.text.replace(target.uid, "12976955987"), valid.text.replace("Diamonds : 25", "Diamonds : 50"), valid.text.replace("(25x1)", "(25x2)")])
     assert.equal(correlation.correlateSupplierReply({ ...valid, text }, target).state, "manual_review");
 });
 
 test("missing reply linkage, generic success, and ambiguous reply never confirm", () => {
   assert.equal(correlation.correlateSupplierReply({ ...valid, replyToMessageId: undefined }, target).state, "manual_review");
   assert.equal(correlation.correlateSupplierReply({ ...valid, text: "done success" }, target).state, "manual_review");
-  assert.equal(correlation.correlateSupplierReply({ ...valid, text: "TOPUP DONE Success 12976955986 25 1" }, target).state, "manual_review");
+  assert.equal(correlation.correlateSupplierReply({ ...valid, text: "TOPUP DONE Success UID: 12976955986 Diamonds: 25 (25x1)" }, target).state, "manual_review");
 });
 
 test("only the pinned supplier is consumed", () => {

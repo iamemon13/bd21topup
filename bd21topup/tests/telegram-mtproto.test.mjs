@@ -187,14 +187,14 @@ test("real transport accepts only a strictly correlated pinned-supplier success 
     waitForReply: async (username, supplierEntityId, sentMessageId) => {
       assert.deepEqual([username,supplierEntityId,sentMessageId],["fixed_supplier","99","42"]);
       return { senderEntityId:"99",messageId:"43",replyToMessageId:"42",
-        text:`TOPUP DONE Ktp ${order.uid} weekly 1 Success Order ID: ORD-123 UPRID: UPR-456` };
+        text:`TOPUP DONE\nOrder ID : #3326\nUID : ${order.uid}\nUPRID-0-S-02886434\nSuccess\nDiamonds : weekly (weeklyx1)` };
     },
     disconnect: async () => undefined,
   };
   const result=await new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment),gateway).sendOperation(operation);
   assert.equal(result.kind,"verified_success");
-  assert.equal(result.supplierResponse.supplierOrderId,"ORD-123");
-  assert.equal(result.supplierResponse.supplierReference,"UPR-456");
+  assert.equal(result.supplierResponse.supplierOrderId,"3326");
+  assert.equal(result.supplierResponse.supplierReference,"UPRID-0-S-02886434");
 });
 
 for (const [label, entity] of [

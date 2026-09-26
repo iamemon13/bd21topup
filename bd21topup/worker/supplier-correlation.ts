@@ -32,14 +32,17 @@ export function correlateSupplierReply(reply: SupplierReplyFixture, target: Corr
     return { state: "manual_review" as const, reason: "Supplier reply is not linked to the exact sent command." };
 
   const uid = escapeRegex(target.uid), product = escapeRegex(target.productCode), quantity = String(target.quantity);
-  const hasUid = new RegExp(`(?:^|\\D)${uid}(?:\\D|$)`).test(reply.text);
   const hasQuotedCommand = new RegExp(`\\bKtp\\s+${uid}\\s+${product}\\s+${quantity}(?:\\D|$)`, "i").test(reply.text);
+  const hasUid = hasQuotedCommand || new RegExp(`\\bUID\\s*[:#=-]\\s*${uid}(?:\\D|$)`, "i").test(reply.text);
   const hasProduct = new RegExp(`(?:product|diamond(?:s)?|package)\\s*[:#=-]?\\s*${product}(?:\\D|$)`, "i").test(reply.text);
   const hasQuantity = new RegExp(`(?:qty|quantity)\\s*[:#=-]?\\s*${quantity}(?:\\D|$)`, "i").test(reply.text);
+  const hasProductQuantity = hasProduct && (hasQuantity
+    || new RegExp(`\\(\\s*${product}\\s*[x×]\\s*${quantity}\\s*\\)`, "i").test(reply.text));
   const hasSuccessMarkers = /\bTOPUP\s+DONE\b/i.test(reply.text) && /\bSUCCESS\b/i.test(reply.text);
-  const supplierOrderId = extract(reply.text, /\b(?:supplier\s+)?order\s*id\s*[:#=-]\s*([A-Za-z0-9_-]{3,100})\b/i);
-  const supplierReference = extract(reply.text, /\b(?:UPRID|reference|ref)\s*[:#=-]\s*([A-Za-z0-9_-]{3,100})\b/i);
-  if (!hasUid || !(hasQuotedCommand || (hasProduct && hasQuantity)) || !hasSuccessMarkers || !supplierOrderId || !supplierReference)
+  const supplierOrderId = extract(reply.text, /\b(?:supplier\s+)?order\s*id\s*[:=-]\s*#?\s*([A-Za-z0-9_-]{3,100})\b/i);
+  const supplierReference = extract(reply.text, /\b(UPRID-[A-Za-z0-9_-]{3,94})\b/i)
+    ?? extract(reply.text, /\b(?:UPRID|reference|ref)\s*[:#=]\s*([A-Za-z0-9_-]{3,100})\b/i);
+  if (!hasUid || !(hasQuotedCommand || hasProductQuantity) || !hasSuccessMarkers || !supplierOrderId || !supplierReference)
     return { state: "manual_review" as const, reason: "Supplier response did not satisfy strict success correlation." };
   return { state: "confirmed" as const, supplierOrderId, supplierReference };
 }
