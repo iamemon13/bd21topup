@@ -1,45 +1,54 @@
-export type SupplierReplyFixture = { messageId: string; replyToMessageId?: string; text: string };
-export type CorrelationTarget = { sentMessageId: string; uid: string; supplierReference?: string };
+export type SupplierReplyFixture = {
+  senderEntityId: string;
+  messageId: string;
+  replyToMessageId?: string;
+  text: string;
+};
+export type CorrelationTarget = {
+  supplierEntityId: string;
+  sentMessageId: string;
+  uid: string;
+  productCode: string;
+  quantity: number;
+};
 
+function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function extract(text: string, pattern: RegExp) { return text.match(pattern)?.[1] ?? null; }
 function validateTarget(target: CorrelationTarget) {
-  if (
-    !/^[1-9][0-9]*$/.test(target.sentMessageId) ||
-    !/^[0-9]{5,15}$/.test(target.uid) ||
-    (target.supplierReference !== undefined &&
-      !/^[A-Za-z0-9_-]{1,100}$/.test(target.supplierReference))
-  ) {
+  if (!/^-?[1-9][0-9]*$/.test(target.supplierEntityId) || !/^[1-9][0-9]*$/.test(target.sentMessageId)
+    || !/^[0-9]{5,15}$/.test(target.uid) || !/^[a-z0-9]+$/i.test(target.productCode)
+    || !Number.isInteger(target.quantity) || target.quantity < 1 || target.quantity > 5) {
     throw new Error("Invalid supplier correlation target.");
   }
 }
 
-// Generic success text is deliberately insufficient. Until real response fixtures
-// prove stronger rules, only an exact reply link plus UID and known reference can confirm.
 export function correlateSupplierReply(reply: SupplierReplyFixture, target: CorrelationTarget) {
   validateTarget(target);
-  if (!/^[1-9][0-9]*$/.test(reply.messageId)) {
+  if (reply.senderEntityId !== target.supplierEntityId)
+    return { state: "ignored" as const, reason: "Reply was not sent by the pinned supplier." };
+  if (!/^[1-9][0-9]*$/.test(reply.messageId))
     return { state: "manual_review" as const, reason: "Supplier reply has invalid identity metadata." };
-  }
-  const exactReply = reply.replyToMessageId === target.sentMessageId;
-  const hasUid = new RegExp(`(?:^|\\D)${target.uid}(?:\\D|$)`).test(reply.text);
-  const hasReference = Boolean(target.supplierReference && reply.text.includes(target.supplierReference));
-  if (!exactReply) {
-    return { state: "ignored" as const, reason: "Message is not an exact reply to the sent command." };
-  }
-  if (hasUid && (target.supplierReference === undefined || hasReference)) {
-    return { state: "confirmed" as const };
-  }
-  return { state: "manual_review" as const, reason: "Supplier response could not be uniquely correlated." };
+  if (!reply.replyToMessageId || reply.replyToMessageId !== target.sentMessageId)
+    return { state: "manual_review" as const, reason: "Supplier reply is not linked to the exact sent command." };
+
+  const uid = escapeRegex(target.uid), product = escapeRegex(target.productCode), quantity = String(target.quantity);
+  const hasUid = new RegExp(`(?:^|\\D)${uid}(?:\\D|$)`).test(reply.text);
+  const hasQuotedCommand = new RegExp(`\\bKtp\\s+${uid}\\s+${product}\\s+${quantity}(?:\\D|$)`, "i").test(reply.text);
+  const hasProduct = new RegExp(`(?:product|diamond(?:s)?|package)\\s*[:#=-]?\\s*${product}(?:\\D|$)`, "i").test(reply.text);
+  const hasQuantity = new RegExp(`(?:qty|quantity)\\s*[:#=-]?\\s*${quantity}(?:\\D|$)`, "i").test(reply.text);
+  const hasSuccessMarkers = /\bTOPUP\s+DONE\b/i.test(reply.text) && /\bSUCCESS\b/i.test(reply.text);
+  const supplierOrderId = extract(reply.text, /\b(?:supplier\s+)?order\s*id\s*[:#=-]\s*([A-Za-z0-9_-]{3,100})\b/i);
+  const supplierReference = extract(reply.text, /\b(?:UPRID|reference|ref)\s*[:#=-]\s*([A-Za-z0-9_-]{3,100})\b/i);
+  if (!hasUid || !(hasQuotedCommand || (hasProduct && hasQuantity)) || !hasSuccessMarkers || !supplierOrderId || !supplierReference)
+    return { state: "manual_review" as const, reason: "Supplier response did not satisfy strict success correlation." };
+  return { state: "confirmed" as const, supplierOrderId, supplierReference };
 }
 
 export class SupplierCorrelationTracker {
   private readonly processedMessageIds = new Set<string>();
-
   process(reply: SupplierReplyFixture, target: CorrelationTarget) {
-    if (this.processedMessageIds.has(reply.messageId)) {
-      return { state: "duplicate" as const, reason: "Supplier reply was already processed." };
-    }
-    const result = correlateSupplierReply(reply, target);
-    this.processedMessageIds.add(reply.messageId);
-    return result;
+    const key = `${reply.senderEntityId}:${reply.messageId}`;
+    if (this.processedMessageIds.has(key)) return { state: "duplicate" as const, reason: "Supplier reply was already processed." };
+    const result = correlateSupplierReply(reply, target); this.processedMessageIds.add(key); return result;
   }
 }

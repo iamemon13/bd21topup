@@ -9,6 +9,7 @@ const migration = readFileSync(new URL("../supabase/migrations/20260925113000_ad
 const scopedClaimMigration = readFileSync(new URL("../supabase/migrations/20260925190000_add_scoped_topup_dispatch_claim.sql", import.meta.url), "utf8");
 const preflightMigration = readFileSync(new URL("../supabase/migrations/20260926061451_add_topup_dispatch_read_only_preflight.sql", import.meta.url), "utf8");
 const retryMigration = readFileSync(new URL("../supabase/migrations/20260926175259_add_safe_manual_topup_retry.sql", import.meta.url), "utf8");
+const supplierCompletionMigration = readFileSync(new URL("../supabase/migrations/20260926181900_add_verified_supplier_topup_completion.sql", import.meta.url), "utf8");
 const hash = (version="bd21-kaium-v1",uid=order.uid,sequence=1,product="weekly",quantity=1) => crypto.createHash("sha256").update(`bd21-topup-op-v1|${version}|${uid}|${sequence}|${product}|${quantity}`).digest("hex");
 const operations = [{ productCode: "weekly", quantity: 1, commandHash: hash() }];
 before(async () => {
@@ -31,10 +32,11 @@ before(async () => {
   await db.exec(scopedClaimMigration);
   await db.exec(preflightMigration);
   await db.exec(retryMigration);
+  await db.exec(supplierCompletionMigration);
 });
 after(async () => db?.close());
 const call = () => db.query("SELECT * FROM admin_create_topup_dispatch_dry_run($1,$2,$3,$4,$5::jsonb,$6)", [actor,order.id,pkg.id,"bd21-kaium-v1",JSON.stringify(operations),"test"]);
-async function reset() { await db.exec("DELETE FROM admin_audit_logs; TRUNCATE topup_dispatch_attempts; DELETE FROM topup_dispatch_operations; DELETE FROM topup_dispatches; DELETE FROM orders WHERE id<>'22222222-2222-4222-8222-222222222222'; UPDATE orders SET user_id='33333333-3333-4333-8333-333333333333',status='pending',payment_method='wallet',cancelled_at=NULL,uid='123456789',amount=158; DELETE FROM wallet_transactions; INSERT INTO wallet_transactions VALUES ('44444444-4444-4444-8444-444444444444','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333',158,'order_payment','debit'); UPDATE packages SET id='95223d39-1880-4128-a222-08180089a229',name='Weekly',category='uid_bd'; UPDATE orders SET package_name='Weekly'; UPDATE admin_roles SET role='admin',permissions=ARRAY['manage_orders'];"); }
+async function reset() { await db.exec("DELETE FROM admin_audit_logs; TRUNCATE topup_supplier_responses,topup_dispatch_attempts; DELETE FROM topup_dispatch_operations; DELETE FROM topup_dispatches; DELETE FROM orders WHERE id<>'22222222-2222-4222-8222-222222222222'; UPDATE orders SET user_id='33333333-3333-4333-8333-333333333333',status='pending',payment_method='wallet',cancelled_at=NULL,uid='123456789',amount=158; DELETE FROM wallet_transactions; INSERT INTO wallet_transactions VALUES ('44444444-4444-4444-8444-444444444444','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333',158,'order_payment','debit'); UPDATE packages SET id='95223d39-1880-4128-a222-08180089a229',name='Weekly',category='uid_bd'; UPDATE orders SET package_name='Weekly'; UPDATE admin_roles SET role='admin',permissions=ARRAY['manage_orders'];"); }
 async function createManualReview() {
   const dispatchId=(await call()).rows[0].dispatch_id;
   const operation=(await db.query("SELECT * FROM claim_topup_dispatch_operation_dry_run('first-worker',$1)",[dispatchId])).rows[0];
@@ -45,6 +47,18 @@ async function createManualReview() {
 }
 const prepareRetry=(dispatchId,confirmed=true,retryReason="Supplier hard failure was verified",failureReason="Topup failed - Limit Over")=>
   db.query("SELECT * FROM admin_prepare_topup_dispatch_retry($1,$2,$3,$4,$5,$6)",[actor,dispatchId,retryReason,failureReason,confirmed,"test"]);
+async function createSendIntent() {
+  const dispatchId=(await call()).rows[0].dispatch_id;
+  const operation=(await db.query("SELECT * FROM claim_topup_dispatch_operation_dry_run('supplier-worker',$1)",[dispatchId])).rows[0];
+  const intent="77777777-7777-4777-8777-777777777777";
+  await db.query("SELECT start_topup_dispatch_send_intent_dry_run($1,'supplier-worker',$2)",[operation.operation_id,intent]);
+  return {dispatchId,operationId:operation.operation_id,intent};
+}
+const completeSupplier=(state, overrides={}) => {
+  const value={entity:"99",sent:"42",reply:"43",replyTo:"42",orderId:"ORD-123",reference:"UPR-456",uid:order.uid,product:"weekly",quantity:1,...overrides};
+  return db.query("SELECT complete_topup_dispatch_from_supplier_reply($1,'supplier-worker',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) v",
+    [state.operationId,state.intent,value.entity,value.sent,value.reply,value.replyTo,value.orderId,value.reference,value.uid,value.product,value.quantity,"c".repeat(64),"SUPPLIER_VERIFIED_SUCCESS"]);
+};
 const secondOrderId = "55555555-5555-4555-8555-555555555555";
 const secondDebitId = "66666666-6666-4666-8666-666666666666";
 async function createSecondDispatch() {
@@ -320,4 +334,51 @@ test("retry RPC and attempt history remain service-role-only and financially iso
   assert.doesNotMatch(retryMigration,/UPDATE public\.(?:orders|profiles|wallet_transactions|packages)|DELETE FROM public\.(?:orders|profiles|wallet_transactions|packages)/i);
   await reset(); const state=await createManualReview();
   for(const role of ["anon","authenticated"]){await db.exec(`SET ROLE ${role}`);await assert.rejects(prepareRetry(state.dispatchId),/permission denied/);await assert.rejects(db.query("SELECT * FROM topup_dispatch_attempts"),/permission denied/);await db.exec("RESET ROLE");}
+});
+
+test("verified supplier reply completes only its matched pending order and preserves audit metadata", async () => {
+  await reset(); const state=await createSendIntent(); const result=(await completeSupplier(state)).rows[0].v;
+  assert.equal(result,true);
+  assert.equal((await db.query("SELECT status FROM orders WHERE id=$1",[order.id])).rows[0].status,"completed");
+  assert.deepEqual((await db.query("SELECT status FROM topup_dispatch_operations WHERE id=$1",[state.operationId])).rows[0],{status:"dry_run_completed"});
+  const response=(await db.query("SELECT supplier_entity_id,sent_message_id,reply_message_id,reply_to_message_id,supplier_order_id,supplier_reference,classification FROM topup_supplier_responses")).rows[0];
+  assert.deepEqual(response,{supplier_entity_id:"99",sent_message_id:"42",reply_message_id:"43",reply_to_message_id:"42",supplier_order_id:"ORD-123",supplier_reference:"UPR-456",classification:"verified_success"});
+  assert.equal((await db.query("SELECT count(*)::int n FROM admin_audit_logs WHERE action_type='TOPUP_DISPATCH_SUPPLIER_CONFIRMED'")).rows[0].n,1);
+});
+
+test("wrong UID, product, quantity, or missing exact reply linkage cannot complete", async () => {
+  for (const overrides of [{uid:"987654321"},{product:"25"},{quantity:2},{replyTo:null}]) {
+    await reset(); const state=await createSendIntent();
+    await assert.rejects(completeSupplier(state,overrides),/not eligible/);
+    assert.equal((await db.query("SELECT status FROM orders WHERE id=$1",[order.id])).rows[0].status,"pending");
+    assert.equal((await db.query("SELECT count(*)::int n FROM topup_supplier_responses")).rows[0].n,0);
+  }
+});
+
+test("duplicate supplier reply is idempotent and already-completed order is rejected", async () => {
+  await reset(); let state=await createSendIntent(); await completeSupplier(state);
+  assert.equal((await completeSupplier(state)).rows[0].v,false);
+  assert.equal((await db.query("SELECT count(*)::int n FROM topup_supplier_responses")).rows[0].n,1);
+  await reset(); state=await createSendIntent(); await db.exec("UPDATE orders SET status='completed'");
+  await assert.rejects(completeSupplier(state),/not eligible/);
+});
+
+test("ambiguous supplier reply is recorded as manual review without financial mutation", async () => {
+  await reset(); const state=await createSendIntent();
+  const before=(await db.query("SELECT (SELECT row_to_json(p) FROM profiles p),(SELECT jsonb_agg(w ORDER BY id) FROM wallet_transactions w)")).rows[0];
+  const result=(await db.query("SELECT record_topup_dispatch_supplier_review($1,'supplier-worker',$2,'99','42','43',NULL,$3,'Strict success correlation failed') v",
+    [state.operationId,state.intent,"d".repeat(64)])).rows[0].v;
+  const afterState=(await db.query("SELECT (SELECT row_to_json(p) FROM profiles p),(SELECT jsonb_agg(w ORDER BY id) FROM wallet_transactions w)")).rows[0];
+  assert.equal(result,true); assert.deepEqual(afterState,before);
+  assert.equal((await db.query("SELECT status FROM orders WHERE id=$1",[order.id])).rows[0].status,"pending");
+  assert.equal((await db.query("SELECT classification FROM topup_supplier_responses")).rows[0].classification,"manual_review");
+  assert.equal((await db.query("SELECT status FROM topup_dispatches WHERE id=$1",[state.dispatchId])).rows[0].status,"manual_review");
+});
+
+test("supplier completion RPCs are service-role-only and exclude financial mutations", async () => {
+  assert.match(supplierCompletionMigration,/SECURITY DEFINER SET search_path = ''/);
+  assert.doesNotMatch(supplierCompletionMigration,/UPDATE public\.(?:profiles|wallet_transactions|payments)|DELETE FROM public\.(?:profiles|wallet_transactions|payments)/i);
+  await reset(); const state=await createSendIntent(); await db.exec("SET ROLE authenticated");
+  await assert.rejects(completeSupplier(state),/permission denied/); await assert.rejects(db.query("SELECT * FROM topup_supplier_responses"),/permission denied/);
+  await db.exec("RESET ROLE");
 });

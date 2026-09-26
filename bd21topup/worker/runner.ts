@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { TelegramTransport } from "./telegram-transport";
+import type { SupplierResponseMetadata, TelegramTransport } from "./telegram-transport";
 
 export type ClaimedOperation = { operation_id: string; dispatch_id: string; sequence_no: number; product_code: string; quantity: number; uid_snapshot: string; command_hash: string };
 export interface DispatchQueue {
   claim(workerId: string, dispatchId?: string): Promise<ClaimedOperation | null>;
   startSendIntent(operationId: string, workerId: string, sendIntentId: string): Promise<void>;
   finish(operationId: string, workerId: string, sendIntentId: string, outcome: "dry_run_completed" | "failed" | "uncertain", resultHash: string, reason?: string): Promise<void>;
+  completeVerifiedSupplierReply(operationId: string, workerId: string, sendIntentId: string, resultHash: string, summary: string, response: SupplierResponseMetadata): Promise<boolean>;
+  recordSupplierManualReview(operationId: string, workerId: string, sendIntentId: string, resultHash: string, reason: string, response: SupplierResponseMetadata): Promise<boolean>;
 }
 
 export async function runOneDispatchOperation(
@@ -22,8 +24,16 @@ export async function runOneDispatchOperation(
   try {
     const result = await transport.sendOperation({ operationId: operation.operation_id, uid: operation.uid_snapshot,
       productCode: operation.product_code, quantity: operation.quantity, commandHash: operation.command_hash });
-    await queue.finish(operation.operation_id, workerId, sendIntentId, result.kind, result.resultHash,
-      result.kind === "uncertain" ? result.summary : undefined);
+    if (result.kind === "verified_success") {
+      await queue.completeVerifiedSupplierReply(operation.operation_id, workerId, sendIntentId,
+        result.resultHash, result.summary, result.supplierResponse);
+    } else if (result.kind === "uncertain" && result.supplierResponse) {
+      await queue.recordSupplierManualReview(operation.operation_id, workerId, sendIntentId,
+        result.resultHash, result.summary, result.supplierResponse);
+    } else {
+      await queue.finish(operation.operation_id, workerId, sendIntentId, result.kind, result.resultHash,
+        result.kind === "uncertain" ? result.summary : undefined);
+    }
     return result;
   } catch {
     const fallbackHash = "0".repeat(64);

@@ -10,11 +10,13 @@ import { load, order } from "./topup-test-helpers.mjs";
 
 const configModule = load("worker/telegram-config.ts");
 const dryModule = load("worker/dry-run-telegram-transport.ts", { "node:crypto": crypto, "./telegram-transport": {} });
+const correlationModule = load("worker/supplier-correlation.ts");
 const realModule = load("worker/real-telegram-transport.ts", {
   "node:crypto": crypto,
   "./telegram-transport": {},
   "./mtproto-gateway": {},
   "./telegram-config.ts": configModule,
+  "./supplier-correlation.ts": correlationModule,
 });
 const factoryModule = load("worker/telegram-transport-factory.ts", {
   "./dry-run-telegram-transport": dryModule,
@@ -175,6 +177,24 @@ test("supplier target is pinned and quantity is always present in the derived co
   await new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment), quantityGateway)
     .sendOperation({ ...operation, operationId: "33333333-3333-4333-8333-333333333333", quantity: 2 });
   assert.deepEqual(quantityCalls, [`Ktp ${order.uid} weekly 2`]);
+});
+
+test("real transport accepts only a strictly correlated pinned-supplier success reply", async () => {
+  const gateway = {
+    connect: async () => undefined,
+    resolve: async () => ({ id: "99", username: "fixed_supplier", type: "bot" }),
+    sendText: async () => ({ messageId: "42", sentAt: new Date("2026-09-25T00:00:00Z") }),
+    waitForReply: async (username, supplierEntityId, sentMessageId) => {
+      assert.deepEqual([username,supplierEntityId,sentMessageId],["fixed_supplier","99","42"]);
+      return { senderEntityId:"99",messageId:"43",replyToMessageId:"42",
+        text:`TOPUP DONE Ktp ${order.uid} weekly 1 Success Order ID: ORD-123 UPRID: UPR-456` };
+    },
+    disconnect: async () => undefined,
+  };
+  const result=await new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment),gateway).sendOperation(operation);
+  assert.equal(result.kind,"verified_success");
+  assert.equal(result.supplierResponse.supplierOrderId,"ORD-123");
+  assert.equal(result.supplierResponse.supplierReference,"UPR-456");
 });
 
 for (const [label, entity] of [
@@ -361,4 +381,20 @@ test("post-intent ECONNRESET is finalized as uncertain manual review without ret
   assert.equal(calls[1][0], "finish");
   assert.equal(calls[1][4], "uncertain");
   assert.match(calls[1][6], /manual review/i);
+});
+
+test("worker routes verified supplier success only through atomic completion", async () => {
+  const calls=[];
+  const response={supplierEntityId:"99",sentMessageId:"42",replyMessageId:"43",replyToMessageId:"42",
+    uid:operation.uid,productCode:operation.productCode,quantity:1,supplierOrderId:"ORD-123",supplierReference:"UPR-456"};
+  const queue={
+    claim:async()=>({operation_id:operation.operationId,dispatch_id:"44444444-4444-4444-8444-444444444444",
+      sequence_no:1,product_code:operation.productCode,quantity:1,uid_snapshot:operation.uid,command_hash:operation.commandHash}),
+    startSendIntent:async()=>undefined,
+    finish:async()=>{ throw new Error("verified success must not use generic finish"); },
+    completeVerifiedSupplierReply:async(...args)=>(calls.push(args),true),
+  };
+  const result=await runnerModule.runOneDryRun(queue,{sendOperation:async()=>({kind:"verified_success",dryRun:false,
+    resultHash:"a".repeat(64),summary:"SUPPLIER_VERIFIED_SUCCESS",supplierResponse:response})},"worker-1");
+  assert.equal(result.kind,"verified_success"); assert.equal(calls.length,1); assert.deepEqual(calls[0].slice(-1)[0],response);
 });

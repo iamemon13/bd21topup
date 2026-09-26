@@ -44,6 +44,21 @@ export class TeleprotoGateway implements MtprotoGateway {
     return { messageId: String(message.id), sentAt: new Date(message.date * 1000) };
   }
 
+  async waitForReply(username: string, supplierEntityId: string, sentMessageId: string, timeoutMs: number) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const messages = await this.client.getMessages(username, { limit: 20 });
+      const reply = messages.find((message) => String(message.senderId ?? "") === supplierEntityId
+        && String(message.replyTo?.replyToMsgId ?? "") === sentMessageId);
+      if (reply) return {
+        senderEntityId: String(reply.senderId ?? ""), messageId: String(reply.id),
+        replyToMessageId: String(reply.replyTo?.replyToMsgId ?? ""), text: reply.message,
+      };
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    return null;
+  }
+
   saveSession() {
     return String(this.client.session.save());
   }

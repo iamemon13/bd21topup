@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { DeliveryOperation, DeliveryResult, TelegramTransport } from "./telegram-transport";
 import type { MtprotoGateway } from "./mtproto-gateway";
 import { redactTelegramError, requireRealSend, type TelegramConfig } from "./telegram-config.ts";
+import { correlateSupplierReply } from "./supplier-correlation.ts";
 
 function buildSupplierCommand(operation: DeliveryOperation) {
   if (!/^[0-9]{5,15}$/.test(operation.uid)) throw new Error("Validated operation UID is invalid.");
@@ -36,10 +37,30 @@ export class RealTelegramTransport implements TelegramTransport {
         throw new Error("Configured Telegram supplier identity did not match.");
       }
       const sent = await this.gateway.sendText(this.config.supplierUsername, command);
-      const resultHash = createHash("sha256")
-        .update(`telegram-send-v1|${operation.operationId}|${sent.messageId}|${sent.sentAt.toISOString()}`)
-        .digest("hex");
-      return { kind: "uncertain", dryRun: false, resultHash, summary: "REAL_SEND_REQUIRES_FUTURE_RESULT_HANDLING" };
+      const reply = this.gateway.waitForReply
+        ? await this.gateway.waitForReply(this.config.supplierUsername, this.config.supplierEntityId, sent.messageId, 30_000)
+        : null;
+      if (!reply) {
+        const resultHash = createHash("sha256").update(`telegram-send-v1|${operation.operationId}|${sent.messageId}|${sent.sentAt.toISOString()}`).digest("hex");
+        return { kind: "uncertain", dryRun: false, resultHash, summary: "SUPPLIER_REPLY_TIMEOUT", supplierMessageId: sent.messageId };
+      }
+      const correlation = correlateSupplierReply(reply, {
+        supplierEntityId: this.config.supplierEntityId, sentMessageId: sent.messageId,
+        uid: operation.uid, productCode: operation.productCode, quantity: operation.quantity,
+      });
+      const resultHash = createHash("sha256").update(`telegram-reply-v1|${reply.senderEntityId}|${reply.messageId}|${reply.replyToMessageId ?? ""}|${reply.text}`).digest("hex");
+      if (correlation.state !== "confirmed") {
+        return { kind: "uncertain", dryRun: false, resultHash, summary: correlation.reason, supplierMessageId: sent.messageId,
+          supplierResponse: { supplierEntityId: reply.senderEntityId, sentMessageId: sent.messageId,
+            replyMessageId: reply.messageId, replyToMessageId: reply.replyToMessageId ?? "",
+            uid: operation.uid, productCode: operation.productCode, quantity: operation.quantity } };
+      }
+      return { kind: "verified_success", dryRun: false, resultHash, summary: "SUPPLIER_VERIFIED_SUCCESS", supplierResponse: {
+        supplierEntityId: reply.senderEntityId, sentMessageId: sent.messageId, replyMessageId: reply.messageId,
+        replyToMessageId: reply.replyToMessageId!, supplierOrderId: correlation.supplierOrderId,
+        supplierReference: correlation.supplierReference, uid: operation.uid,
+        productCode: operation.productCode, quantity: operation.quantity,
+      } };
     } catch (error) {
       throw redactTelegramError(error, [this.config.apiHash]);
     } finally {
