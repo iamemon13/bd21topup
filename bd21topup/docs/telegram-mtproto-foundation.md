@@ -20,7 +20,9 @@ Credentials belong in a local ignored `.env` file or a deployment secret manager
 
 ## Connectivity and identity check
 
-`npm run telegram:check` is separate from the dispatch queue. It authenticates interactively when the session file is empty, resolves only `TELEGRAM_SUPPLIER_USERNAME`, requires the resolved username and entity ID to match `TELEGRAM_SUPPLIER_USERNAME` and `TELEGRAM_SUPPLIER_ENTITY_ID`, prints the verified identity, saves the session locally, and disconnects. Its code has no Supabase client and never calls `sendMessage`. OTP and 2FA input are hidden. Keep `TELEGRAM_REAL_SEND_ENABLED=false` for this check.
+`npm run telegram:identity` is the first-time, zero-send identity bootstrap. It requires real API credentials, the session-file path, and `TELEGRAM_SUPPLIER_USERNAME`, but deliberately does not accept or require an entity ID. It refuses to run unless `TELEGRAM_REAL_SEND_ENABLED` and `TELEGRAM_PILOT_ACKNOWLEDGED` are both `false` or unset. It authenticates when necessary, resolves only the configured username, prints the resolved username, entity type, entity ID, and `messagesSent: 0`, saves the session, and disconnects. The operator must compare the result independently before placing the ID in secret configuration.
+
+After the entity ID is pinned, `npm run telegram:check` repeats the zero-send flow and requires both the resolved username and entity ID to match `TELEGRAM_SUPPLIER_USERNAME` and `TELEGRAM_SUPPLIER_ENTITY_ID`. Neither command imports Supabase, claims dispatch work, or calls `sendMessage`. OTP and 2FA input are hidden. Keep both activation flags false for authentication and identity checks.
 
 The client uses one initial connection retry and disables automatic reconnect. Phase 3A does not retry sends. A later worker must keep any timeout or disconnected-after-send outcome in manual review until Telegram history establishes whether the message exists.
 
@@ -41,3 +43,5 @@ The offline correlation foundation accepts fixtures only. It confirms a result o
 Teleproto exposes the outgoing message ID and timestamp, incoming update sender/chat identity, reply-to metadata, and history lookup. Live update subscription and durable correlation storage are intentionally not wired yet. A future layer must watch only the pinned entity, persist message IDs across processes, and prove restart/reconnect behavior before it can consume live supplier replies.
 
 Before automatic completion can be considered, collect one explicitly approved real transaction and preserve its outgoing ID and timestamp, exact supplier entity ID, full response sequence and timing, reply-to behavior, stable supplier reference format, duplicate/late/failure behavior, and history behavior after reconnect. Generic success text remains insufficient. Automatic order completion remains disabled.
+
+Persistent worker hosting requirements and the operator sequence are documented in `docs/telegram-worker-hosting.md`.

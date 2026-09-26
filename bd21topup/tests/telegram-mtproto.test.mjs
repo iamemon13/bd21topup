@@ -70,6 +70,21 @@ test("Node 24 can load the connectivity CLI module graph without configuration o
   assert.ok(!result.stderr.includes("ERR_MODULE_NOT_FOUND"));
 });
 
+test("identity bootstrap CLI module graph loads without configuration or network", () => {
+  const result = spawnSync(process.execPath, [
+    "--experimental-transform-types",
+    "worker/telegram-connectivity-cli.ts",
+    "--identity-bootstrap",
+    "--check-module-load",
+  ], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+    env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^TELEGRAM_CONNECTIVITY_CLI_MODULES_OK\s*$/);
+});
+
 test("dry-run remains the configuration and transport default", () => {
   const config = configModule.loadTelegramConfig({});
   assert.deepEqual(config, { mode: "dry-run", realSendEnabled: false });
@@ -89,6 +104,48 @@ test("real transport requires explicit mode, complete secrets, opt-in, and gatew
     assert.throws(
       () => configModule.loadTelegramConfig({ ...realEnvironment, TELEGRAM_SUPPLIER_ENTITY_ID: supplierEntityId }),
       /TELEGRAM_SUPPLIER_ENTITY_ID/,
+    );
+  }
+});
+
+test("identity bootstrap omits only the entity pin and requires all send controls off", () => {
+  const identityEnvironment = {
+    ...realEnvironment,
+    TELEGRAM_REAL_SEND_ENABLED: "false",
+    TELEGRAM_PILOT_ACKNOWLEDGED: "false",
+  };
+  delete identityEnvironment.TELEGRAM_SUPPLIER_ENTITY_ID;
+  const config = configModule.loadTelegramIdentityConfig(identityEnvironment);
+  assert.equal(config.mode, "real");
+  assert.equal(config.supplierUsername, "fixed_supplier");
+  assert.equal(config.realSendEnabled, false);
+  for (const [name, value] of [
+    ["TELEGRAM_REAL_SEND_ENABLED", "true"],
+    ["TELEGRAM_REAL_SEND_ENABLED", "approved"],
+    ["TELEGRAM_PILOT_ACKNOWLEDGED", "true"],
+    ["TELEGRAM_PILOT_ACKNOWLEDGED", "approved"],
+  ]) {
+    assert.throws(
+      () => configModule.loadTelegramIdentityConfig({ ...identityEnvironment, [name]: value }),
+      /remain false or unset/,
+    );
+  }
+});
+
+test("pinned connectivity also requires all send controls off", () => {
+  const connectivityEnvironment = {
+    ...realEnvironment,
+    TELEGRAM_REAL_SEND_ENABLED: "false",
+    TELEGRAM_PILOT_ACKNOWLEDGED: "false",
+  };
+  assert.equal(configModule.loadTelegramConnectivityConfig(connectivityEnvironment).realSendEnabled, false);
+  for (const [name, value] of [
+    ["TELEGRAM_REAL_SEND_ENABLED", "true"],
+    ["TELEGRAM_PILOT_ACKNOWLEDGED", "true"],
+  ]) {
+    assert.throws(
+      () => configModule.loadTelegramConnectivityConfig({ ...connectivityEnvironment, [name]: value }),
+      /remain false or unset/,
     );
   }
 });
@@ -153,6 +210,33 @@ test("connectivity check resolves identity, disconnects, sends zero messages, an
   assert.equal(sends, 0);
   assert.deepEqual(calls, ["connect", "disconnect"]);
   assert.ok(!readFileSync(new URL("../worker/telegram-connectivity.ts", import.meta.url), "utf8").includes("supabase"));
+});
+
+test("identity bootstrap authenticates, resolves only configured username, and cannot send or claim", async () => {
+  let sends = 0;
+  const calls = [];
+  const gateway = {
+    authenticate: async () => calls.push("authenticate"),
+    connect: async () => { throw new Error("bootstrap must use the authentication flow"); },
+    resolve: async (username) => {
+      calls.push(["resolve", username]);
+      return { id: "99", username: "fixed_supplier", type: "bot" };
+    },
+    sendText: async () => { sends += 1; throw new Error("must not send"); },
+    disconnect: async () => calls.push("disconnect"),
+  };
+  const entity = await connectivityModule.resolveTelegramIdentity(
+    gateway,
+    "fixed_supplier",
+    { phoneNumber: async () => "fixture", phoneCode: async () => "fixture", password: async () => "fixture" },
+  );
+  assert.deepEqual(entity, { id: "99", username: "fixed_supplier", type: "bot" });
+  assert.equal(sends, 0);
+  assert.deepEqual(calls, ["authenticate", ["resolve", "fixed_supplier"], "disconnect"]);
+  for (const file of ["../worker/telegram-connectivity.ts", "../worker/telegram-connectivity-cli.ts"]) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8").toLowerCase();
+    for (const boundary of ["supabase", "queue.claim", "sendtext("]) assert.ok(!source.includes(boundary));
+  }
 });
 
 for (const [label, entity] of [

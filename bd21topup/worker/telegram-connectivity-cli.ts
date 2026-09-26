@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { checkTelegramConnectivity } from "./telegram-connectivity.ts";
-import { loadTelegramConfig, redactTelegramError } from "./telegram-config.ts";
+import { checkTelegramConnectivity, resolveTelegramIdentity } from "./telegram-connectivity.ts";
+import { loadTelegramConnectivityConfig, loadTelegramIdentityConfig, redactTelegramError } from "./telegram-config.ts";
 import { readTelegramSession, writeTelegramSession } from "./telegram-session-file.ts";
 import { TeleprotoGateway } from "./teleproto-gateway.ts";
 import { captureSensitiveInput } from "./telegram-auth-secrets.ts";
@@ -49,42 +49,48 @@ async function hiddenQuestion(label: string) {
 const sensitiveValues: string[] = [];
 
 async function main() {
-  const config = loadTelegramConfig(process.env);
+  const identityBootstrap = process.argv.includes("--identity-bootstrap");
+  const expectedArgs = identityBootstrap ? ["--identity-bootstrap"] : [];
+  if (process.argv.slice(2).join("\u0000") !== expectedArgs.join("\u0000")) {
+    throw new Error("Connectivity CLI accepts only the explicit --identity-bootstrap mode.");
+  }
+  const config = identityBootstrap
+    ? loadTelegramIdentityConfig(process.env)
+    : loadTelegramConnectivityConfig(process.env);
+  const supplierEntityId = "supplierEntityId" in config ? config.supplierEntityId : undefined;
   if (
     config.mode !== "real" ||
     !config.apiId ||
     !config.apiHash ||
     !config.sessionFile ||
     !config.supplierUsername ||
-    !config.supplierEntityId
+    (!identityBootstrap && !supplierEntityId)
   ) {
     throw new Error("Connectivity check requires TELEGRAM_TRANSPORT_MODE=real and complete configuration.");
   }
   const previousSession = await readTelegramSession(config.sessionFile);
   sensitiveValues.push(config.apiHash, previousSession);
   const gateway = new TeleprotoGateway(previousSession, config.apiId, config.apiHash);
-  const entity = await checkTelegramConnectivity(
-    gateway,
-    config.supplierUsername,
-    config.supplierEntityId,
-    {
-      phoneNumber: () => captureSensitiveInput(
-        () => question("Telegram phone number: "),
-        sensitiveValues,
-      ),
-      phoneCode: () => captureSensitiveInput(
-        () => hiddenQuestion("Telegram login code (hidden): "),
-        sensitiveValues,
-      ),
-      password: () => captureSensitiveInput(
-        () => hiddenQuestion("Telegram 2FA password (hidden): "),
-        sensitiveValues,
-      ),
-    },
-  );
+  const prompts = {
+    phoneNumber: () => captureSensitiveInput(
+      () => question("Telegram phone number: "),
+      sensitiveValues,
+    ),
+    phoneCode: () => captureSensitiveInput(
+      () => hiddenQuestion("Telegram login code (hidden): "),
+      sensitiveValues,
+    ),
+    password: () => captureSensitiveInput(
+      () => hiddenQuestion("Telegram 2FA password (hidden): "),
+      sensitiveValues,
+    ),
+  };
+  const entity = identityBootstrap
+    ? await resolveTelegramIdentity(gateway, config.supplierUsername, prompts)
+    : await checkTelegramConnectivity(gateway, config.supplierUsername, supplierEntityId!, prompts);
   const savedSession = gateway.saveSession?.();
   if (savedSession && savedSession !== previousSession) await writeTelegramSession(config.sessionFile, savedSession);
-  stdout.write(`${JSON.stringify({ connected: true, username: entity.username, entityType: entity.type, entityId: entity.id })}\n`);
+  stdout.write(`${JSON.stringify({ connected: true, identityBootstrap, username: entity.username, entityType: entity.type, entityId: entity.id, messagesSent: 0 })}\n`);
 }
 
 if (process.argv.includes("--check-module-load")) {

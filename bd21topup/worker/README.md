@@ -8,6 +8,6 @@ Claim and send-intent RPCs independently revalidate the current order, package, 
 
 The final send-intent validation holds the same transaction advisory reference lock acquired automatically by every non-null wallet-ledger insert. A financial writer either commits before validation and is observed, or waits until the send-intent transaction commits.
 
-The personal-account MTProto foundation and controlled-pilot prerequisites are documented in `docs/telegram-mtproto-foundation.md`. Before a real pilot, prove persistent hosting, secure account authentication, monitoring, and a staffed manual-review process. An uncertain send must remain `manual_review`; it must never be reclaimed and blindly resent.
+The personal-account MTProto foundation and controlled-pilot prerequisites are documented in `docs/telegram-mtproto-foundation.md`; persistent runtime and zero-send operator requirements are in `docs/telegram-worker-hosting.md`. Before a real pilot, prove persistent hosting, secure account authentication, monitoring, and a staffed manual-review process. An uncertain send must remain `manual_review`; it must never be reclaimed and blindly resent.
 
 Dispatch completion is fulfillment metadata only. The worker never updates `orders` or financial tables.

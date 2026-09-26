@@ -6,15 +6,27 @@ export async function checkTelegramConnectivity(
   supplierEntityId: string,
   prompts?: TelegramAuthPrompts,
 ): Promise<SafeTelegramEntity> {
+  const entity = await resolveTelegramIdentity(gateway, supplierUsername, prompts);
+  if (
+    entity.username.toLowerCase() !== supplierUsername.toLowerCase() ||
+    entity.id !== supplierEntityId
+  ) {
+    throw new Error("Configured Telegram supplier identity did not match.");
+  }
+  return entity;
+}
+
+export async function resolveTelegramIdentity(
+  gateway: MtprotoGateway,
+  supplierUsername: string,
+  prompts?: TelegramAuthPrompts,
+): Promise<SafeTelegramEntity> {
   try {
     if (prompts && gateway.authenticate) await gateway.authenticate(prompts);
     else await gateway.connect();
     const entity = await gateway.resolve(supplierUsername);
-    if (
-      entity.username.toLowerCase() !== supplierUsername.toLowerCase() ||
-      entity.id !== supplierEntityId
-    ) {
-      throw new Error("Configured Telegram supplier identity did not match.");
+    if (entity.username.toLowerCase() !== supplierUsername.toLowerCase()) {
+      throw new Error("Resolved Telegram supplier username did not match.");
     }
     return entity;
   } finally {
