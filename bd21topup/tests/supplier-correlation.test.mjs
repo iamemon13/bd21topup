@@ -14,6 +14,14 @@ test("valid pinned supplier success is exactly correlated", () => {
   });
 });
 
+test("observed UPBD supplier reference variant is confirmed", () => {
+  const reply={senderEntityId:"99",messageId:"44",replyToMessageId:"42",
+    text:"TOPUP DONE\nOrder ID : #3327\nUID : 561844746\nUPBD-Q-S-02889183 5165-5626-6437-4542  Success\nDiamonds : 25 (25×1)"};
+  assert.deepEqual(correlation.correlateSupplierReply(reply,{...target,uid:"561844746"}),{
+    state:"confirmed",supplierOrderId:"3327",supplierReference:"UPBD-Q-S-02889183",
+  });
+});
+
 test("wrong UID and wrong product or quantity stay manual review", () => {
   for (const text of [valid.text.replace(target.uid, "12976955987"), valid.text.replace("Diamonds : 25", "Diamonds : 50"), valid.text.replace("(25x1)", "(25x2)")])
     assert.equal(correlation.correlateSupplierReply({ ...valid, text }, target).state, "manual_review");
@@ -23,6 +31,7 @@ test("missing reply linkage, generic success, and ambiguous reply never confirm"
   assert.equal(correlation.correlateSupplierReply({ ...valid, replyToMessageId: undefined }, target).state, "manual_review");
   assert.equal(correlation.correlateSupplierReply({ ...valid, text: "done success" }, target).state, "manual_review");
   assert.equal(correlation.correlateSupplierReply({ ...valid, text: "TOPUP DONE Success UID: 12976955986 Diamonds: 25 (25x1)" }, target).state, "manual_review");
+  assert.equal(correlation.correlateSupplierReply({ ...valid, text: valid.text.replace("UPRID-0-S-02886434", "Reference: 5165-5626-6437-4542") }, target).state, "manual_review");
 });
 
 test("only the pinned supplier is consumed", () => {

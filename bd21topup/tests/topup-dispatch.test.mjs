@@ -129,5 +129,5 @@ test("supplier correlation rejects generic success and ambiguous replies", () =>
   const target = { supplierEntityId: "99", sentMessageId: "42", uid: "123456789", productCode: "25", quantity: 1 };
   assert.equal(correlation.correlateSupplierReply({ senderEntityId: "99", messageId: "43", text: "success" }, target).state, "manual_review");
   assert.equal(correlation.correlateSupplierReply({ senderEntityId: "99", messageId: "43", replyToMessageId: "42", text: "success 123456789" }, target).state, "manual_review");
-  assert.equal(correlation.correlateSupplierReply({ senderEntityId: "99", messageId: "43", replyToMessageId: "42", text: "TOPUP DONE Ktp 123456789 25 1 Success Order ID: ORD-9 UPRID: REF-9" }, target).state, "confirmed");
+  assert.equal(correlation.correlateSupplierReply({ senderEntityId: "99", messageId: "43", replyToMessageId: "42", text: "TOPUP DONE Ktp 123456789 25 1 Success Order ID: ORD-9 UPRID-0-S-02886434" }, target).state, "confirmed");
 });

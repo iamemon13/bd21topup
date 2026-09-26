@@ -40,8 +40,7 @@ export function correlateSupplierReply(reply: SupplierReplyFixture, target: Corr
     || new RegExp(`\\(\\s*${product}\\s*[x×]\\s*${quantity}\\s*\\)`, "i").test(reply.text));
   const hasSuccessMarkers = /\bTOPUP\s+DONE\b/i.test(reply.text) && /\bSUCCESS\b/i.test(reply.text);
   const supplierOrderId = extract(reply.text, /\b(?:supplier\s+)?order\s*id\s*[:=-]\s*#?\s*([A-Za-z0-9_-]{3,100})\b/i);
-  const supplierReference = extract(reply.text, /\b(UPRID-[A-Za-z0-9_-]{3,94})\b/i)
-    ?? extract(reply.text, /\b(?:UPRID|reference|ref)\s*[:#=]\s*([A-Za-z0-9_-]{3,100})\b/i);
+  const supplierReference = extract(reply.text, /\b(UP(?:RID|BD)-[A-Z0-9]+-[A-Z0-9]+-[0-9]{8})\b/i);
   if (!hasUid || !(hasQuotedCommand || hasProductQuantity) || !hasSuccessMarkers || !supplierOrderId || !supplierReference)
     return { state: "manual_review" as const, reason: "Supplier response did not satisfy strict success correlation." };
   return { state: "confirmed" as const, supplierOrderId, supplierReference };
