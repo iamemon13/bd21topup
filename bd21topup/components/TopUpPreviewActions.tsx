@@ -46,14 +46,51 @@ export async function prepareTopupRetry(accessToken: string, input: {
   return result.dispatch as DryRunDispatch;
 }
 
-type Order = {
+export async function verifyExternalPayment(
+  accessToken: string,
+  orderId: string,
+  request: typeof fetch = fetch,
+) {
+  const response = await request("/api/admin/orders/verify-payment", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ orderId }),
+    cache: "no-store",
+  });
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || "Payment verification failed.");
+  }
+  return result as {
+    success: true;
+    verified: true;
+    order: {
+      id: string;
+      paymentVerifiedAt: string;
+      paymentVerifiedBy?: string | null;
+      paymentVerificationSource?: string | null;
+    };
+    dispatch?: DryRunDispatch | null;
+    dispatchError?: string | null;
+  };
+}
+
+export type Order = {
   id: string;
   status: string;
   payment_method: string;
   user_id?: string | null;
   cancelled_at?: string | null;
   topupMappingState?: "mapped" | "unmapped" | "unavailable";
+  payment_verified_at?: string | null;
+  payment_verified_by?: string | null;
+  payment_verification_source?: string | null;
 };
+
+const EXTERNAL_METHODS = ["bkash", "nagad", "rocket", "upay"];
 
 export function isAutoTopupOrderEligible(order: Order) {
   return order.status === "pending"
@@ -63,17 +100,33 @@ export function isAutoTopupOrderEligible(order: Order) {
     && order.topupMappingState === "mapped";
 }
 
+export function isExternalTopupOrderEligible(order: Order) {
+  return order.status === "pending"
+    && Boolean(order.user_id)
+    && !order.cancelled_at
+    && EXTERNAL_METHODS.includes(order.payment_method.trim().toLowerCase())
+    && order.topupMappingState === "mapped";
+}
+
 export function getTopupDispatchUiMode(
   order: Order,
   autoTopupDispatchEnabled: boolean,
   dispatch: DryRunDispatch | null,
   autoDispatchChecked: boolean,
+  autoExternalTopupDispatchEnabled: boolean = false,
 ) {
   if (autoTopupDispatchEnabled && isAutoTopupOrderEligible(order)) {
     if (dispatch) return "automatic-loaded";
     return autoDispatchChecked ? "automatic-fallback" : "automatic-loading";
   }
   if (order.topupMappingState === "unmapped") return "unmapped";
+  if (EXTERNAL_METHODS.includes(order.payment_method.trim().toLowerCase())) {
+    if (order.status !== "pending" || !order.user_id || order.cancelled_at) return "none";
+    if (!order.payment_verified_at) return "external-unverified";
+    if (dispatch) return "external-loaded";
+    if (!autoExternalTopupDispatchEnabled) return "external-fallback";
+    return autoDispatchChecked ? "external-fallback" : "external-loading";
+  }
   if (order.payment_method.trim().toLowerCase() !== "wallet") return "external";
   if (order.status === "pending" && order.user_id && !order.cancelled_at) return "manual";
   return "none";
@@ -88,11 +141,13 @@ export default function TopUpPreviewActions({
   order,
   disabled,
   autoTopupDispatchEnabled = false,
+  autoExternalTopupDispatchEnabled = false,
   orderDataVersion = 0,
 }: {
   order: Order;
   disabled: boolean;
   autoTopupDispatchEnabled?: boolean;
+  autoExternalTopupDispatchEnabled?: boolean;
   orderDataVersion?: number;
 }) {
   const busy = useRef(false);
@@ -106,12 +161,26 @@ export default function TopUpPreviewActions({
   const [retryReason, setRetryReason] = useState("");
   const [confirmedFailureReason, setConfirmedFailureReason] = useState("");
   const [supplierFailureConfirmed, setSupplierFailureConfirmed] = useState(false);
+  const [orderVerified, setOrderVerified] = useState(Boolean(order.payment_verified_at));
+
+  const isExternal = EXTERNAL_METHODS.includes(order.payment_method.trim().toLowerCase());
+  const effectiveVerified = Boolean(order.payment_verified_at || orderVerified);
+  const currentOrder: Order = {
+    ...order,
+    payment_verified_at: effectiveVerified ? (order.payment_verified_at || "verified") : null,
+  };
+
   const autoEligible = isAutoTopupOrderEligible(order);
+  const externalEligible = isExternalTopupOrderEligible(currentOrder);
 
   useEffect(() => {
     let cancelled = false;
     async function loadAutoDispatch() {
-      if (!autoTopupDispatchEnabled || !autoEligible) {
+      const shouldLoad =
+        (autoTopupDispatchEnabled && autoEligible) ||
+        (autoExternalTopupDispatchEnabled && externalEligible && effectiveVerified);
+
+      if (!shouldLoad) {
         setAutoDispatchChecked(false);
         return;
       }
@@ -136,7 +205,15 @@ export default function TopUpPreviewActions({
     }
     void loadAutoDispatch();
     return () => { cancelled = true; };
-  }, [autoTopupDispatchEnabled, autoEligible, order.id, orderDataVersion]);
+  }, [
+    autoTopupDispatchEnabled,
+    autoExternalTopupDispatchEnabled,
+    autoEligible,
+    externalEligible,
+    effectiveVerified,
+    order.id,
+    orderDataVersion,
+  ]);
 
   async function post(path: string) {
     if (busy.current || disabled) return null;
@@ -175,6 +252,31 @@ export default function TopUpPreviewActions({
     if (result) {
       setDispatch(result.dispatch);
       setAutoDispatchChecked(true);
+    }
+  }
+
+  async function verifyPaymentAndStartTopup() {
+    if (busy.current || disabled) return;
+    busy.current = true;
+    setLoading(true);
+    setError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Login required. Refresh and sign in again.");
+      const result = await verifyExternalPayment(session.access_token, order.id);
+      setOrderVerified(true);
+      if (result.dispatch) {
+        setDispatch(result.dispatch);
+      }
+      setAutoDispatchChecked(true);
+      if (result.dispatchError) {
+        setError(`Payment verified, but dispatch creation failed: ${result.dispatchError}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      busy.current = false;
+      setLoading(false);
     }
   }
 
@@ -223,12 +325,34 @@ export default function TopUpPreviewActions({
   }
 
   const retryEligible = isTopupRetryEligible(order, dispatch);
-  const uiMode = getTopupDispatchUiMode(order, autoTopupDispatchEnabled, dispatch, autoDispatchChecked);
-  const dispatchHeading = autoTopupDispatchEnabled && autoEligible ? "Automatic Top Up" : "DRY RUN";
+  const uiMode = getTopupDispatchUiMode(
+    currentOrder,
+    autoTopupDispatchEnabled,
+    dispatch,
+    autoDispatchChecked,
+    autoExternalTopupDispatchEnabled,
+  );
+  const dispatchHeading = isExternal
+    ? "Verified External Top Up"
+    : (autoTopupDispatchEnabled && autoEligible ? "Automatic Top Up" : "DRY RUN");
 
   return <div className="mt-3">
     {uiMode === "unmapped" ? <p className="text-xs text-amber-300">Manual / Unmapped</p>
       : uiMode === "external" ? <p className="text-xs text-amber-300">Manual payment - payment verification is not available for automatic top-up yet.</p>
+      : uiMode === "external-unverified" ? <div className="space-y-2 rounded-lg border border-sky-400/30 bg-sky-400/10 p-3">
+        <p className="text-xs font-black text-sky-200">External Payment: Unverified</p>
+        <p className="text-[10px] text-slate-300">Method: {order.payment_method.toUpperCase()}</p>
+        <button type="button" disabled={disabled || loading || autoLoading} onClick={verifyPaymentAndStartTopup} className="min-h-9 w-full rounded-md border border-sky-400/60 bg-sky-500/20 px-3 py-2 text-xs font-black text-sky-200 hover:bg-sky-500/30 disabled:opacity-50">{loading ? "Verifying..." : "Verify Payment & Start Top Up"}</button>
+      </div>
+      : uiMode === "external-loading" ? <div className="space-y-2 rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3">
+        <p className="text-xs font-black text-emerald-200">External Payment: Verified</p>
+        <p className="text-[10px] text-emerald-100">{autoLoading ? "Loading dispatch status..." : "Checking dispatch status..."}</p>
+      </div>
+      : uiMode === "external-fallback" ? <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3">
+        <p className="text-xs font-black text-emerald-200">External Payment: Verified</p>
+        <p className="text-[10px] text-amber-200">No dispatch was found / Dispatch creation failed for this verified order.</p>
+        <button type="button" disabled={disabled || loading || autoLoading} onClick={verifyPaymentAndStartTopup} className="min-h-8 w-full rounded-md border border-amber-400/50 bg-amber-400/10 px-2 py-1.5 text-[11px] font-black text-amber-200 disabled:opacity-50">Manual Dispatch Fallback</button>
+      </div>
       : uiMode === "automatic-loading" ? <div className="space-y-2 rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3">
         <p className="text-xs font-black text-emerald-200">Automatic Top Up</p>
         <p className="text-[10px] text-emerald-100">{autoLoading ? "Loading dispatch status..." : "Checking automatic dispatch status..."}</p>

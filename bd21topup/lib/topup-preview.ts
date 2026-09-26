@@ -13,6 +13,10 @@ export type PreviewOrder = {
   payment_method: string;
   status: string;
   cancelled_at: string | null;
+  payment_verified_at?: string | null;
+  payment_verified_by?: string | null;
+  payment_verification_source?: string | null;
+  transaction_id?: string | null;
 };
 export type PreviewPackage = {
   id: string;
@@ -35,6 +39,89 @@ export class PreviewError extends Error {
   ) {
     super(message);
   }
+}
+
+export const EXTERNAL_PAYMENT_METHODS = ["bkash", "nagad", "rocket", "upay"] as const;
+export type ExternalPaymentMethod = (typeof EXTERNAL_PAYMENT_METHODS)[number];
+
+export function isExternalPaymentMethod(method: string): method is ExternalPaymentMethod {
+  return (EXTERNAL_PAYMENT_METHODS as readonly string[]).includes(method.trim().toLowerCase());
+}
+
+export function assertExternalPreviewOrder(
+  order: PreviewOrder | null,
+): asserts order is PreviewOrder {
+  if (!order)
+    throw new PreviewError("ORDER_NOT_FOUND", "Order not found.", 404);
+  if (!isExternalPaymentMethod(order.payment_method))
+    throw new PreviewError(
+      "INVALID_PAYMENT_METHOD",
+      "Only external payment methods (bkash, nagad, rocket, upay) are supported.",
+    );
+  if (!order.payment_verified_at || !order.payment_verification_source)
+    throw new PreviewError(
+      "PAYMENT_UNVERIFIED",
+      "Payment has not been verified yet.",
+    );
+  if (!order.transaction_id || order.transaction_id.trim().length < 4)
+    throw new PreviewError(
+      "TRANSACTION_ID_MISSING",
+      "Valid transaction ID is required.",
+    );
+  if (order.status !== "pending")
+    throw new PreviewError(
+      "ORDER_NOT_PENDING",
+      "Only pending orders can be previewed.",
+    );
+  if (!order.user_id)
+    throw new PreviewError(
+      "ORDER_OWNER_MISSING",
+      "Order has no customer account.",
+    );
+  if (order.cancelled_at !== null)
+    throw new PreviewError(
+      "ORDER_CANCELLED",
+      "Order has cancellation evidence.",
+    );
+  if (
+    typeof order.uid !== "string" ||
+    !/^[0-9]{5,15}(?![\s\S])/.test(order.uid)
+  )
+    throw new PreviewError(
+      "INVALID_UID",
+      "Stored UID must contain exactly 5–15 ASCII digits, without spaces or other characters.",
+    );
+}
+
+export function generateExternalTopupPreview(
+  order: PreviewOrder,
+  packages: PreviewPackage[],
+) {
+  assertExternalPreviewOrder(order);
+  if (packages.length !== 1 || packages[0].name !== order.package_name)
+    throw new PreviewError(
+      "PACKAGE_UNRESOLVED",
+      "Manual / Unmapped: current package could not be resolved uniquely.",
+    );
+  const pkg = packages[0];
+  const mapping = resolveTopupMapping(pkg);
+  if (!mapping)
+    throw new PreviewError(
+      "PACKAGE_UNMAPPED",
+      "Manual / Unmapped: package UUID, name or category is not approved.",
+    );
+  return {
+    orderId: order.id,
+    uid: order.uid,
+    packageId: pkg.id,
+    packageName: pkg.name,
+    category: mapping.category,
+    mappingVersion: TOPUP_MAPPING_VERSION,
+    operations: mapping.operations.map((op, index) => ({
+      index: index + 1,
+      command: `Ktp ${order.uid} ${op.item}${op.quantity === undefined ? "" : ` ${op.quantity}`}`,
+    })),
+  };
 }
 
 export function assertPreviewOrder(

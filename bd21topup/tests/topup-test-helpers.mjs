@@ -54,3 +54,18 @@ export const debit = {
   type: "order_payment",
   direction: "debit",
 };
+export const externalOrder = {
+  id: "77777777-7777-4777-8777-777777777777",
+  user_id: "33333333-3333-4333-8333-333333333333",
+  uid: "123456789",
+  package_name: "Weekly",
+  amount: "158.00",
+  status: "pending",
+  payment_method: "bkash",
+  transaction_id: "TRX12345678",
+  cancelled_at: null,
+  topupMappingState: "mapped",
+  payment_verified_at: null,
+  payment_verified_by: null,
+  payment_verification_source: null,
+};

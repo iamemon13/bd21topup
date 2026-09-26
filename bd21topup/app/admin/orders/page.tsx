@@ -22,6 +22,9 @@ type Order = {
   created_at: string;
   admin_note?: string | null;
   cancelled_at?: string | null;
+  payment_verified_at?: string | null;
+  payment_verified_by?: string | null;
+  payment_verification_source?: string | null;
   topupMappingState?: "mapped" | "unmapped" | "unavailable";
 };
 
@@ -66,6 +69,7 @@ export default function AdminOrdersPage() {
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [autoTopupDispatchEnabled, setAutoTopupDispatchEnabled] = useState(false);
+  const [autoExternalTopupDispatchEnabled, setAutoExternalTopupDispatchEnabled] = useState(false);
   const [orderDataVersion, setOrderDataVersion] = useState(0);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [cancelNote, setCancelNote] = useState("");
@@ -110,6 +114,7 @@ export default function AdminOrdersPage() {
 
       setOrders(result.orders || []);
       setAutoTopupDispatchEnabled(Boolean(result.autoTopupDispatchEnabled));
+      setAutoExternalTopupDispatchEnabled(Boolean(result.autoExternalTopupDispatchEnabled));
       setOrderDataVersion((version) => version + 1);
       setMessage("");
     } catch (error) {
@@ -506,6 +511,16 @@ export default function AdminOrdersPage() {
                       />
                     </div>
                     <Info label="Transaction ID" value={order.transaction_id} />
+                    {order.payment_method.toLowerCase() !== "wallet" && (
+                      <Info
+                        label="Payment Verification"
+                        value={
+                          order.payment_verified_at
+                            ? `VERIFIED (${order.payment_verification_source || "admin"})`
+                            : "UNVERIFIED"
+                        }
+                      />
+                    )}
                     <Info label="Order ID" value={order.id} />
 
                     {order.status === "cancelled" && order.admin_note && (
@@ -523,6 +538,7 @@ export default function AdminOrdersPage() {
                       order={order}
                       disabled={isActioning || isBulkLoading}
                       autoTopupDispatchEnabled={autoTopupDispatchEnabled}
+                      autoExternalTopupDispatchEnabled={autoExternalTopupDispatchEnabled}
                       orderDataVersion={orderDataVersion}
                     />
 
