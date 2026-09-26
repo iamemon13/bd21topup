@@ -49,17 +49,29 @@ const sensitiveValues: string[] = [];
 
 async function main() {
   const config = loadTelegramConfig(process.env);
-  if (config.mode !== "real" || !config.apiId || !config.apiHash || !config.sessionFile || !config.supplierUsername) {
+  if (
+    config.mode !== "real" ||
+    !config.apiId ||
+    !config.apiHash ||
+    !config.sessionFile ||
+    !config.supplierUsername ||
+    !config.supplierEntityId
+  ) {
     throw new Error("Connectivity check requires TELEGRAM_TRANSPORT_MODE=real and complete configuration.");
   }
   const previousSession = await readTelegramSession(config.sessionFile);
   sensitiveValues.push(config.apiHash, previousSession);
   const gateway = new TeleprotoGateway(previousSession, config.apiId, config.apiHash);
-  const entity = await checkTelegramConnectivity(gateway, config.supplierUsername, {
+  const entity = await checkTelegramConnectivity(
+    gateway,
+    config.supplierUsername,
+    config.supplierEntityId,
+    {
     phoneNumber: () => question("Telegram phone number: "),
     phoneCode: () => hiddenQuestion("Telegram login code (hidden): "),
     password: () => hiddenQuestion("Telegram 2FA password (hidden): "),
-  });
+    },
+  );
   const savedSession = gateway.saveSession?.();
   if (savedSession && savedSession !== previousSession) await writeTelegramSession(config.sessionFile, savedSession);
   stdout.write(`${JSON.stringify({ connected: true, username: entity.username, entityType: entity.type, entityId: entity.id })}\n`);

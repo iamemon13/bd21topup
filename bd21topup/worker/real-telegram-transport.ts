@@ -9,7 +9,7 @@ function buildSupplierCommand(operation: DeliveryOperation) {
   if (!Number.isInteger(operation.quantity) || operation.quantity < 1 || operation.quantity > 5) {
     throw new Error("Validated operation quantity is invalid.");
   }
-  return `Ktp ${operation.uid} ${operation.productCode}${operation.quantity === 1 ? "" : ` ${operation.quantity}`}`;
+  return `Ktp ${operation.uid} ${operation.productCode} ${operation.quantity}`;
 }
 
 export class RealTelegramTransport implements TelegramTransport {
@@ -29,7 +29,10 @@ export class RealTelegramTransport implements TelegramTransport {
     try {
       await this.gateway.connect();
       const target = await this.gateway.resolve(this.config.supplierUsername);
-      if (target.username.toLowerCase() !== this.config.supplierUsername) {
+      if (
+        target.username.toLowerCase() !== this.config.supplierUsername ||
+        target.id !== this.config.supplierEntityId
+      ) {
         throw new Error("Configured Telegram supplier identity did not match.");
       }
       const sent = await this.gateway.sendText(this.config.supplierUsername, command);

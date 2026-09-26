@@ -21,6 +21,10 @@ const factoryModule = load("worker/telegram-transport-factory.ts", {
   "./telegram-transport": {},
 });
 const connectivityModule = load("worker/telegram-connectivity.ts", { "./mtproto-gateway": {} });
+const runnerModule = load("worker/runner.ts", {
+  "node:crypto": crypto,
+  "./telegram-transport": {},
+});
 
 const operation = {
   operationId: order.id,
@@ -35,6 +39,7 @@ const realEnvironment = {
   TELEGRAM_API_HASH: "fake-api-hash-for-tests",
   TELEGRAM_SESSION_FILE: ".telegram/test.session",
   TELEGRAM_SUPPLIER_USERNAME: "@fixed_supplier",
+  TELEGRAM_SUPPLIER_ENTITY_ID: "99",
   TELEGRAM_REAL_SEND_ENABLED: "true",
 };
 
@@ -63,7 +68,7 @@ test("dry-run remains the configuration and transport default", () => {
 });
 
 test("real transport requires explicit mode, complete secrets, opt-in, and gateway", () => {
-  for (const missing of ["TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION_FILE", "TELEGRAM_SUPPLIER_USERNAME"]) {
+  for (const missing of ["TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION_FILE", "TELEGRAM_SUPPLIER_USERNAME", "TELEGRAM_SUPPLIER_ENTITY_ID"]) {
     const env = { ...realEnvironment };
     delete env[missing];
     assert.throws(() => configModule.loadTelegramConfig(env), new RegExp(missing));
@@ -71,9 +76,15 @@ test("real transport requires explicit mode, complete secrets, opt-in, and gatew
   const disabled = configModule.loadTelegramConfig({ ...realEnvironment, TELEGRAM_REAL_SEND_ENABLED: "false" });
   assert.throws(() => new realModule.RealTelegramTransport(disabled, {}), /disabled/);
   assert.throws(() => factoryModule.createTelegramTransport(configModule.loadTelegramConfig(realEnvironment)), /gateway/);
+  for (const supplierEntityId of ["", "0", "-10099", "99.0", "99x", "9".repeat(21)]) {
+    assert.throws(
+      () => configModule.loadTelegramConfig({ ...realEnvironment, TELEGRAM_SUPPLIER_ENTITY_ID: supplierEntityId }),
+      /TELEGRAM_SUPPLIER_ENTITY_ID/,
+    );
+  }
 });
 
-test("supplier target is server configuration and command is derived from the validated operation", async () => {
+test("supplier target is pinned and quantity is always present in the derived command", async () => {
   const calls = [];
   const gateway = {
     connect: async () => calls.push(["connect"]),
@@ -86,8 +97,37 @@ test("supplier target is server configuration and command is derived from the va
   assert.equal(result.kind, "uncertain");
   assert.equal(result.dryRun, false);
   assert.deepEqual(calls[1], ["resolve", "fixed_supplier"]);
-  assert.deepEqual(calls[2], ["send", "fixed_supplier", `Ktp ${order.uid} weekly`]);
+  assert.deepEqual(calls[2], ["send", "fixed_supplier", `Ktp ${order.uid} weekly 1`]);
+
+  const quantityCalls = [];
+  const quantityGateway = {
+    connect: async () => undefined,
+    resolve: async () => ({ id: "99", username: "fixed_supplier", type: "bot" }),
+    sendText: async (_target, text) => (quantityCalls.push(text), { messageId: "43", sentAt: new Date("2026-09-25T00:00:00Z") }),
+    disconnect: async () => undefined,
+  };
+  await new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment), quantityGateway)
+    .sendOperation({ ...operation, operationId: "33333333-3333-4333-8333-333333333333", quantity: 2 });
+  assert.deepEqual(quantityCalls, [`Ktp ${order.uid} weekly 2`]);
 });
+
+for (const [label, entity] of [
+  ["username", { id: "99", username: "lookalike_supplier", type: "bot" }],
+  ["entity ID", { id: "100", username: "fixed_supplier", type: "bot" }],
+]) {
+  test(`supplier ${label} mismatch aborts before sendText`, async () => {
+    let sends = 0;
+    const gateway = {
+      connect: async () => undefined,
+      resolve: async () => entity,
+      sendText: async () => { sends += 1; throw new Error("must not send"); },
+      disconnect: async () => undefined,
+    };
+    const transport = new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment), gateway);
+    await assert.rejects(transport.sendOperation(operation), /identity did not match/);
+    assert.equal(sends, 0);
+  });
+}
 
 test("connectivity check resolves identity, disconnects, sends zero messages, and has no Supabase boundary", async () => {
   let sends = 0;
@@ -98,7 +138,7 @@ test("connectivity check resolves identity, disconnects, sends zero messages, an
     sendText: async () => { sends += 1; throw new Error("must not send"); },
     disconnect: async () => calls.push("disconnect"),
   };
-  assert.deepEqual(await connectivityModule.checkTelegramConnectivity(gateway, "fixed_supplier"), {
+  assert.deepEqual(await connectivityModule.checkTelegramConnectivity(gateway, "fixed_supplier", "99"), {
     id: "99", username: "fixed_supplier", type: "bot",
   });
   assert.equal(sends, 0);
@@ -106,14 +146,19 @@ test("connectivity check resolves identity, disconnects, sends zero messages, an
   assert.ok(!readFileSync(new URL("../worker/telegram-connectivity.ts", import.meta.url), "utf8").includes("supabase"));
 });
 
-test("connectivity check rejects Telegram identity confusion", async () => {
+for (const [label, entity] of [
+  ["username", { id: "99", username: "lookalike_supplier", type: "bot" }],
+  ["entity ID", { id: "100", username: "fixed_supplier", type: "bot" }],
+]) test(`connectivity check rejects supplier ${label} confusion`, async () => {
+  let sends = 0;
   const gateway = {
     connect: async () => {},
-    resolve: async () => ({ id: "99", username: "lookalike_supplier", type: "bot" }),
-    sendText: async () => { throw new Error("must not send"); },
+    resolve: async () => entity,
+    sendText: async () => { sends += 1; throw new Error("must not send"); },
     disconnect: async () => {},
   };
-  await assert.rejects(connectivityModule.checkTelegramConnectivity(gateway, "fixed_supplier"), /did not match/);
+  await assert.rejects(connectivityModule.checkTelegramConnectivity(gateway, "fixed_supplier", "99"), /did not match/);
+  assert.equal(sends, 0);
 });
 
 test("an uncertain send is never blindly retried on the same transport", async () => {
@@ -159,4 +204,39 @@ test("invalid customer-controlled operation fragments fail before MTProto connec
     await assert.rejects(transport.sendOperation(forged), /invalid/);
   }
   assert.equal(connects, 0);
+});
+
+test("post-intent ECONNRESET is finalized as uncertain manual review without retry", async () => {
+  const calls = [];
+  let attempts = 0;
+  const dispatchId = "44444444-4444-4444-8444-444444444444";
+  const queue = {
+    claim: async () => ({
+      operation_id: operation.operationId,
+      dispatch_id: dispatchId,
+      sequence_no: 1,
+      product_code: operation.productCode,
+      quantity: operation.quantity,
+      uid_snapshot: operation.uid,
+      command_hash: operation.commandHash,
+    }),
+    startSendIntent: async (...args) => calls.push(["intent", ...args]),
+    finish: async (...args) => calls.push(["finish", ...args]),
+  };
+  const transport = {
+    sendOperation: async () => {
+      attempts += 1;
+      const error = new Error("socket reset");
+      error.code = "ECONNRESET";
+      throw error;
+    },
+  };
+  const result = await runnerModule.runOneDryRun(queue, transport, "worker-1", dispatchId);
+  assert.equal(attempts, 1);
+  assert.equal(result.kind, "uncertain");
+  assert.equal(result.summary, "MANUAL_REVIEW");
+  assert.equal(calls[0][0], "intent");
+  assert.equal(calls[1][0], "finish");
+  assert.equal(calls[1][4], "uncertain");
+  assert.match(calls[1][6], /manual review/i);
 });

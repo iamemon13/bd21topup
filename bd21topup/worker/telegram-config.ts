@@ -6,6 +6,7 @@ export type TelegramConfig = {
   apiHash?: string;
   sessionFile?: string;
   supplierUsername?: string;
+  supplierEntityId?: string;
   realSendEnabled: boolean;
 };
 
@@ -21,6 +22,13 @@ function normalizeSupplierUsername(value: string) {
     throw new Error("TELEGRAM_SUPPLIER_USERNAME is invalid.");
   }
   return normalized.toLowerCase();
+}
+
+function normalizeSupplierEntityId(value: string) {
+  if (!/^[1-9][0-9]{0,19}$/.test(value)) {
+    throw new Error("TELEGRAM_SUPPLIER_ENTITY_ID is invalid.");
+  }
+  return value;
 }
 
 export function loadTelegramConfig(env: TelegramEnvironment = process.env): TelegramConfig {
@@ -40,6 +48,7 @@ export function loadTelegramConfig(env: TelegramEnvironment = process.env): Tele
     apiHash: required(env, "TELEGRAM_API_HASH"),
     sessionFile: required(env, "TELEGRAM_SESSION_FILE"),
     supplierUsername: normalizeSupplierUsername(required(env, "TELEGRAM_SUPPLIER_USERNAME")),
+    supplierEntityId: normalizeSupplierEntityId(required(env, "TELEGRAM_SUPPLIER_ENTITY_ID")),
     realSendEnabled: env.TELEGRAM_REAL_SEND_ENABLED === "true",
   };
 }
