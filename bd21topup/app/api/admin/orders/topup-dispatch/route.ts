@@ -16,7 +16,7 @@ function failure(code: string, error: string, status: number) {
 async function loadDispatch(dispatchId: string, created: boolean) {
   const [dispatchResult, operationsResult, auditResult] = await Promise.all([
     supabaseAdmin.from("topup_dispatches").select("id,order_id,status,dry_run,mapping_version,uid_snapshot,package_name_snapshot,amount_snapshot,manual_review_reason").eq("id", dispatchId).single(),
-    supabaseAdmin.from("topup_dispatch_operations").select("id,sequence_no,product_code,quantity,command_hash,status,failure_reason").eq("dispatch_id", dispatchId).order("sequence_no", { ascending: true }),
+    supabaseAdmin.from("topup_dispatch_operations").select("id,sequence_no,product_code,quantity,command_hash,status,failure_reason,send_intent_id").eq("dispatch_id", dispatchId).order("sequence_no", { ascending: true }),
     supabaseAdmin.from("admin_audit_logs").select("action_type,created_at").eq("target_id", dispatchId).order("created_at", { ascending: true }),
   ]);
   if (dispatchResult.error || operationsResult.error || auditResult.error || !dispatchResult.data || !operationsResult.data || !auditResult.data)
@@ -32,7 +32,7 @@ async function loadDispatch(dispatchId: string, created: boolean) {
     created, operations: operationsResult.data.map((operation) => ({
       id: operation.id, sequence: operation.sequence_no, productCode: operation.product_code,
       quantity: operation.quantity, commandHash: operation.command_hash, status: operation.status,
-      failureReason: operation.failure_reason,
+      failureReason: operation.failure_reason, hasPreviousSendIntent: Boolean(operation.send_intent_id),
     })),
   };
 }
@@ -65,6 +65,44 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, dispatch }, { headers: responseHeaders });
   } catch {
     return failure("READ_FAILED", "Dispatch status is temporarily unavailable.", 503);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const auth = await checkUserRole(request, ["super_admin", "admin", "editor"], "manage_orders");
+    if ("error" in auth) return failure("AUTHORIZATION_FAILED", auth.error || "Authorization failed.", auth.status || 403);
+    let body: unknown;
+    try { body = await request.json(); } catch { return failure("INVALID_INPUT", "Expected retry confirmation JSON.", 400); }
+    if (!body || typeof body !== "object" || Array.isArray(body)
+      || Object.keys(body).sort().join(",") !== "confirmedFailureReason,dispatchId,retryReason,supplierFailureConfirmed"
+      || !("dispatchId" in body) || typeof body.dispatchId !== "string" || !UUID.test(body.dispatchId)
+      || !("retryReason" in body) || typeof body.retryReason !== "string" || body.retryReason.trim().length < 10 || body.retryReason.trim().length > 500
+      || !("confirmedFailureReason" in body) || typeof body.confirmedFailureReason !== "string" || body.confirmedFailureReason.trim().length < 3 || body.confirmedFailureReason.trim().length > 500
+      || !("supplierFailureConfirmed" in body) || body.supplierFailureConfirmed !== true) {
+      return failure("INVALID_INPUT", "Explicit retry reason and confirmed supplier failure are required.", 400);
+    }
+    const { data, error } = await supabaseAdmin.rpc("admin_prepare_topup_dispatch_retry", {
+      p_admin_id: auth.user.id,
+      p_dispatch_id: body.dispatchId,
+      p_retry_reason: body.retryReason.trim(),
+      p_confirmed_failure_reason: body.confirmedFailureReason.trim(),
+      p_supplier_failure_confirmed: true,
+      p_ip: (request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown").slice(0, 100),
+    });
+    if (error) {
+      if (error.code === "42501") return failure("PERMISSION_CHANGED", "Administrator permission changed.", 403);
+      if (error.code === "22023") return failure("INVALID_INPUT", "Explicit retry reason and confirmed supplier failure are required.", 400);
+      if (["55000", "P0002", "23505"].includes(error.code)) return failure("RETRY_NOT_ELIGIBLE", "Dispatch is no longer eligible for retry.", 409);
+      return failure("RETRY_UNAVAILABLE", "Dispatch retry could not be prepared.", 503);
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.operation_id) return failure("RETRY_UNAVAILABLE", "Dispatch retry was not confirmed.", 503);
+    const dispatch = await loadDispatch(body.dispatchId, false);
+    if (!dispatch) return failure("RETRY_UNAVAILABLE", "Retry was prepared but dispatch status could not be loaded.", 503);
+    return NextResponse.json({ success: true, dispatch }, { headers: responseHeaders });
+  } catch {
+    return failure("RETRY_UNAVAILABLE", "Dispatch retry is temporarily unavailable.", 503);
   }
 }
 

@@ -4,14 +4,14 @@ import crypto from "node:crypto";
 import { load, generator, mappings, actor, order, pkg, debit } from "./topup-test-helpers.mjs";
 const domain = load("lib/topup-dispatch.ts", { "node:crypto": crypto, "@/lib/topup-preview": generator, "@/lib/topup-mappings": mappings });
 
-function setup({ role="admin", permissions=["manage_orders"], invalid=false, createError=null, dispatchStatus="queued", manualReviewReason=null, operationStatus="queued", failureReason=null }={}) {
+function setup({ role="admin", permissions=["manage_orders"], invalid=false, createError=null, retryError=null, dispatchStatus="queued", manualReviewReason=null, operationStatus="queued", failureReason=null, sendIntentId=null }={}) {
   const calls=[];
   const dispatchId="55555555-5555-4555-8555-555555555555";
   const operationId="66666666-6666-4666-8666-666666666666";
   const admin={ auth:{ getUser:async()=>invalid?{data:{user:null},error:{}}:{data:{user:{id:actor}},error:null} },
-    from(table){ calls.push(["from",table]); const data={ admin_roles:{role,permissions}, orders:order, packages:[pkg], wallet_transactions:[debit], topup_dispatches:{id:dispatchId,order_id:order.id,status:dispatchStatus,dry_run:true,mapping_version:"bd21-kaium-v1",uid_snapshot:order.uid,package_name_snapshot:pkg.name,amount_snapshot:order.amount,manual_review_reason:manualReviewReason}, topup_dispatch_operations:[{id:operationId,sequence_no:1,product_code:"weekly",quantity:1,command_hash:"a".repeat(64),status:operationStatus,failure_reason:failureReason}], admin_audit_logs:[{action_type:"TOPUP_DISPATCH_CREATED",created_at:"2026-09-25T00:00:00Z"},{action_type:"TOPUP_DISPATCH_MANUAL_REVIEW",created_at:"2026-09-26T00:00:00Z"}] }[table];
+    from(table){ calls.push(["from",table]); const data={ admin_roles:{role,permissions}, orders:order, packages:[pkg], wallet_transactions:[debit], topup_dispatches:{id:dispatchId,order_id:order.id,status:dispatchStatus,dry_run:true,mapping_version:"bd21-kaium-v1",uid_snapshot:order.uid,package_name_snapshot:pkg.name,amount_snapshot:order.amount,manual_review_reason:manualReviewReason}, topup_dispatch_operations:[{id:operationId,sequence_no:1,product_code:"weekly",quantity:1,command_hash:"a".repeat(64),status:operationStatus,failure_reason:failureReason,send_intent_id:sendIntentId}], admin_audit_logs:[{action_type:"TOPUP_DISPATCH_CREATED",created_at:"2026-09-25T00:00:00Z"},{action_type:"TOPUP_DISPATCH_MANUAL_REVIEW",created_at:"2026-09-26T00:00:00Z"}] }[table];
       const result={data,error:null}; const query={ select(){return query},eq(column,value){calls.push(["eq",table,column,value]);return query},limit(){return query},maybeSingle:async()=>result,single:async()=>result,order(){return query},then(resolve,reject){return Promise.resolve(result).then(resolve,reject)} }; return query; },
-    async rpc(name,args){ calls.push(["rpc",name,args]); return {data:createError?null:[{dispatch_id:dispatchId,created:true}],error:createError}; }
+    async rpc(name,args){ calls.push(["rpc",name,args]); if(name==="admin_prepare_topup_dispatch_retry") return {data:retryError?null:[{operation_id:operationId,previous_send_intent_id:sendIntentId,next_attempt_no:2}],error:retryError}; return {data:createError?null:[{dispatch_id:dispatchId,created:true}],error:createError}; }
   };
   const auth=load("lib/admin-auth.ts",{"@/lib/supabase-admin":{supabaseAdmin:admin}});
   const route=load("app/api/admin/orders/topup-dispatch/route.ts",{
@@ -22,6 +22,7 @@ function setup({ role="admin", permissions=["manage_orders"], invalid=false, cre
     calls,
     run:(body={orderId:order.id},token="Bearer test")=>route.POST(new Request("https://example.test/api/admin/orders/topup-dispatch",{method:"POST",headers:token?{authorization:token}:{},body:typeof body==="string"?body:JSON.stringify(body)})),
     read:(query=`dispatchId=${dispatchId}`,token="Bearer test")=>route.GET(new Request(`https://example.test/api/admin/orders/topup-dispatch?${query}`,{headers:token?{authorization:token}:{}})),
+    retry:(body={dispatchId,retryReason:"Supplier hard failure was verified",confirmedFailureReason:"Topup failed - Limit Over",supplierFailureConfirmed:true},token="Bearer test")=>route.PATCH(new Request("https://example.test/api/admin/orders/topup-dispatch",{method:"PATCH",headers:token?{authorization:token}:{},body:typeof body==="string"?body:JSON.stringify(body)})),
   };
 }
 
@@ -79,4 +80,53 @@ test("admin UI status refresh replaces the stale dispatch snapshot",async()=>{
   assert.equal(calls[0][1].method,"GET");
   assert.equal(calls[0][1].cache,"no-store");
   assert.equal(calls[0][1].headers.Authorization,"Bearer secret-token");
+});
+
+test("dispatch retry requires authentication and manage_orders permission",async()=>{
+  assert.equal((await setup().retry(undefined,null)).status,401);
+  assert.equal((await setup({permissions:[]}).retry()).status,403);
+});
+test("dispatch retry requires strict explicit supplier-failure confirmation",async()=>{
+  const dispatchId="55555555-5555-4555-8555-555555555555";
+  for(const body of [
+    {dispatchId,retryReason:"Supplier hard failure was verified",confirmedFailureReason:"Topup failed - Limit Over",supplierFailureConfirmed:false},
+    {dispatchId,retryReason:"Supplier hard failure was verified",confirmedFailureReason:"",supplierFailureConfirmed:true},
+    {dispatchId,retryReason:"short",confirmedFailureReason:"Limit Over",supplierFailureConfirmed:true},
+    {dispatchId,retryReason:"Supplier hard failure was verified",confirmedFailureReason:"Limit Over",supplierFailureConfirmed:true,send:true},
+  ]) { const s=setup(); assert.equal((await s.retry(body)).status,400); assert.ok(!s.calls.some((call)=>call[0]==="rpc")); }
+});
+test("dispatch retry derives actor and only prepares the exact dispatch",async()=>{
+  const s=setup({dispatchStatus:"manual_review",operationStatus:"manual_review",sendIntentId:"77777777-7777-4777-8777-777777777777"});
+  const response=await s.retry(); assert.equal(response.status,200);
+  const call=s.calls.find((entry)=>entry[0]==="rpc");
+  assert.equal(call[1],"admin_prepare_topup_dispatch_retry");
+  assert.equal(call[2].p_admin_id,actor);
+  assert.equal(call[2].p_dispatch_id,"55555555-5555-4555-8555-555555555555");
+  assert.equal(call[2].p_supplier_failure_confirmed,true);
+  assert.ok(!("p_order_id" in call[2]));
+});
+test("ineligible or double-click retry is safely rejected",async()=>{
+  assert.equal((await setup({retryError:{code:"55000"}}).retry()).status,409);
+});
+test("admin UI retry helper prepares only and never invokes Telegram",async()=>{
+  const ui=load("components/TopUpPreviewActions.tsx",{
+    react:{useRef(){},useState(){}},"react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
+    "@/lib/supabase":{supabase:{}},"@/components/TopUpPreviewDialog":{default(){}},
+  });
+  const calls=[]; const input={dispatchId:"55555555-5555-4555-8555-555555555555",retryReason:"Supplier hard failure was verified",confirmedFailureReason:"Topup failed - Limit Over",supplierFailureConfirmed:true};
+  await ui.prepareTopupRetry("secret-token",input,async(url,init)=>{calls.push([url,init]);return Response.json({success:true,dispatch:{status:"queued"}});});
+  assert.equal(calls[0][0],"/api/admin/orders/topup-dispatch"); assert.equal(calls[0][1].method,"PATCH");
+  assert.deepEqual(JSON.parse(calls[0][1].body),input); assert.ok(!calls[0][0].includes("telegram"));
+});
+test("admin UI shows retry eligibility only for the guarded manual-review state",()=>{
+  const ui=load("components/TopUpPreviewActions.tsx",{
+    react:{useRef(){},useState(){}},"react/jsx-runtime":{jsx(){},jsxs(){},Fragment:Symbol("Fragment")},
+    "@/lib/supabase":{supabase:{}},"@/components/TopUpPreviewDialog":{default(){}},
+  });
+  const pending={id:order.id,status:"pending",payment_method:"wallet"};
+  const eligible={status:"manual_review",operations:[{status:"manual_review",hasPreviousSendIntent:true}]};
+  assert.equal(ui.isTopupRetryEligible(pending,eligible),true);
+  assert.equal(ui.isTopupRetryEligible({...pending,status:"completed"},eligible),false);
+  assert.equal(ui.isTopupRetryEligible(pending,{...eligible,status:"queued"}),false);
+  assert.equal(ui.isTopupRetryEligible(pending,{...eligible,operations:[{status:"manual_review",hasPreviousSendIntent:false}]}),false);
 });

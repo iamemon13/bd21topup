@@ -8,6 +8,7 @@ let db;
 const migration = readFileSync(new URL("../supabase/migrations/20260925113000_add_topup_dispatch_dry_run.sql", import.meta.url), "utf8");
 const scopedClaimMigration = readFileSync(new URL("../supabase/migrations/20260925190000_add_scoped_topup_dispatch_claim.sql", import.meta.url), "utf8");
 const preflightMigration = readFileSync(new URL("../supabase/migrations/20260926061451_add_topup_dispatch_read_only_preflight.sql", import.meta.url), "utf8");
+const retryMigration = readFileSync(new URL("../supabase/migrations/20260926175259_add_safe_manual_topup_retry.sql", import.meta.url), "utf8");
 const hash = (version="bd21-kaium-v1",uid=order.uid,sequence=1,product="weekly",quantity=1) => crypto.createHash("sha256").update(`bd21-topup-op-v1|${version}|${uid}|${sequence}|${product}|${quantity}`).digest("hex");
 const operations = [{ productCode: "weekly", quantity: 1, commandHash: hash() }];
 before(async () => {
@@ -29,10 +30,21 @@ before(async () => {
   await db.exec(migration);
   await db.exec(scopedClaimMigration);
   await db.exec(preflightMigration);
+  await db.exec(retryMigration);
 });
 after(async () => db?.close());
 const call = () => db.query("SELECT * FROM admin_create_topup_dispatch_dry_run($1,$2,$3,$4,$5::jsonb,$6)", [actor,order.id,pkg.id,"bd21-kaium-v1",JSON.stringify(operations),"test"]);
-async function reset() { await db.exec("DELETE FROM admin_audit_logs; DELETE FROM topup_dispatch_operations; DELETE FROM topup_dispatches; DELETE FROM orders WHERE id<>'22222222-2222-4222-8222-222222222222'; UPDATE orders SET user_id='33333333-3333-4333-8333-333333333333',status='pending',payment_method='wallet',cancelled_at=NULL,uid='123456789',amount=158; DELETE FROM wallet_transactions; INSERT INTO wallet_transactions VALUES ('44444444-4444-4444-8444-444444444444','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333',158,'order_payment','debit'); UPDATE packages SET id='95223d39-1880-4128-a222-08180089a229',name='Weekly',category='uid_bd'; UPDATE orders SET package_name='Weekly'; UPDATE admin_roles SET role='admin',permissions=ARRAY['manage_orders'];"); }
+async function reset() { await db.exec("DELETE FROM admin_audit_logs; TRUNCATE topup_dispatch_attempts; DELETE FROM topup_dispatch_operations; DELETE FROM topup_dispatches; DELETE FROM orders WHERE id<>'22222222-2222-4222-8222-222222222222'; UPDATE orders SET user_id='33333333-3333-4333-8333-333333333333',status='pending',payment_method='wallet',cancelled_at=NULL,uid='123456789',amount=158; DELETE FROM wallet_transactions; INSERT INTO wallet_transactions VALUES ('44444444-4444-4444-8444-444444444444','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333',158,'order_payment','debit'); UPDATE packages SET id='95223d39-1880-4128-a222-08180089a229',name='Weekly',category='uid_bd'; UPDATE orders SET package_name='Weekly'; UPDATE admin_roles SET role='admin',permissions=ARRAY['manage_orders'];"); }
+async function createManualReview() {
+  const dispatchId=(await call()).rows[0].dispatch_id;
+  const operation=(await db.query("SELECT * FROM claim_topup_dispatch_operation_dry_run('first-worker',$1)",[dispatchId])).rows[0];
+  const intent="77777777-7777-4777-8777-777777777777";
+  await db.query("SELECT start_topup_dispatch_send_intent_dry_run($1,'first-worker',$2)",[operation.operation_id,intent]);
+  await db.query("SELECT finish_topup_dispatch_operation_dry_run($1,'first-worker',$2,'uncertain',$3,'Supplier outcome requires review')",[operation.operation_id,intent,"a".repeat(64)]);
+  return {dispatchId,operationId:operation.operation_id,intent};
+}
+const prepareRetry=(dispatchId,confirmed=true,retryReason="Supplier hard failure was verified",failureReason="Topup failed - Limit Over")=>
+  db.query("SELECT * FROM admin_prepare_topup_dispatch_retry($1,$2,$3,$4,$5,$6)",[actor,dispatchId,retryReason,failureReason,confirmed,"test"]);
 const secondOrderId = "55555555-5555-4555-8555-555555555555";
 const secondDebitId = "66666666-6666-4666-8666-666666666666";
 async function createSecondDispatch() {
@@ -235,4 +247,77 @@ test("queued and processing states reject supplier result metadata", async () =>
   for (const assignment of ["supplier_message_id='x'","supplier_response_hash='"+"a".repeat(64)+"'","supplier_response_summary='result'"]) await assert.rejects(db.exec(`UPDATE topup_dispatch_operations SET ${assignment}`));
   const op=(await db.query("SELECT * FROM claim_topup_dispatch_operation_dry_run('w1')")).rows[0];
   await assert.rejects(db.query("UPDATE topup_dispatch_operations SET supplier_response_summary='result' WHERE id=$1",[op.operation_id]));
+});
+
+test("manual retry requires manage_orders inside the database RPC", async () => {
+  await reset(); const state=await createManualReview(); await db.exec("UPDATE admin_roles SET permissions='{}'");
+  await assert.rejects(prepareRetry(state.dispatchId),/permission denied/);
+  assert.equal((await db.query("SELECT status FROM topup_dispatches WHERE id=$1",[state.dispatchId])).rows[0].status,"manual_review");
+});
+
+test("manual retry requires the order to remain pending", async () => {
+  await reset(); const state=await createManualReview(); await db.exec("UPDATE orders SET status='completed'");
+  await assert.rejects(prepareRetry(state.dispatchId),/not eligible/);
+  assert.equal((await db.query("SELECT status FROM topup_dispatch_operations WHERE id=$1",[state.operationId])).rows[0].status,"manual_review");
+});
+
+test("manual retry requires dispatch and operation manual_review with a durable intent", async () => {
+  await reset(); const dispatchId=(await call()).rows[0].dispatch_id;
+  await assert.rejects(prepareRetry(dispatchId),/not eligible/);
+  await db.exec("UPDATE topup_dispatch_operations SET status='manual_review',failure_reason='Pre-intent evidence mismatch'; UPDATE topup_dispatches SET status='manual_review',manual_review_reason='Pre-intent evidence mismatch'");
+  await assert.rejects(prepareRetry(dispatchId),/not eligible/);
+});
+
+test("retry preserves the old intent and the scoped pilot creates a distinct new intent", async () => {
+  await reset(); const state=await createManualReview();
+  const prepared=(await prepareRetry(state.dispatchId)).rows[0];
+  assert.equal(prepared.previous_send_intent_id,state.intent); assert.equal(prepared.next_attempt_no,2);
+  const oldAttempt=(await db.query("SELECT send_intent_id,attempt_no,outcome_status FROM topup_dispatch_attempts WHERE operation_id=$1",[state.operationId])).rows[0];
+  assert.deepEqual(oldAttempt,{send_intent_id:state.intent,attempt_no:1,outcome_status:"manual_review"});
+  const requeued=(await db.query("SELECT status,send_intent_id FROM topup_dispatch_operations WHERE id=$1",[state.operationId])).rows[0];
+  assert.equal(requeued.status,"queued"); assert.equal(requeued.send_intent_id,null);
+  const claimed=(await db.query("SELECT * FROM claim_topup_dispatch_operation_dry_run('retry-worker',$1)",[state.dispatchId])).rows[0];
+  const newIntent="88888888-8888-4888-8888-888888888888";
+  await db.query("SELECT start_topup_dispatch_send_intent_dry_run($1,'retry-worker',$2)",[claimed.operation_id,newIntent]);
+  const attempts=(await db.query("SELECT send_intent_id,attempt_no FROM topup_dispatch_attempts WHERE operation_id=$1 ORDER BY attempt_no",[state.operationId])).rows;
+  assert.deepEqual(attempts,[{send_intent_id:state.intent,attempt_no:1},{send_intent_id:newIntent,attempt_no:2}]);
+  await assert.rejects(db.query("UPDATE topup_dispatch_attempts SET send_intent_id=gen_random_uuid() WHERE send_intent_id=$1",[state.intent]),/immutable/);
+});
+
+test("retry preparation does not mutate order, wallet, ledger, or auto-complete", async () => {
+  await reset(); const state=await createManualReview();
+  const before=(await db.query("SELECT (SELECT row_to_json(o) FROM orders o),(SELECT row_to_json(p) FROM profiles p),(SELECT jsonb_agg(w ORDER BY id) FROM wallet_transactions w)")).rows[0];
+  await prepareRetry(state.dispatchId);
+  const afterState=(await db.query("SELECT (SELECT row_to_json(o) FROM orders o),(SELECT row_to_json(p) FROM profiles p),(SELECT jsonb_agg(w ORDER BY id) FROM wallet_transactions w)")).rows[0];
+  assert.deepEqual(afterState,before); assert.equal((await db.query("SELECT status FROM orders")).rows[0].status,"pending");
+});
+
+test("duplicate admin retry is safely rejected and audited once", async () => {
+  await reset(); const state=await createManualReview(); await prepareRetry(state.dispatchId);
+  await assert.rejects(prepareRetry(state.dispatchId),/not eligible/);
+  assert.equal((await db.query("SELECT count(*)::int n FROM admin_audit_logs WHERE action_type='TOPUP_DISPATCH_RETRY_PREPARED'")).rows[0].n,1);
+});
+
+test("retry preparation rolls back when its audit insert fails", async () => {
+  await reset(); const state=await createManualReview();
+  await db.exec("CREATE FUNCTION fail_retry_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action_type='TOPUP_DISPATCH_RETRY_PREPARED' THEN RAISE EXCEPTION 'retry audit failed'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_retry_audit BEFORE INSERT ON admin_audit_logs FOR EACH ROW EXECUTE FUNCTION fail_retry_audit()");
+  await assert.rejects(prepareRetry(state.dispatchId),/retry audit failed/);
+  const operation=(await db.query("SELECT status,send_intent_id FROM topup_dispatch_operations WHERE id=$1",[state.operationId])).rows[0];
+  assert.deepEqual(operation,{status:"manual_review",send_intent_id:state.intent});
+  await db.exec("DROP TRIGGER fail_retry_audit ON admin_audit_logs; DROP FUNCTION fail_retry_audit()");
+});
+
+test("ambiguous outcome cannot be retried without explicit confirmed-failure evidence", async () => {
+  await reset(); const state=await createManualReview();
+  await assert.rejects(prepareRetry(state.dispatchId,false),/confirmation/);
+  await assert.rejects(prepareRetry(state.dispatchId,true,"Supplier hard failure was verified",""),/confirmation/);
+  assert.equal((await db.query("SELECT status,send_intent_id FROM topup_dispatch_operations WHERE id=$1",[state.operationId])).rows[0].status,"manual_review");
+});
+
+test("retry RPC and attempt history remain service-role-only and financially isolated", async () => {
+  assert.match(retryMigration,/SECURITY DEFINER SET search_path = ''/);
+  assert.match(retryMigration,/REVOKE ALL ON FUNCTION public\.admin_prepare_topup_dispatch_retry\(uuid,uuid,text,text,boolean,text\) FROM PUBLIC, anon, authenticated/);
+  assert.doesNotMatch(retryMigration,/UPDATE public\.(?:orders|profiles|wallet_transactions|packages)|DELETE FROM public\.(?:orders|profiles|wallet_transactions|packages)/i);
+  await reset(); const state=await createManualReview();
+  for(const role of ["anon","authenticated"]){await db.exec(`SET ROLE ${role}`);await assert.rejects(prepareRetry(state.dispatchId),/permission denied/);await assert.rejects(db.query("SELECT * FROM topup_dispatch_attempts"),/permission denied/);await db.exec("RESET ROLE");}
 });

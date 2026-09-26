@@ -19,5 +19,6 @@ export type DryRunDispatch = {
     commandHash: string;
     status: string;
     failureReason: string | null;
+    hasPreviousSendIntent: boolean;
   }>;
 };
