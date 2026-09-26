@@ -44,19 +44,27 @@ export class TeleprotoGateway implements MtprotoGateway {
     return { messageId: String(message.id), sentAt: new Date(message.date * 1000) };
   }
 
-  async waitForReply(username: string, supplierEntityId: string, sentMessageId: string, timeoutMs: number) {
+  async waitForReply(username: string, supplierEntityId: string, sentMessageId: string, timeoutMs: number,
+    isFinal: (reply: { senderEntityId: string; messageId: string; replyToMessageId?: string; text: string }) => boolean) {
     const deadline = Date.now() + timeoutMs;
+    let replyMessageId: string | null = null;
+    let latestReply = null;
     while (Date.now() < deadline) {
       const messages = await this.client.getMessages(username, { limit: 20 });
       const reply = messages.find((message) => String(message.senderId ?? "") === supplierEntityId
-        && String(message.replyTo?.replyToMsgId ?? "") === sentMessageId);
-      if (reply) return {
+        && String(message.replyTo?.replyToMsgId ?? "") === sentMessageId
+        && (replyMessageId === null || String(message.id) === replyMessageId));
+      if (reply) {
+        replyMessageId ??= String(reply.id);
+        latestReply = {
         senderEntityId: String(reply.senderId ?? ""), messageId: String(reply.id),
         replyToMessageId: String(reply.replyTo?.replyToMsgId ?? ""), text: reply.message,
-      };
+        };
+        if (isFinal(latestReply)) return latestReply;
+      }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    return null;
+    return latestReply;
   }
 
   saveSession() {

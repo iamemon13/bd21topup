@@ -163,6 +163,7 @@ test("supplier target is pinned and quantity is always present in the derived co
   const transport = new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment), gateway);
   const result = await transport.sendOperation({ ...operation, supplierUsername: "attacker", message: "arbitrary" });
   assert.equal(result.kind, "uncertain");
+  assert.equal(result.summary, "SUPPLIER_REPLY_TIMEOUT");
   assert.equal(result.dryRun, false);
   assert.deepEqual(calls[1], ["resolve", "fixed_supplier"]);
   assert.deepEqual(calls[2], ["send", "fixed_supplier", `Ktp ${order.uid} weekly 1`]);
@@ -179,22 +180,28 @@ test("supplier target is pinned and quantity is always present in the derived co
   assert.deepEqual(quantityCalls, [`Ktp ${order.uid} weekly 2`]);
 });
 
-test("real transport accepts only a strictly correlated pinned-supplier success reply", async () => {
+test("real transport keeps polling the same intermediate reply until its edited success", async () => {
+  let sends=0;
   const gateway = {
     connect: async () => undefined,
     resolve: async () => ({ id: "99", username: "fixed_supplier", type: "bot" }),
-    sendText: async () => ({ messageId: "42", sentAt: new Date("2026-09-25T00:00:00Z") }),
-    waitForReply: async (username, supplierEntityId, sentMessageId) => {
+    sendText: async () => (sends+=1,{ messageId: "42", sentAt: new Date("2026-09-25T00:00:00Z") }),
+    waitForReply: async (username, supplierEntityId, sentMessageId, timeoutMs, isFinal) => {
       assert.deepEqual([username,supplierEntityId,sentMessageId],["fixed_supplier","99","42"]);
-      return { senderEntityId:"99",messageId:"43",replyToMessageId:"42",
-        text:`TOPUP DONE\nOrder ID : #3326\nUID : ${order.uid}\nUPRID-0-S-02886434\nSuccess\nDiamonds : weekly (weeklyx1)` };
+      assert.equal(timeoutMs,30_000);
+      const intermediate={senderEntityId:"99",messageId:"43",replyToMessageId:"42",text:`UID: ${order.uid}\nProcessing`};
+      const edited={...intermediate,text:`TOPUP DONE\nUID: ${order.uid}\nSuccess`};
+      assert.equal(isFinal(intermediate),false); assert.equal(isFinal(edited),true);
+      return edited;
     },
     disconnect: async () => undefined,
   };
   const result=await new realModule.RealTelegramTransport(configModule.loadTelegramConfig(realEnvironment),gateway).sendOperation(operation);
   assert.equal(result.kind,"verified_success");
-  assert.equal(result.supplierResponse.supplierOrderId,"3326");
-  assert.equal(result.supplierResponse.supplierReference,"UPRID-0-S-02886434");
+  assert.equal(sends,1);
+  assert.equal(result.supplierResponse.replyMessageId,"43");
+  assert.equal(result.supplierResponse.supplierOrderId,undefined);
+  assert.equal(result.supplierResponse.supplierReference,undefined);
 });
 
 for (const [label, entity] of [

@@ -10,7 +10,8 @@ export interface MtprotoGateway {
   authenticate?(prompts: TelegramAuthPrompts): Promise<void>;
   resolve(username: string): Promise<SafeTelegramEntity>;
   sendText(username: string, text: string): Promise<{ messageId: string; sentAt: Date }>;
-  waitForReply?(username: string, supplierEntityId: string, sentMessageId: string, timeoutMs: number): Promise<SafeSupplierReply | null>;
+  waitForReply?(username: string, supplierEntityId: string, sentMessageId: string, timeoutMs: number,
+    isFinal: (reply: SafeSupplierReply) => boolean): Promise<SafeSupplierReply | null>;
   saveSession?(): string;
   disconnect(): Promise<void>;
 }

@@ -10,6 +10,7 @@ const scopedClaimMigration = readFileSync(new URL("../supabase/migrations/202609
 const preflightMigration = readFileSync(new URL("../supabase/migrations/20260926061451_add_topup_dispatch_read_only_preflight.sql", import.meta.url), "utf8");
 const retryMigration = readFileSync(new URL("../supabase/migrations/20260926175259_add_safe_manual_topup_retry.sql", import.meta.url), "utf8");
 const supplierCompletionMigration = readFileSync(new URL("../supabase/migrations/20260926181900_add_verified_supplier_topup_completion.sql", import.meta.url), "utf8");
+const simplifiedSupplierCompletionMigration = readFileSync(new URL("../supabase/migrations/20260926190618_simplify_edited_supplier_success.sql", import.meta.url), "utf8");
 const hash = (version="bd21-kaium-v1",uid=order.uid,sequence=1,product="weekly",quantity=1) => crypto.createHash("sha256").update(`bd21-topup-op-v1|${version}|${uid}|${sequence}|${product}|${quantity}`).digest("hex");
 const operations = [{ productCode: "weekly", quantity: 1, commandHash: hash() }];
 before(async () => {
@@ -33,6 +34,7 @@ before(async () => {
   await db.exec(preflightMigration);
   await db.exec(retryMigration);
   await db.exec(supplierCompletionMigration);
+  await db.exec(simplifiedSupplierCompletionMigration);
 });
 after(async () => db?.close());
 const call = () => db.query("SELECT * FROM admin_create_topup_dispatch_dry_run($1,$2,$3,$4,$5::jsonb,$6)", [actor,order.id,pkg.id,"bd21-kaium-v1",JSON.stringify(operations),"test"]);
@@ -55,7 +57,7 @@ async function createSendIntent() {
   return {dispatchId,operationId:operation.operation_id,intent};
 }
 const completeSupplier=(state, overrides={}) => {
-  const value={entity:"99",sent:"42",reply:"43",replyTo:"42",orderId:"ORD-123",reference:"UPR-456",uid:order.uid,product:"weekly",quantity:1,...overrides};
+  const value={entity:"99",sent:"42",reply:"43",replyTo:"42",orderId:null,reference:null,uid:order.uid,product:"weekly",quantity:1,...overrides};
   return db.query("SELECT complete_topup_dispatch_from_supplier_reply($1,'supplier-worker',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) v",
     [state.operationId,state.intent,value.entity,value.sent,value.reply,value.replyTo,value.orderId,value.reference,value.uid,value.product,value.quantity,"c".repeat(64),"SUPPLIER_VERIFIED_SUCCESS"]);
 };
@@ -342,7 +344,7 @@ test("verified supplier reply completes only its matched pending order and prese
   assert.equal((await db.query("SELECT status FROM orders WHERE id=$1",[order.id])).rows[0].status,"completed");
   assert.deepEqual((await db.query("SELECT status FROM topup_dispatch_operations WHERE id=$1",[state.operationId])).rows[0],{status:"dry_run_completed"});
   const response=(await db.query("SELECT supplier_entity_id,sent_message_id,reply_message_id,reply_to_message_id,supplier_order_id,supplier_reference,classification FROM topup_supplier_responses")).rows[0];
-  assert.deepEqual(response,{supplier_entity_id:"99",sent_message_id:"42",reply_message_id:"43",reply_to_message_id:"42",supplier_order_id:"ORD-123",supplier_reference:"UPR-456",classification:"verified_success"});
+  assert.deepEqual(response,{supplier_entity_id:"99",sent_message_id:"42",reply_message_id:"43",reply_to_message_id:"42",supplier_order_id:null,supplier_reference:null,classification:"verified_success"});
   assert.equal((await db.query("SELECT count(*)::int n FROM admin_audit_logs WHERE action_type='TOPUP_DISPATCH_SUPPLIER_CONFIRMED'")).rows[0].n,1);
 });
 

@@ -37,17 +37,17 @@ export class RealTelegramTransport implements TelegramTransport {
         throw new Error("Configured Telegram supplier identity did not match.");
       }
       const sent = await this.gateway.sendText(this.config.supplierUsername, command);
+      const correlationTarget = { supplierEntityId: this.config.supplierEntityId,
+        sentMessageId: sent.messageId, uid: operation.uid };
       const reply = this.gateway.waitForReply
-        ? await this.gateway.waitForReply(this.config.supplierUsername, this.config.supplierEntityId, sent.messageId, 30_000)
+        ? await this.gateway.waitForReply(this.config.supplierUsername, this.config.supplierEntityId, sent.messageId, 30_000,
+          (candidate) => correlateSupplierReply(candidate, correlationTarget).state === "confirmed")
         : null;
       if (!reply) {
         const resultHash = createHash("sha256").update(`telegram-send-v1|${operation.operationId}|${sent.messageId}|${sent.sentAt.toISOString()}`).digest("hex");
         return { kind: "uncertain", dryRun: false, resultHash, summary: "SUPPLIER_REPLY_TIMEOUT", supplierMessageId: sent.messageId };
       }
-      const correlation = correlateSupplierReply(reply, {
-        supplierEntityId: this.config.supplierEntityId, sentMessageId: sent.messageId,
-        uid: operation.uid, productCode: operation.productCode, quantity: operation.quantity,
-      });
+      const correlation = correlateSupplierReply(reply, correlationTarget);
       const resultHash = createHash("sha256").update(`telegram-reply-v1|${reply.senderEntityId}|${reply.messageId}|${reply.replyToMessageId ?? ""}|${reply.text}`).digest("hex");
       if (correlation.state !== "confirmed") {
         return { kind: "uncertain", dryRun: false, resultHash, summary: correlation.reason, supplierMessageId: sent.messageId,
@@ -57,8 +57,7 @@ export class RealTelegramTransport implements TelegramTransport {
       }
       return { kind: "verified_success", dryRun: false, resultHash, summary: "SUPPLIER_VERIFIED_SUCCESS", supplierResponse: {
         supplierEntityId: reply.senderEntityId, sentMessageId: sent.messageId, replyMessageId: reply.messageId,
-        replyToMessageId: reply.replyToMessageId!, supplierOrderId: correlation.supplierOrderId,
-        supplierReference: correlation.supplierReference, uid: operation.uid,
+        replyToMessageId: reply.replyToMessageId!, uid: operation.uid,
         productCode: operation.productCode, quantity: operation.quantity,
       } };
     } catch (error) {

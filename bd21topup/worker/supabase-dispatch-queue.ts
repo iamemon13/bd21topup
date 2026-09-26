@@ -57,7 +57,7 @@ export class SupabaseDispatchQueue implements DispatchQueue {
       p_operation_id: operationId, p_worker_id: workerId, p_send_intent_id: sendIntentId,
       p_supplier_entity_id: response.supplierEntityId, p_sent_message_id: response.sentMessageId,
       p_reply_message_id: response.replyMessageId, p_reply_to_message_id: response.replyToMessageId,
-      p_supplier_order_id: response.supplierOrderId, p_supplier_reference: response.supplierReference,
+      p_supplier_order_id: response.supplierOrderId ?? null, p_supplier_reference: response.supplierReference ?? null,
       p_uid: response.uid, p_product_code: response.productCode, p_quantity: response.quantity,
       p_response_hash: resultHash, p_response_summary: summary,
     });

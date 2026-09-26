@@ -4,48 +4,34 @@ import test from "node:test";
 import { load } from "./topup-test-helpers.mjs";
 
 const correlation = load("worker/supplier-correlation.ts");
-const target = { supplierEntityId: "99", sentMessageId: "42", uid: "12976955986", productCode: "25", quantity: 1 };
-const valid = { senderEntityId: "99", messageId: "43", replyToMessageId: "42",
-  text: "TOPUP DONE\nOrder ID : #3326\nUID : 12976955986\nUPRID-0-S-02886434 12:30 PM\nSuccess\nDiamonds : 25 💎 (25x1)" };
+const target = { supplierEntityId:"99",sentMessageId:"42",uid:"561844746" };
+const success = { senderEntityId:"99",messageId:"43",replyToMessageId:"42",
+  text:"TOPUP DONE\nUID : 561844746\nSuccess" };
 
-test("valid pinned supplier success is exactly correlated", () => {
-  assert.deepEqual(correlation.correlateSupplierReply(valid, target), {
-    state: "confirmed", supplierOrderId: "3326", supplierReference: "UPRID-0-S-02886434",
-  });
+test("valid success needs no order, reference, product, or quantity", () => {
+  assert.deepEqual(correlation.correlateSupplierReply(success,target),{state:"confirmed"});
 });
 
-test("observed UPBD supplier reference variant is confirmed", () => {
-  const reply={senderEntityId:"99",messageId:"44",replyToMessageId:"42",
-    text:"TOPUP DONE\nOrder ID : #3327\nUID : 561844746\nUPBD-Q-S-02889183 5165-5626-6437-4542  Success\nDiamonds : 25 (25×1)"};
-  assert.deepEqual(correlation.correlateSupplierReply(reply,{...target,uid:"561844746"}),{
-    state:"confirmed",supplierOrderId:"3327",supplierReference:"UPBD-Q-S-02889183",
-  });
+test("wrong UID, sender, or reply linkage fails closed", () => {
+  assert.equal(correlation.correlateSupplierReply({...success,text:success.text.replace(target.uid,"561844747")},target).state,"manual_review");
+  assert.equal(correlation.correlateSupplierReply({...success,senderEntityId:"100"},target).state,"ignored");
+  assert.equal(correlation.correlateSupplierReply({...success,replyToMessageId:"41"},target).state,"manual_review");
 });
 
-test("wrong UID and wrong product or quantity stay manual review", () => {
-  for (const text of [valid.text.replace(target.uid, "12976955987"), valid.text.replace("Diamonds : 25", "Diamonds : 50"), valid.text.replace("(25x1)", "(25x2)")])
-    assert.equal(correlation.correlateSupplierReply({ ...valid, text }, target).state, "manual_review");
+test("TOPUP DONE and Success are independently mandatory", () => {
+  assert.equal(correlation.correlateSupplierReply({...success,text:"UID : 561844746\nSuccess"},target).state,"manual_review");
+  assert.equal(correlation.correlateSupplierReply({...success,text:"TOPUP DONE\nUID : 561844746"},target).state,"manual_review");
+  assert.equal(correlation.correlateSupplierReply({...success,text:"done success 561844746"},target).state,"manual_review");
 });
 
-test("missing reply linkage, generic success, and ambiguous reply never confirm", () => {
-  assert.equal(correlation.correlateSupplierReply({ ...valid, replyToMessageId: undefined }, target).state, "manual_review");
-  assert.equal(correlation.correlateSupplierReply({ ...valid, text: "done success" }, target).state, "manual_review");
-  assert.equal(correlation.correlateSupplierReply({ ...valid, text: "TOPUP DONE Success UID: 12976955986 Diamonds: 25 (25x1)" }, target).state, "manual_review");
-  assert.equal(correlation.correlateSupplierReply({ ...valid, text: valid.text.replace("UPRID-0-S-02886434", "Reference: 5165-5626-6437-4542") }, target).state, "manual_review");
-});
-
-test("only the pinned supplier is consumed", () => {
-  assert.equal(correlation.correlateSupplierReply({ ...valid, senderEntityId: "100" }, target).state, "ignored");
-});
-
-test("duplicate reply processing is idempotent", () => {
-  const tracker = new correlation.SupplierCorrelationTracker();
-  assert.equal(tracker.process(valid, target).state, "confirmed");
-  assert.equal(tracker.process(valid, target).state, "duplicate");
+test("duplicate reply processing remains idempotent", () => {
+  const tracker=new correlation.SupplierCorrelationTracker();
+  assert.equal(tracker.process(success,target).state,"confirmed");
+  assert.equal(tracker.process(success,target).state,"duplicate");
 });
 
 test("invalid targets fail closed and correlation has no business-state boundary", () => {
-  assert.throws(() => correlation.correlateSupplierReply(valid, { ...target, uid: "12345|.*" }), /Invalid/);
-  const source = readFileSync(new URL("../worker/supplier-correlation.ts", import.meta.url), "utf8").toLowerCase();
-  for (const boundary of ["supabase", "orders", "wallet", "refund", "sendmessage"]) assert.ok(!source.includes(boundary));
+  assert.throws(()=>correlation.correlateSupplierReply(success,{...target,uid:"12345|.*"}),/Invalid/);
+  const source=readFileSync(new URL("../worker/supplier-correlation.ts",import.meta.url),"utf8").toLowerCase();
+  for(const boundary of ["supabase","orders","wallet","refund","sendmessage"]) assert.ok(!source.includes(boundary));
 });
