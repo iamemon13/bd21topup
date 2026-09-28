@@ -506,6 +506,11 @@ test("single nonfinancial order transition uses atomic audited RPC", async () =>
           throw Error("Unexpected financial write");
         },
       },
+
+      "@/lib/topup-dispatch": {
+        autoTopupDispatchEnabled: () => false,
+        autoExternalTopupDispatchEnabled: () => false,
+      },
     },
   );
 
