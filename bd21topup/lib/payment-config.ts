@@ -6,16 +6,16 @@ export const paymentConfig = {
 
   nagad: {
     name: "Nagad",
-    number: "01748231124",
+    number: "01748231123",
   },
 
   rocket: {
     name: "Rocket",
-    number: "01748231125",
+    number: "01748231123",
   },
 
   upay: {
     name: "Upay",
-    number: "01748231126",
+    number: "01748231123",
   },
 };
